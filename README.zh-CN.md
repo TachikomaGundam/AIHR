@@ -25,6 +25,11 @@ pip install -e .
 | `HR_HOME` | 强制指定备用配置根目录（configs/、`hr.toml`、`itemrepo` 均从此处解析） | 仓库根目录 |
 | `HR_COMPOSE_FILE` | 覆盖 DB 密码解析所探测的 `docker compose` 清单文件路径 | 未设置 |
 | `HR_ITEMREPO` | 覆盖基准题库目录 | `HR_HOME/itemrepo` |
+| `HR_OUTPUT_DIR` | 覆盖运行工件的运行时输出根目录 | 平台缓存目录（见下文） |
+
+### Output root（运行工件）
+
+生成的工件（bench 导出、校准报告、扫描转储等）绝不落入仓库目录树。它们统一经 `hr.config.output_root()` 解析：`HR_OUTPUT_DIR` 环境变量优先，否则取平台缓存目录（`$XDG_CACHE_HOME/hr`、`~/Library/Caches/hr`、`%LOCALAPPDATA%/hr\Cache`），再否则取系统临时目录。显式指定输出路径的 CLI 标志在调用点始终优先。
 
 ### Configuration
 
@@ -147,7 +152,7 @@ harness/hr/               # 仓库根目录（pip install -e .）
 python -m pytest tests/ -q
 ```
 
-所有测试均在隔离夹具上离线运行（临时目录，无数据库、无网络）。当前套件为 **567 通过 / 9 跳过 / 0 失败**（共 576 项收集）。Stage0 测试覆盖能力先验流水线、层级感知阈值和判定排序器。Bench 测试覆盖发现加载器、电池解析器和 stage0 预算合约。
+所有测试均在离线、隔离的夹具与逐测试暂存工作区中运行：共享的 `hr_sandbox` 夹具（tests/conftest.py）将 `HOME`/`OPENCODE_CONFIG_DIR`/`HR_HOME`/`HR_ITEMREPO`/`HR_OUTPUT_DIR` 全部封印进 pytest 临时目录；会话级**清洁守卫**在会话开始时快照 `git status --porcelain`，若任何测试在会话结束后污染了仓库，则以失败收尾并列出违规路径。当前套件为 **577 通过 / 9 跳过 / 0 失败**（共 586 项收集）。Stage0 测试覆盖能力先验流水线、层级感知阈值和判定排序器。Bench 测试覆盖发现加载器、电池解析器和 stage0 预算合约。
 
 实时 API 基准测试需要 opencode 配置中的真实 provider 凭证：
 

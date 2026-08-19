@@ -25,6 +25,11 @@ pip install -e .
 | `HR_HOME` | Force an alternate config root (configs/, `hr.toml`, `itemrepo` are resolved from here) | repo root |
 | `HR_COMPOSE_FILE` | Override the `docker compose` manifest that DB password resolution probes | unset |
 | `HR_ITEMREPO` | Override the benchmark item repo directory | `HR_HOME/itemrepo` |
+| `HR_OUTPUT_DIR` | Override the runtime output root for run artifacts | platform cache dir (see below) |
+
+### Output root (run artifacts)
+
+Generated artifacts (bench exports, calibration reports, sweep dumps, …) NEVER land inside the repo tree. They resolve through `hr.config.output_root()`: `HR_OUTPUT_DIR` env var wins, otherwise the platform cache dir (`$XDG_CACHE_HOME/hr`, `~/Library/Caches/hr`, `%LOCALAPPDATA%/hr\Cache`), otherwise the system temp dir. CLI flags that name an explicit output path always win at the call site.
 
 ### Configuration
 
@@ -150,7 +155,7 @@ harness/hr/               # repo root (pip install -e .)
 python -m pytest tests/ -q
 ```
 
-All tests run offline against hermetic fixtures (tmp dirs, no database, no network). The current suite is **567 passed, 9 skipped, 0 failed** (576 collected). Stage0 tests cover the capability-prior pipeline, tier-aware thresholds, and the verdict ranker. Bench tests cover the discovery loader, battery resolver, and the stage0 budget contract.
+All tests run offline against hermetic fixtures and a per-test staging workspace: `HOME`/`OPENCODE_CONFIG_DIR`/`HR_HOME`/`HR_ITEMREPO`/`HR_OUTPUT_DIR` are sealed into pytest tmp dirs by the shared `hr_sandbox` fixture (tests/conftest.py), and a session-level **cleanliness guard** snapshots `git status --porcelain` at session start and fails with the offending paths if any test leaves the repo dirty. The current suite is **577 passed, 9 skipped, 0 failed** (586 collected). Stage0 tests cover the capability-prior pipeline, tier-aware thresholds, and the verdict ranker. Bench tests cover the discovery loader, battery resolver, and the stage0 budget contract.
 
 Live API bench runs need real provider credentials from the opencode config:
 
