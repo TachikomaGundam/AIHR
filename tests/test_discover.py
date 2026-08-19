@@ -133,17 +133,12 @@ def _write_scope_excludes(rhome: Path, excludes: list[str]) -> None:
 
 
 @pytest.fixture
-def discover_env(tmp_path, monkeypatch):
+def discover_env(hr_sandbox: dict):
     """Global opencode.jsonc (2 providers/3 models, all in default scope) +
-    auth-v2.json; empty project cwd."""
-    config_dir = tmp_path / "opencode"
-    config_dir.mkdir()
-    _write_global_config(config_dir)
-    _write_auth_v2(tmp_path, {"bailian-token-plan": [{"type": "api", "key": "sk-fake"}]})
-    proj = tmp_path / "proj"
-    proj.mkdir()
-    _setup_env(tmp_path, monkeypatch, config_dir=config_dir, cwd=proj)
-    return tmp_path
+    auth-v2.json; empty project cwd (staging workspace)."""
+    _write_global_config(hr_sandbox["config_dir"])
+    _write_auth_v2(hr_sandbox["home"], {"bailian-token-plan": [{"type": "api", "key": "sk-fake"}]})
+    return hr_sandbox["tmp_path"]
 
 
 # ---------------------------------------------------------------------------

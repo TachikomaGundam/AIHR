@@ -23,22 +23,15 @@ from hr.adapters.openai_compat import OpenAICompatAdapter
 
 
 @pytest.fixture
-def route_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> dict:
-    """Isolated opencode config + configs tree (all envs redirected)."""
-    config_dir = tmp_path / "opencode"
-    config_dir.mkdir()
-    rhome = tmp_path / "hr"
-    configs = rhome / "configs"
-    configs.mkdir(parents=True)
-    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HR_HOME", str(rhome))
-    (tmp_path / "proj").mkdir(exist_ok=True)
-    monkeypatch.chdir(tmp_path / "proj")
+def route_env(hr_sandbox: dict, monkeypatch: pytest.MonkeyPatch) -> dict:
+    """Isolated opencode config + configs tree (staging workspace)."""
+    configs = hr_sandbox["configs"]
     monkeypatch.setattr(config, "config_path", lambda name: configs / name)
-    return {"config_dir": config_dir, "rhome": rhome, "configs": configs}
+    return {
+        "config_dir": hr_sandbox["config_dir"],
+        "rhome": hr_sandbox["hr_home"],
+        "configs": configs,
+    }
 
 
 def _write_providers(route_env: dict, provider_map: dict) -> None:

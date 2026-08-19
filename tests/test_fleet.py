@@ -55,16 +55,13 @@ def _write_fleet_overrides(rhome: Path, data: dict) -> None:
 
 
 @pytest.fixture
-def fleet_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
-    """Isolated opencode config + repo configs tree (all envs redirected)."""
-    config_dir = tmp_path / "opencode"
-    rhome = tmp_path / "hr"
-    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HR_HOME", str(rhome))
-    (tmp_path / "proj").mkdir(exist_ok=True)
-    monkeypatch.chdir(tmp_path / "proj")
-    return {"config_dir": config_dir, "rhome": rhome, "tmp_path": tmp_path}
+def fleet_env(hr_sandbox: dict) -> dict:
+    """Isolated opencode config + repo configs tree (staging workspace)."""
+    return {
+        "config_dir": hr_sandbox["config_dir"],
+        "rhome": hr_sandbox["hr_home"],
+        "tmp_path": hr_sandbox["tmp_path"],
+    }
 
 
 _ACMESH_ANTHROPIC = {

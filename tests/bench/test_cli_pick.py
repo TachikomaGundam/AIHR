@@ -47,21 +47,13 @@ _GLOBAL_JSONC = """\
 
 
 @pytest.fixture
-def pick_env(tmp_path, monkeypatch):
+def pick_env(hr_sandbox: dict):
     """Global opencode.jsonc (2 providers/3 models, all in default scope);
     empty project cwd; no auth files (auth markers irrelevant to picking)."""
-    config_dir = tmp_path / "opencode"
-    config_dir.mkdir()
-    (config_dir / "opencode.jsonc").write_text(
+    (hr_sandbox["config_dir"] / "opencode.jsonc").write_text(
         textwrap.dedent(_GLOBAL_JSONC), encoding="utf-8"
     )
-    proj = tmp_path / "proj"
-    proj.mkdir()
-    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("HR_HOME", str(tmp_path / "hr"))
-    monkeypatch.chdir(proj)
-    return proj
+    return hr_sandbox["project"]
 
 
 def _ordered_discover_ids() -> list[str]:
