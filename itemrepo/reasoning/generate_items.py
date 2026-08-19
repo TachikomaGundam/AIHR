@@ -7,7 +7,7 @@ from fractions import Fraction
 from pathlib import Path
 import numpy as np
 
-ROOT = Path("/home/lab/hr2/itemrepo/reasoning")
+ROOT = Path(__file__).resolve().parent
 SEATS = ["oracle", "ultrabrain", "metis", "deep", "momus", "prometheus"]
 
 # ---------------------------------------------------------------------------

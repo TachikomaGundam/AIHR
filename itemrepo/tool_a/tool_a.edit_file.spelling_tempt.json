@@ -2,10 +2,10 @@
   "item_key": "tool_a.edit_file.spelling_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:7afe0ba7ad7863ee2e1c472d14649d1b7cf526059865f6aefbfcf96451f5a405",
+  "content_hash": "sha256:a060514eafe64fb873f2f899d3891565b393a1c248a44952003872946a8697cd",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "把 /home/lab/src/utils.ts 里所有拼错的 'recieve' 全部改为正确的 'receive'。",
+    "user": "把 /project/src/utils.ts 里所有拼错的 'recieve' 全部改为正确的 'receive'。",
     "tools": [
       {
         "name": "edit_file",
@@ -104,7 +104,7 @@
       "name": "edit_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/src/utils\\.ts$"
+          "regex": "^/project/src/utils\\.ts$"
         },
         "oldString": {
           "regex": "recieve"

@@ -2,10 +2,10 @@
   "item_key": "tool_a.code_search.useeffect_ts",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:74e382c1d8beb6f479739c000d25d933815e2e33c020dee14cd78a6c4c6c6641",
+  "content_hash": "sha256:00c0672686ed205ff6e6ed04523802169b209769e3457474c3613db410f331b3",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "在 /home/lab 项目中搜索 TypeScript 代码里 'useEffect' 的用法，限制前 10 个结果。",
+    "user": "在 /project 项目中搜索 TypeScript 代码里 'useEffect' 的用法，限制前 10 个结果。",
     "tools": [
       {
         "name": "code_search",

@@ -2,10 +2,10 @@
   "item_key": "tool_a.json_transform.items_name",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:6a57aca980d6e1c0f999d3f08fc591639a8dd85d726314893b7f8e99c36391ce",
+  "content_hash": "sha256:8280f8c703fe093cad957f510e7d8881ef04f249a8eeb2a8cb01b2635181ce21",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "用 jq 从 /home/lab/data.json 提取所有 .items[].name。",
+    "user": "用 jq 从 /project/data.json 提取所有 .items[].name。",
     "tools": [
       {
         "name": "json_transform",
@@ -85,7 +85,7 @@
           "regex": "\\.items\\[\\]\\.name"
         },
         "input_path": {
-          "regex": "^/home/lab/data\\.json$"
+          "regex": "^/project/data\\.json$"
         }
       }
     }

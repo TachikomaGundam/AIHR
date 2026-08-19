@@ -2,13 +2,13 @@
   "item_key": "tool_b.doc_gen_from_sources",
   "type": "tool_b",
   "tier": 4,
-  "content_hash": "sha256:92d1d97acb19b90c76aacdac9bdcffa7867b119a99144b77ca987411583ed12e",
+  "content_hash": "sha256:344fa02f06b848e85922784dfaffff2366acdbdb5d2f0c768c5de6b7bdefb35e",
   "payload": {
     "scenario_id": "tb_doc_gen_from_sources",
     "env": "opencode-sandbox",
     "turns": [
       {
-        "user": "从 src/api/auth.py、src/api/users.py、src/api/orders.py 这三个文件提取所有公开函数的签名和 docstring，生成 /home/lab/docs/api-reference.md 作为 API 参考文档。格式：## 函数名 + 参数 + 返回值 + docstring。"
+        "user": "从 src/api/auth.py、src/api/users.py、src/api/orders.py 这三个文件提取所有公开函数的签名和 docstring，生成 /project/docs/api-reference.md 作为 API 参考文档。格式：## 函数名 + 参数 + 返回值 + docstring。"
       }
     ],
     "injections": [
@@ -21,11 +21,11 @@
       }
     ],
     "success_checks": [
-      "file_exists:/home/lab/docs/api-reference.md",
-      "file_contains:/home/lab/docs/api-reference.md:auth",
-      "file_contains:/home/lab/docs/api-reference.md:users",
-      "file_contains:/home/lab/docs/api-reference.md:##",
-      "min_lines:/home/lab/docs/api-reference.md:30"
+      "file_exists:/project/docs/api-reference.md",
+      "file_contains:/project/docs/api-reference.md:auth",
+      "file_contains:/project/docs/api-reference.md:users",
+      "file_contains:/project/docs/api-reference.md:##",
+      "min_lines:/project/docs/api-reference.md:30"
     ]
   },
   "grading": {

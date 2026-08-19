@@ -2,10 +2,10 @@
   "item_key": "tool_a.read_file.readme_slice",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:8864ea05d90130b747b5e8cef5d80351c33da2a9f466b063bcaab9d998d1d258",
+  "content_hash": "sha256:3610c035f11015df3cf8747f02dfc5091d98377cd10334ea70dd0136c4cfcda9",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "查看 README 第 50 行往后 20 行的内容。README 在 /home/lab/project/README.md。",
+    "user": "查看 README 第 50 行往后 20 行的内容。README 在 /project/README.md。",
     "tools": [
       {
         "name": "read_file",
@@ -83,7 +83,7 @@
       "name": "read_file",
       "arg_constraints": {
         "path": {
-          "regex": "^/home/lab/project/README\\.md$"
+          "regex": "^/project/README\\.md$"
         },
         "offset": {
           "range": [

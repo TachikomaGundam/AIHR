@@ -2,10 +2,10 @@
   "item_key": "tool_a.write_file.package_json",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:0de4e3f58f20c7c83891fd9f2c191c97a0c9aa1974adf0ca583613dccdb1ba02",
+  "content_hash": "sha256:01688bd8c1157651359b8ae931f5f6a2276685c396a24d0f65fbd49d95df7f08",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "生成一个 package.json，name 是 my-app，version 1.0.0，type 是 module。写到 /home/lab/project/package.json。",
+    "user": "生成一个 package.json，name 是 my-app，version 1.0.0，type 是 module。写到 /project/package.json。",
     "tools": [
       {
         "name": "write_file",
@@ -72,7 +72,7 @@
       "name": "write_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/project/package\\.json$"
+          "regex": "^/project/package\\.json$"
         },
         "content": {
           "regex": "(?s)^(?=.*\\\"name\\\").*$",

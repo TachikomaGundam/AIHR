@@ -2,10 +2,10 @@
   "item_key": "tool_a.csv_analyze.filter_region_west",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:2cdfc73dae0d02c4c5e121c3388bfb6abae488e8a18825df8ff2ef899e51c34c",
+  "content_hash": "sha256:eca87a5c97555d16230aff23837a6f1fce2b3b2b6e7b5e2d99a973df1c66af22",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "从 /home/lab/sales.csv 过滤出 region=west 的行。",
+    "user": "从 /project/sales.csv 过滤出 region=west 的行。",
     "tools": [
       {
         "name": "csv_analyze",
@@ -80,7 +80,7 @@
       "name": "csv_analyze",
       "arg_constraints": {
         "path": {
-          "regex": "^/home/lab/sales\\.csv$"
+          "regex": "^/project/sales\\.csv$"
         },
         "op": {
           "enum": [

@@ -2,10 +2,10 @@
   "item_key": "tool_a.edit_file.json_port_edit",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:748d8dc8d4eb6058546fc06067b39b132566bc9e81d02285dcd07d3dadb1f5ca",
+  "content_hash": "sha256:9fe72bcd67abc750e3f68a73f4b8074c569b653b2d79a4daa4d92f2f21e75b41",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "把 /home/lab/config.json 里的 \"port\": 3000 改成 \"port\": 8080（精确 JSON 匹配）。",
+    "user": "把 /project/config.json 里的 \"port\": 3000 改成 \"port\": 8080（精确 JSON 匹配）。",
     "tools": [
       {
         "name": "edit_file",
@@ -72,7 +72,7 @@
       "name": "edit_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/config\\.json$"
+          "regex": "^/project/config\\.json$"
         },
         "oldString": {
           "regex": "\\\"port\\\":\\s*3000",

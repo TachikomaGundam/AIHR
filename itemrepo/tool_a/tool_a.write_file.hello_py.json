@@ -2,10 +2,10 @@
   "item_key": "tool_a.write_file.hello_py",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:76f05042037963968d23c42289f5858e330f3b215afe7b377063d49c8c115ae9",
+  "content_hash": "sha256:326f47eee77d6d7d32b8f93c22490f96c3ba2d8b85e81f56590d0916f9c4ec57",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "在 /home/lab/project 下创建一个 hello.py，内容是 print('hello world')。",
+    "user": "在 /project 下创建一个 hello.py，内容是 print('hello world')。",
     "tools": [
       {
         "name": "write_file",
@@ -76,7 +76,7 @@
       "name": "write_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/project/hello\\.py$"
+          "regex": "^/project/hello\\.py$"
         },
         "content": {
           "regex": "(?s)^(?=.*print).*$",
