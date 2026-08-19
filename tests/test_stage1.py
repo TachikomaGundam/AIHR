@@ -40,10 +40,9 @@ ITEM_REPO = Path(__file__).resolve().parents[1] / "itemrepo"
 
 
 @pytest.fixture
-def fleet_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def fleet_env(hr_sandbox: dict) -> None:
     """Isolate the dynamic fleet (same contract as test_stage0.fleet_env)."""
-    config_dir = tmp_path / "opencode"
-    config_dir.mkdir()
+    config_dir = hr_sandbox["config_dir"]
     (config_dir / "opencode.jsonc").write_text(
         json.dumps(
             {
@@ -57,9 +56,6 @@ def fleet_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         ),
         encoding="utf-8",
     )
-    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("HR_HOME", str(tmp_path / "hr"))
 
 
 # ---------------------------------------------------------------------------
