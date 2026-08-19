@@ -1,0 +1,129 @@
+{
+  "item_key": "tool_a.http_fetch.missing_url",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:19b138ee36ae8dba762ed12624d51b4a1fa300328de991e33f23263500da37e4",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "帮我发个网络请求。",
+    "tools": [
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "http_fetch"
+  }
+}

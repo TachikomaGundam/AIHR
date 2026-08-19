@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.geo-largest-freshwater-lake",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "地球上面积（表面积）最大的淡水湖是哪一个？请给出该湖的中英文名称。",
+    "verifiable_answer": "苏必利尔湖",
+    "source_of_truth": {
+      "kind": "geographic_fact",
+      "ref": "USGS / Britannica: Lake Superior area ≈ 82,100 km², largest freshwater by surface area"
+    },
+    "verification": "exact",
+    "answer_explanation": "苏必利尔湖 (Lake Superior) 表面积约 82,100 km²，是世界按表面积计最大的淡水湖。（里海虽大，但是咸水湖；贝加尔湖以体积计最大。）",
+    "answer_keys": [
+      "苏必利尔湖",
+      "Superior"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

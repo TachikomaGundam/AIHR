@@ -1,0 +1,43 @@
+{
+  "item_key": "reasoning.t6.ie-5sets-exactly-2",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "5 个集合的容斥数据: S₁=450 (所有单集之和), S₂=377 (所有双交集之和), S₃=129, S₄=22, S₅=1。求恰好属于其中 2 个集合的元素个数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 112,
+      "crosscheck_value": 112
+    },
+    "checkpoints": [
+      "applies exactly-k formula: e₂=S₂−3S₃+6S₄−10S₅"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 112
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies exactly-k formula: e₂=S₂−3S₃+6S₄−10S₅"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "metis"
+    ]
+  }
+}

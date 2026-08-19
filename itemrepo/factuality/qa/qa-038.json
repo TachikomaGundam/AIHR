@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.date-iso-8601-date-time-separator",
+  "type": "factuality_qa",
+  "tier": 3,
+  "payload": {
+    "question": "在 ISO 8601-1:2019 扩展格式中，如何表示 '2026 年第 31 周的星期五 (ISO week)'？请给出完整的 ISO 8601 周日期 (week-date) 字符串。（提示: 格式为 YYYY-Www-D，其中 D 为 1=周一 .. 7=周日。）",
+    "verifiable_answer": "2026-W31-5",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "ISO 8601-1:2019 §3.3.2 (Week date, extended format YYYY-Www-D)"
+    },
+    "verification": "exact",
+    "answer_explanation": "ISO 8601 周日期扩展格式: YYYY-Www-D。 2026 年第 31 周星期五 → 2026-W31-5（D=5 对应星期五）。注意: 在 ISO 8601 周日历中，一周从星期一开始，D=1=周一, D=7=周日。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "item_key": "tool_a.write_file.completely_missing",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:7e88f19f8dea08f8cc2c1b9b467dd3ecbf3a87fffc0051cac084f1aa5f7e9001",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "创建一个新文件。",
+    "tools": [
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "edit_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string",
+              "description": "Exact substring to replace"
+            },
+            "newString": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "oldString",
+            "newString"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "write_file"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "item_key": "tool_b.doc_gen_from_sources",
+  "type": "tool_b",
+  "tier": 4,
+  "content_hash": "sha256:92d1d97acb19b90c76aacdac9bdcffa7867b119a99144b77ca987411583ed12e",
+  "payload": {
+    "scenario_id": "tb_doc_gen_from_sources",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "从 src/api/auth.py、src/api/users.py、src/api/orders.py 这三个文件提取所有公开函数的签名和 docstring，生成 /home/lab/docs/api-reference.md 作为 API 参考文档。格式：## 函数名 + 参数 + 返回值 + docstring。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 2,
+        "error": {
+          "code": "ENOENT",
+          "message": "File not found: src/api/orders.py"
+        }
+      }
+    ],
+    "success_checks": [
+      "file_exists:/home/lab/docs/api-reference.md",
+      "file_contains:/home/lab/docs/api-reference.md:auth",
+      "file_contains:/home/lab/docs/api-reference.md:users",
+      "file_contains:/home/lab/docs/api-reference.md:##",
+      "min_lines:/home/lab/docs/api-reference.md:30"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 7,
+      "max_turns": 14
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "Generate API docs reading 3+ source files, producing a markdown reference",
+    "injection_count": 1
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t3.int-solutions",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "方程 x + y + z = 20 的非负整数解中,满足 x ≤ 10, y ≤ 8, z ≤ 9 的有多少个?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 36
+    },
+    "checkpoints": [
+      "uses inclusion-exclusion over constraints"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 36
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses inclusion-exclusion over constraints"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

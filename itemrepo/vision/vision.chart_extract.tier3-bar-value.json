@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.tier3-bar-value",
+  "type": "vision",
+  "tier": 3,
+  "payload": {
+    "image_ref": "img/crt_t3_bar_value.png",
+    "kind": "chart_extract",
+    "question": "What is the exact value (in $K) shown on the red bar (April)?",
+    "answer": "67"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:ecc8f956714a07bcc1e6558e3615360914a7a3fcbbca9dca1cd544a62030969d"
+}

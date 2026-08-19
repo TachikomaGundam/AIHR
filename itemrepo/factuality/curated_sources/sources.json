@@ -1,0 +1,215 @@
+[
+  {
+    "arxiv": "1706.03762",
+    "authors": [
+      "Ashish Vaswani",
+      "Noam Shazeer",
+      "Niki Parmar",
+      "Jakob Uszkoreit",
+      "Llion Jones",
+      "Aidan N. Gomez",
+      "Lukasz Kaiser",
+      "Illia Polosukhin"
+    ],
+    "doi": null,
+    "id": "vaswani-2017-transformer",
+    "identifiers": {
+      "arxiv": "1706.03762",
+      "isbn": "978-1-5108-6096-4"
+    },
+    "title": "Attention Is All You Need",
+    "url": "https://arxiv.org/abs/1706.03762",
+    "venue": "NeurIPS (NIPS) 2017",
+    "year": 2017
+  },
+  {
+    "arxiv": null,
+    "authors": [
+      "R. Fielding",
+      "J. Gettys",
+      "J. Mogul",
+      "H. Frystyr",
+      "L. Masinter",
+      "P. Leach",
+      "T. Berners-Lee"
+    ],
+    "doi": null,
+    "id": "fielding-1999-http11",
+    "identifiers": {
+      "rfc": "2616"
+    },
+    "title": "Hypertext Transfer Protocol -- HTTP/1.1",
+    "url": "https://www.rfc-editor.org/rfc/rfc2616",
+    "venue": "IETF RFC 2616 (obsoleted by RFCs 7230-7235, June 2014)",
+    "year": 1999
+  },
+  {
+    "arxiv": null,
+    "authors": [
+      "E. Rescorla (Ed.)"
+    ],
+    "doi": null,
+    "id": "rescorla-2018-tls13",
+    "identifiers": {
+      "rfc": "8446"
+    },
+    "title": "The Transport Layer Security (TLS) Protocol Version 1.3",
+    "url": "https://www.rfc-editor.org/rfc/rfc8446",
+    "venue": "IETF RFC 8446",
+    "year": 2018
+  },
+  {
+    "arxiv": "1512.03385",
+    "authors": [
+      "Kaiming He",
+      "Xiangyu Zhang",
+      "Shaoqing Ren",
+      "Jian Sun"
+    ],
+    "doi": "10.1109/CVPR.2016.90",
+    "id": "he-2016-resnet",
+    "identifiers": {
+      "arxiv": "1512.03385",
+      "venue": "CVPR 2016"
+    },
+    "title": "Deep Residual Learning for Image Recognition",
+    "url": "https://arxiv.org/abs/1512.03385",
+    "venue": "IEEE Conference on Computer Vision and Pattern Recognition (CVPR) 2016",
+    "year": 2016
+  },
+  {
+    "arxiv": "1810.04805",
+    "authors": [
+      "Jacob Devlin",
+      "Ming-Wei Chang",
+      "Kenton Lee",
+      "Kristina Toutanova"
+    ],
+    "doi": null,
+    "id": "devlin-2019-bert",
+    "identifiers": {
+      "arxiv": "1810.04805"
+    },
+    "title": "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding",
+    "url": "https://arxiv.org/abs/1810.04805",
+    "venue": "NAACL 2019",
+    "year": 2019
+  },
+  {
+    "arxiv": "2212.08073",
+    "authors": [
+      "Yuntao Bai",
+      "Saurav Kadavath",
+      "Sandy Pan",
+      "et al. (Anthropic)"
+    ],
+    "doi": null,
+    "id": "bai-2022-constitutional-ai",
+    "identifiers": {
+      "arxiv": "2212.08073"
+    },
+    "title": "Constitutional AI: Harmlessness from AI Feedback",
+    "url": "https://arxiv.org/abs/2212.08073",
+    "venue": "arXiv preprint",
+    "year": 2022
+  },
+  {
+    "arxiv": "1409.3215",
+    "authors": [
+      "Ilya Sutskever",
+      "Oriol Vinyals",
+      "Quoc V. Le"
+    ],
+    "doi": null,
+    "id": "sutskever-2014-seq2seq",
+    "identifiers": {
+      "arxiv": "1409.3215",
+      "venue": "NIPS 2014"
+    },
+    "title": "Sequence to Sequence Learning with Neural Networks",
+    "url": "https://arxiv.org/abs/1409.3215",
+    "venue": "NeurIPS (NIPS) 2014",
+    "year": 2014
+  },
+  {
+    "arxiv": "1905.11946",
+    "authors": [
+      "Mingxing Tan",
+      "Quoc V. Le"
+    ],
+    "doi": null,
+    "id": "tan-2019-efficientnet",
+    "identifiers": {
+      "arxiv": "1905.11946",
+      "venue": "ICML 2019"
+    },
+    "title": "EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks",
+    "url": "https://arxiv.org/abs/1905.11946",
+    "venue": "ICML 2019",
+    "year": 2019
+  },
+  {
+    "arxiv": null,
+    "authors": [
+      "Alex Krizhevsky",
+      "Ilya Sutskever",
+      "Geoffrey E. Hinton"
+    ],
+    "doi": null,
+    "id": "krizhevsky-2012-alexnet",
+    "identifiers": {
+      "url": "https://papers.nips.cc/paper/2012/hash/c399862d3b8dcb6034909a31a4de612f-Abstract.html",
+      "venue": "NIPS 2012"
+    },
+    "title": "ImageNet Classification with Deep Convolutional Neural Networks",
+    "url": "https://papers.nips.cc/paper/2012/hash/c399862d3b8dcb6034909a31a4de612f-Abstract.html",
+    "venue": "NeurIPS (NIPS) 2012 (25th Conference on Neural Information Processing Systems)",
+    "year": 2012
+  },
+  {
+    "arxiv": "1406.2661",
+    "authors": [
+      "Ian Goodfellow",
+      "Jean Pouget-Abadie",
+      "Mehdi Mirza",
+      "Bing Xu",
+      "David Warde-Farley",
+      "Sherjil Ozair",
+      "Aaron Courville",
+      "Yoshua Bengio"
+    ],
+    "doi": null,
+    "id": "goodfellow-2014-gan",
+    "identifiers": {
+      "arxiv": "1406.2661",
+      "pages": "2672-2680",
+      "venue": "NIPS 2014"
+    },
+    "title": "Generative Adversarial Nets",
+    "url": "https://arxiv.org/abs/1406.2661",
+    "venue": "NeurIPS (NIPS) 2014 (27th Conference on Neural Information Processing Systems)",
+    "year": 2014
+  },
+  {
+    "arxiv": "2005.14165",
+    "authors": [
+      "Tom B. Brown",
+      "Benjamin Mann",
+      "Nick Ryder",
+      "Melanie Subbiah",
+      "Jared Kaplan",
+      "Prafulla Dhariwal",
+      "et al. (OpenAI)"
+    ],
+    "doi": null,
+    "id": "brown-2020-gpt3-few-shot",
+    "identifiers": {
+      "arxiv": "2005.14165",
+      "venue": "NeurIPS 2020"
+    },
+    "title": "Language Models are Few-Shot Learners",
+    "url": "https://arxiv.org/abs/2005.14165",
+    "venue": "NeurIPS 2020",
+    "year": 2020
+  }
+]

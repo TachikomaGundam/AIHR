@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.dense-path",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/sch_06_dense_path.png",
+    "kind": "schematic",
+    "question": "List the components on the directed path from 'Limiter' to 'Output' that passes through 'Recorder', in order. Answer as comma-separated names.",
+    "answer": "Limiter, Splitter, Recorder, Output"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:1be89d646ab39e6b8c0c4fdfa3da4470dd81ef3a054993913762161ef4492d20"
+}

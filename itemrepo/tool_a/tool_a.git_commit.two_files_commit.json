@@ -1,0 +1,112 @@
+{
+  "item_key": "tool_a.git_commit.two_files_commit",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:abca8e25d7fb4d8e9ae93696e885658780aa0f6485bc82709415a02e98b0e2b8",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "只提交 src/utils.ts 和 src/types.ts 这两个文件的修改，message 是 'refactor: extract utils'。",
+    "tools": [
+      {
+        "name": "git_commit",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "amend": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "edit_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string",
+              "description": "Exact substring to replace"
+            },
+            "newString": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "oldString",
+            "newString"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "git_commit",
+      "arg_constraints": {
+        "message": {
+          "regex": "^refactor: extract utils$"
+        },
+        "files": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "git_commit"
+  }
+}

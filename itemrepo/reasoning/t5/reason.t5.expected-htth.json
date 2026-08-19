@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.expected-htth",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "抛一枚公平硬币,记正面为 H 反面为 T。求首次连续出现 HTHH 所需抛掷次数的数学期望。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 18,
+      "crosscheck_value": 18
+    },
+    "checkpoints": [
+      "sets up 4-state Markov chain",
+      "solves linear system"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 18
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "sets up 4-state Markov chain"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "solves linear system"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "metis"
+    ]
+  }
+}

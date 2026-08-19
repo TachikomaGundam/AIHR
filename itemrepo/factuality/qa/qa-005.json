@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-2-to-10",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "2 的 10 次方等于多少？",
+    "verifiable_answer": "1024",
+    "source_of_truth": {
+      "kind": "arithmetic",
+      "ref": "2^10 = 1024"
+    },
+    "verification": "exact",
+    "answer_explanation": "2^10 = 1024。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.three-lines-middle",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/crt_08_three_lines_middle.png",
+    "kind": "chart_extract",
+    "question": "At x = 5, which of the three lines has the median (middle) value? Answer with the line name.",
+    "answer": "Gamma"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:8bd95c5d935b391026c9136cf340b6c4122070187f14f96ea79df463731df9fa"
+}

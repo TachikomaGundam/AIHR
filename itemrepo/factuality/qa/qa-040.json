@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.encoding-ascii-letter-a-decimal",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "在 ASCII 编码表中，大写字母 'K' 的十进制码位 (decimal code point) 是多少？请仅给出十进制整数。（提示: 不要与 'A'=65 或 'L'=76 混淆。）",
+    "verifiable_answer": "75",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "ANSI X3.4-1986 (ASCII); Unicode 15.0 U+004B LATIN CAPITAL LETTER K = decimal 75"
+    },
+    "verification": "exact",
+    "answer_explanation": "ASCII 表: 'A'=65, 'B'=66, ..., 'K'=75, 'L'=76, ..., 'Z'=90。验证: 'K' 是字母表第 11 位字母 (A=1,B=2,...K=11)，所以码位 = 64 + 11 = 75。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

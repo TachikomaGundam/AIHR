@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.geo-amazon-source-country",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "秘鲁的首都利马 (Lima) 是在哪一年由哪位西班牙征服者 (conquistador) 正式建立的？请给出建城年份与建城者姓名（中文或西语皆可）。",
+    "verifiable_answer": "1535",
+    "source_of_truth": {
+      "kind": "historical_record",
+      "ref": "Lima founded 18 January 1535 by Francisco Pizarro (UNESCO; Britannica; municipal history)"
+    },
+    "verification": "exact",
+    "answer_explanation": "利马由西班牙征服者 Francisco Pizarro（弗朗西斯科·皮萨罗）于 1535 年 1 月 18 日建立，定名 Ciudad de los Reyes (诸王之城)。利马后来成为西班牙在南美殖民地的首都 (Viceroyalty of Peru)。",
+    "answer_keys": [
+      "1535",
+      "Pizarro"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

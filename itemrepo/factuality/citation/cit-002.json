@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.http11-rfc-original",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "定义原始 HTTP/1.1 协议的 RFC 文档编号是多少？（注：该 RFC 已于 2014 年被系列 RFC 取代）",
+    "required_claims": [
+      "2616"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 3,
+  "type": "citation"
+}

@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.encoding-utf8-4byte-leading-range",
+  "type": "factuality_qa",
+  "tier": 3,
+  "payload": {
+    "question": "UTF-8 编码中，一个 4 字节序列的首字节取值范围通常是 0xF0 .. 0xF7，但由于 Unicode 码位上限 (U+10FFFF) 的限制，首字节的实际有效最大值是哪个字节？请给出该十六进制值。",
+    "verifiable_answer": "0xF4",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 3629 (UTF-8); Unicode 15.0.0 §3.9 (Unicode Encoding Forms)"
+    },
+    "verification": "exact",
+    "answer_explanation": "UTF-8 4字节序列首字节 11110xxx = 0xF0..0xF7，但 0xF5..0xF7 编出的码位将超过 U+10FFFF (在 UTF-32 中无效)，因此有效上界为 0xF4。0xF4 8F BF BF = U+10FFFF。",
+    "answer_keys": [
+      "0xF4",
+      "F4"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t4.totient-large",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "求欧拉函数 φ(2^10 · 3^5 · 5^2 · 7)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 9953280
+    },
+    "checkpoints": [
+      "applies φ(n)=n∏(1−1/p)"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 9953280
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies φ(n)=n∏(1−1/p)"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-100-factorial-trailing-zeros",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "100 的阶乘 (100!) 末尾有多少个连续的零 (trailing zeros)？",
+    "verifiable_answer": "24",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "Legendre formula for exponent of p in n!"
+    },
+    "verification": "exact",
+    "answer_explanation": "Legendre 公式：5 的幂次 = floor(100/5) + floor(100/25) + floor(100/125) = 20 + 4 + 0 = 24。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

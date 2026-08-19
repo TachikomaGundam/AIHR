@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t3.digit-two-count",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "在 1 到 999 的所有整数的十进制表示里,数字 2 一共出现了多少次?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 300
+    },
+    "checkpoints": [
+      "uses symmetry across positions",
+      "counts each digit position"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 300
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses symmetry across positions"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "counts each digit position"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

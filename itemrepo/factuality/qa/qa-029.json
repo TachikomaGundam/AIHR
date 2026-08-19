@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.space-apollo-11-date",
+  "type": "factuality_qa",
+  "tier": 3,
+  "payload": {
+    "question": "阿波罗 11 号登月舱 Eagle 着陆的月海 (lunar mare) 是什么？请给出该月海的拉丁语 (Latin) 名称。（提示: 不是 Mare Serenitatis、不是 Oceanus Procellarum。）",
+    "verifiable_answer": "Mare Tranquillitatis",
+    "source_of_truth": {
+      "kind": "scientific_fact",
+      "ref": "Apollo 11 landing site: Mare Tranquillitatis (NASA historical records; IAU 2023 designation)"
+    },
+    "verification": "exact",
+    "answer_explanation": "阿波罗 11 号着陆于 Mare Tranquillitatis (静海 / Sea of Tranquility)，位于月球正面。IAU 于 2023 年 8 月将该具体着陆地点正式命名为 Statio Tranquillitatis。Eagle 着陆坐标约: 0.67408°N, 23.47314°E。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

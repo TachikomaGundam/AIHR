@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t2.binom-sum",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "求 C(15,0) + C(15,1) + ⋯ + C(15,15)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 32768
+    },
+    "checkpoints": [
+      "recognizes sum is 2^15"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 32768
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "recognizes sum is 2^15"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

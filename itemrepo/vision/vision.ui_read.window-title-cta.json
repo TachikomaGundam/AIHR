@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.window-title-cta",
+  "type": "vision",
+  "tier": 2,
+  "payload": {
+    "image_ref": "img/ui_04_window_title_cta.png",
+    "kind": "ui_read",
+    "question": "What is the label of the blue primary action button in the top-right of the window?",
+    "answer": "Export Report"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:c743e6c8a18864a3c2a844f8e7f4450a66ec7a74ff6c718ad7c6672bed81d6be"
+}

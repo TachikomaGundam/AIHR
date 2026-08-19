@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.exact-double",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/crt_09_exact_double.png",
+    "kind": "chart_extract",
+    "question": "Which category has a value that is exactly twice the smallest value in the chart? Answer with the category name.",
+    "answer": "Beta"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:1f6a5c6fa3b3466252a87ea1e7eb4fa0b702894f3b86dcbd134c17e438a1e61c"
+}

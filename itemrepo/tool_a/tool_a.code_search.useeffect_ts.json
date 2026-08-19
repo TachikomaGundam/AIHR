@@ -1,0 +1,133 @@
+{
+  "item_key": "tool_a.code_search.useeffect_ts",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:74e382c1d8beb6f479739c000d25d933815e2e33c020dee14cd78a6c4c6c6641",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "在 /home/lab 项目中搜索 TypeScript 代码里 'useEffect' 的用法，限制前 10 个结果。",
+    "tools": [
+      {
+        "name": "code_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "typescript",
+                "python",
+                "rust",
+                "go",
+                "java"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "code_search",
+      "arg_constraints": {
+        "query": {
+          "regex": "^useEffect$"
+        },
+        "language": {
+          "enum": [
+            "typescript"
+          ]
+        },
+        "limit": {
+          "range": [
+            10,
+            10
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "code_search"
+  }
+}

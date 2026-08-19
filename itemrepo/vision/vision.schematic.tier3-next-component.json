@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.tier3-next-component",
+  "type": "vision",
+  "tier": 3,
+  "payload": {
+    "image_ref": "img/sch_t3_next_component.png",
+    "kind": "schematic",
+    "question": "In the processing pipeline, which component comes immediately after the highlighted 'Filter' block?",
+    "answer": "Processor"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:fa27b18b05d1412c5d5d524376ea9c22016d833ffdcaa7fd79fbac9b3b6245f4"
+}

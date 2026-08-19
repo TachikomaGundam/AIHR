@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.ud.shop-purchase",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "声明信息不足，解不唯一",
+      "指出对应的不定方程有多组整数解",
+      "至少给出一组示例解说明不唯一性"
+    ],
+    "question": "某商店出售三种商品：笔记本每本 8 元，钢笔每支 15 元，橡皮每块 3 元。小明花了正好 100 元，三种商品都至少买了一件。请问小明笔记本、钢笔、橡皮各买了多少件？",
+    "why_unanswerable": "无法唯一确定：不定方程 8a + 15b + 3c = 100 在 a≥1, b≥1, c≥1 且均为整数的约束下有多个解。例如 (a,b,c) = (2,1,23), (5,1,15), (5,4,5), (8,1,1), (5,2,12) 等都是合法解。"
+  },
+  "tier": 3,
+  "type": "unanswerable"
+}

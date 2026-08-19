@@ -1,0 +1,56 @@
+# fleet.yaml — OPTIONAL overrides for the dynamically derived model fleet.
+#
+# The fleet is NOT snapshotted here anymore (hr-unification todo 23's static
+# manifest was rejected: fixed model names drift from opencode's live config).
+# At RUNTIME hr derives the full inventory from the opencode config files
+# themselves — every `provider.*.models` entry in opencode.jsonc (global +
+# project, project merged over global) becomes a fleet model, its wire type
+# derives from the provider's `npm` field via an explicit table, and new
+# models flow into the stage sweep pools / `hr discover` / adapter routing
+# with ZERO edits in this repo.
+#
+# This file exists only for the policy knobs a derivation cannot answer:
+#
+#   wire_overrides:  wire type for providers whose npm field is absent or
+#                    unknown. Registry-only providers (kimi-for-coding,
+#                    deepseek) are NOT declared in opencode.jsonc — their
+#                    models live under configs/deployable.yaml
+#                    `extra_deployable:`, and their wire MUST be declared
+#                    here. The config-declared `azure` gateway carries no
+#                    npm field either, so its wire is declared here too. A
+#                    config-declared provider with a known npm needs nothing.
+#                    Unknown npm + no override = fail loud at runtime (never
+#                    a silent guess).
+#
+#   scope_excludes:  providers kept OUT of the default discover/sweep scope.
+#                    Everything the opencode config declares is in scope by
+#                    default (new providers auto-inherit); an explicit
+#                    exclusion here is the ONLY way to opt a provider out.
+#
+#   gateway_urls:    per-provider gateway base URL used when a provider has
+#                    NO options.baseURL in the opencode config (registry-only
+#                    providers such as kimi-for-coding / deepseek, served via
+#                    their own gateways) — the auth.json fallback in
+#                    hr.config.get_provider_config and the anthropic adapter
+#                    resolve through it. Endpoint URLs are routing data, not
+#                    credentials. A provider with no config block, no gateway
+#                    entry and no auth entry is a fail-loud config error.
+
+# EXAMPLES ONLY — this tracked file ships with zero real deployment values.
+# A live machine declares its real overrides in the gitignored
+# configs/fleet.local.yaml overlay (deep-merged by hr.config.load_yaml:
+# dicts merge per key, LIST VALUES ARE REPLACED, not merged). Keep the real
+# wire_overrides / scope_excludes / gateway_urls entries there; wire
+# overrides must cover every registry-only provider served via the
+# deployable extra_deployable list, and gateway_urls covers providers with
+# no options.baseURL in the opencode config. Unknown npm + no override =
+# fail loud at runtime (never a silent guess).
+
+wire_overrides:
+  example-provider: anthropic-compat
+
+scope_excludes:
+  - example-excluded-provider
+
+gateway_urls:
+  example-provider: https://gateway.example.invalid/v1

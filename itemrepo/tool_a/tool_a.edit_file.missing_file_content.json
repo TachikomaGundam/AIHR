@@ -1,0 +1,110 @@
+{
+  "item_key": "tool_a.edit_file.missing_file_content",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:f87631787fdb855ae8e1ab0069eb1f529bd0691b23e164d22655258b0ac38a68",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "帮我把某个文件里的 TODO 标记改一下。",
+    "tools": [
+      {
+        "name": "edit_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string",
+              "description": "Exact substring to replace"
+            },
+            "newString": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "oldString",
+            "newString"
+          ]
+        }
+      },
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "todo_write",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "todos": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "in_progress",
+                      "completed"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "content",
+                  "status"
+                ]
+              }
+            }
+          },
+          "required": [
+            "todos"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "edit_file"
+  }
+}

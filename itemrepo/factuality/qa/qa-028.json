@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.hist-berlin-wall-fall-year",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "柏林墙 (Berlin Wall) 始建于哪一年？请仅给出年份（注意: 不要混淆其'倒塌'年份 1989 年）。",
+    "verifiable_answer": "1961",
+    "source_of_truth": {
+      "kind": "historical_record",
+      "ref": "Berlin Wall construction begun 13 August 1961 (German Historical Museum; DHM)"
+    },
+    "verification": "exact",
+    "answer_explanation": "柏林墙于 1961 年 8 月 13 日开始建造（东德 / GDR 政府主导）。1989 年 11 月 9 日倒塌。本题问建造年份，即 1961 年。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "item_key": "tool_a.grep_search.unused_import_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:f84e65a29bceaebfca6ca6c3870e3571ed5b74b72186c99e6c11a029470c648a",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "找找代码库里有没有未使用的 import 语句。",
+    "tools": [
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "code_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "typescript",
+                "python",
+                "rust",
+                "go",
+                "java"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "grep_search",
+      "arg_constraints": {
+        "pattern": {
+          "regex": "^(import|from)\\b"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "grep_search"
+  }
+}

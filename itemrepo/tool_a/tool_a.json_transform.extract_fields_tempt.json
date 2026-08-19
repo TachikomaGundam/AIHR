@@ -1,0 +1,117 @@
+{
+  "item_key": "tool_a.json_transform.extract_fields_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:d6fa7fffcf59164e45d901b4111712b9638e3304f39c01d4cd75694a00926a66",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "帮我从 JSON 文件里取出一些字段。",
+    "tools": [
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      },
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "json_transform",
+      "arg_constraints": {
+        "jq_filter": {
+          "type": "string"
+        },
+        "input_path": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "json_transform"
+  }
+}

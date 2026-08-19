@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.music-a4-frequency",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "国际音高标准 (concert pitch) 中，中央 C 上方第 5 个白键 (即 A₄ / A440) 的频率是多少 Hz？请给出数值。",
+    "verifiable_answer": "440",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "ISO 16:1975; Acoustics — Standard tuning frequency (A₄ = 440 Hz)"
+    },
+    "verification": "exact",
+    "answer_explanation": "A₄ = 440 Hz 是国际通用的标准音高 (concert pitch)。该标准由 1939 年伦敦国际会议提出，后被 ISO 16:1975 固化。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

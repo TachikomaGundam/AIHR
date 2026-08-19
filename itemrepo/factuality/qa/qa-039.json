@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.phys-si-unit-current",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "在国际单位制 (SI) 中，电流的基本单位是什么？请给出该单位的中文名称和符号。",
+    "verifiable_answer": "安培",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "BIPM SI brochure, Section 2.3.1 (base units: ampere, symbol A)"
+    },
+    "verification": "exact",
+    "answer_explanation": "SI 国际单位制的 7 个基本单位之一。电流的单位是安培 (Ampere)，符号 A。2019 年 SI 改制后，安培的定义基于基本电荷 e 的精确值。",
+    "answer_keys": [
+      "安培",
+      "A"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

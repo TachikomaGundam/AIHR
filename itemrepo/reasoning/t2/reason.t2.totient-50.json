@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t2.totient-50",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "欧拉函数 φ(n) 表示不超过 n 且与 n 互素的正整数个数。求 φ(50)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 20
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 20
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

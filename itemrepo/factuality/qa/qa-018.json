@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.net-ipv6-addressing-rfc-4291",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "IPv6 地址的基本架构 (Addressing Architecture) 在哪个 RFC 文档中定义？请给出当前有效的 RFC 编号。",
+    "verifiable_answer": "RFC 4291",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 4291, IP Version 6 Addressing Architecture, February 2006"
+    },
+    "verification": "exact",
+    "answer_explanation": "IPv6 Addressing Architecture 由 RFC 4291 (February 2006) 定义，取代了 RFC 3513 (2003) 与更早的 RFC 2373 (1998)。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

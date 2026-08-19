@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.trend-direction",
+  "type": "vision",
+  "tier": 3,
+  "payload": {
+    "image_ref": "img/crt_04_trend_direction.png",
+    "kind": "chart_extract",
+    "question": "Looking at the highlighted yellow interval (x = 4 to x = 8), what is the overall trend direction of the line (answer 'increasing' or 'decreasing')?",
+    "answer": "decreasing"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:fa503289b1d56099b9cf37e550d30dcc92ef75656e8d0e9cc7489768307b743b"
+}

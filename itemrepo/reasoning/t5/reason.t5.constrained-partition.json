@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.constrained-partition",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "将 20 写成恰好 5 个正整数之和 (无序,即分拆),且每个部分不超过 7,共有多少种分拆?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 32,
+      "crosscheck_value": 32
+    },
+    "checkpoints": [
+      "sets up partition recurrence with non-decreasing parts",
+      "counts unordered partitions of 20 into 5 parts from {1..7}"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 32
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "sets up partition recurrence with non-decreasing parts"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "counts unordered partitions of 20 into 5 parts from {1..7}"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

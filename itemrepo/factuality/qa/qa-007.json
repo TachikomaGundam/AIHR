@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-quadratic-roots-sum",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "二次方程 x^2 - 5x + 6 = 0 的两个根之和是多少？",
+    "verifiable_answer": "5",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "Vieta's formulas"
+    },
+    "verification": "exact",
+    "answer_explanation": "由韦达定理，x² - 5x + 6 = 0 的根之和 = -b/a = 5。（根为 2 和 3，2+3=5。）"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

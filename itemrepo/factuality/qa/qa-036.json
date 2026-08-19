@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-dice-total-pips",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "一枚标准六面骰子的六个面 (1 至 6 点) 的点数总和是多少？",
+    "verifiable_answer": "21",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "1+2+3+4+5+6 = 21"
+    },
+    "verification": "exact",
+    "answer_explanation": "1 + 2 + 3 + 4 + 5 + 6 = 21。（或等差数列求和 6×(1+6)/2 = 21。）"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

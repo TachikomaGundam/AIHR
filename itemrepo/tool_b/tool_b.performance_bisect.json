@@ -1,0 +1,62 @@
+{
+  "item_key": "tool_b.performance_bisect",
+  "type": "tool_b",
+  "tier": 6,
+  "content_hash": "sha256:950c8414c11ec6026ca2a69a24248ec760ee3cd834b9e33e5e63a10582ebf97b",
+  "payload": {
+    "scenario_id": "tb_performance_bisect",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "v1.0.0 到 v1.0.10 之间有性能回退（启动时间从 200ms 涨到 2s）。帮我用 git bisect 找出有问题的 commit。标准：启动时间 > 1000ms 视为 bad。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 3,
+        "error": {
+          "code": "GIT_BISECT_SKIP",
+          "message": "Bisect skipped commit abc123 (cannot build); try adjacent commit"
+        }
+      },
+      {
+        "at_tool_call": 8,
+        "error": {
+          "code": "TEST_TIMEOUT",
+          "message": "Bench script timed out at 60000ms; commit likely hangs during init"
+        }
+      }
+    ],
+    "success_checks": [
+      "exit_code:0:git bisect log",
+      "git_bisect_found_bad_commit",
+      "command_used:git bisect",
+      "file_contains_output:git bisect log:first bad commit",
+      "bisect_completed"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 12,
+      "max_turns": 20
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "Bisect a performance regression across 10 commits to find the offending commit",
+    "injection_count": 2
+  }
+}

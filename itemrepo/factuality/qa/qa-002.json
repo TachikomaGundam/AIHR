@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.chem-group-18-last-natural-noble-gas",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "元素周期表的第18族 (稀有气体) 中，最后一个天然存在的、具有稳定同位素（即非人工合成）的元素是什么？请给出该元素的中英文名称和化学符号。",
+    "verifiable_answer": "Rn",
+    "source_of_truth": {
+      "kind": "iupac_periodic_table",
+      "ref": "Group 18 = He, Ne, Ar, Kr, Xe, Rn, Og; Rn is last natural"
+    },
+    "verification": "exact",
+    "answer_explanation": "氡 (Radon, Rn) 原子序数 86，是最后一个天然存在的稀有气体元素（Og 为人工超级重元素）。",
+    "answer_keys": [
+      "氡",
+      "Rn"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

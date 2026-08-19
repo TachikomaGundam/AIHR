@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.seq2seq-arxiv",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "请给出 Sutskever, Vinyals, Le 2014 年论文《Sequence to Sequence Learning with Neural Networks》的 arXiv 编号。",
+    "required_claims": [
+      "1409.3215"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 2,
+  "type": "citation"
+}

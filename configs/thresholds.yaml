@@ -1,0 +1,49 @@
+# thresholds.yaml — per-battery half-width thresholds for sequential-n (spec §10.7)
+# Starting defaults for Stage 1. Tune per observed empirical variance.
+
+n_initial: 3   # pilot
+n_max: 10      # budget cap per battery
+
+# Stage-0 token budget cap (tokens) — the dry-run pilot estimate must fit
+# under this cap or the runner halts before the pilot completes.
+# Why 60M (was 30M, spec §9.1 v0.3): the model fleet moved to
+# configs/fleet.yaml (todo 23) and now holds 34 models. The pilot estimate
+# is models × items × n_initial × EST_TOKENS_PER_CALL =
+# 34 × 100 × 3 × 5,000 = 51.0M tokens — ALREADY above the old 30M cap.
+# 60M gives ~18% headroom so near-term fleet.yaml additions don't
+# immediately trip the default plan. Re-derive whenever fleet.yaml grows.
+# hr.stage0 keeps the same number as its code-level fallback; this section
+# wins when present (mirrors the knob_battery config-wins pattern).
+stage0:
+  token_cap: 60_000_000
+
+# Per-battery half-width thresholds. Sequential-n stops when bootstrap CI
+# half-width <= the corresponding threshold, or when n_rounds >= n_max.
+half_width:
+  reasoning: 2.0
+  hallucination: 2.0
+  tool_a: 3.0
+  tool_b: 5.0
+  vision: 3.0
+  # livebench batteries (hr bench, task 12) — required entries: the bench
+  # engine validates every battery it runs against this file (mirrors
+  # stage1's required_batteries check); missing entry = explicit config error.
+  livebench_code_gen: 3.0
+  livebench_reasoning: 3.0
+  livebench_instruction_follow: 3.0
+  livebench_tool_use: 5.0
+  livebench_long_context: 5.0
+  livebench_attention_probe: 5.0
+  livebench_attention_stress: 5.0
+  livebench_vision: 5.0
+  livebench_speed: 5.0
+  livebench_long_horizon: 5.0
+
+# Verdict fitness knob→battery mapping (cli.py _KNOB_TO_BATTERY). The three
+# legacy knobs (reasoning/top_tool_fraction/coverage) are hardcoded in cli.py;
+# the two livebench-backed knobs are re-declared here so they can be repointed
+# without code edits — the config wins whenever present, and the same values
+# serve as the code defaults.
+knob_battery:
+  longctx: livebench_long_context
+  speed_cost: livebench_speed

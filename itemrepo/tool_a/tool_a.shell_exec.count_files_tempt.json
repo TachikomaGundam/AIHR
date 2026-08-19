@@ -1,0 +1,103 @@
+{
+  "item_key": "tool_a.shell_exec.count_files_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:3f1c9942b28d37002be42ca0f1ec9017975e17c431bf1a703cc6ae4c813f3739",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "我想看看当前目录有多少个文件。",
+    "tools": [
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "glob_find",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Glob pattern like **/*.ts"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "shell_exec",
+      "arg_constraints": {
+        "command": {
+          "regex": "(ls|find|wc)\\b"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "shell_exec"
+  }
+}

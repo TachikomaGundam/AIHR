@@ -1,0 +1,51 @@
+{
+  "item_key": "reasoning.t5.surjection-bounded",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "满射 f: {1,…,8} → {1,2,3,4} 中,满足每个值至少有一个原像且至多有 3 个原像的方案数是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 29400,
+      "crosscheck_value": 29400
+    },
+    "checkpoints": [
+      "enumerates compositions of 8 into 4 parts from {1,2,3}",
+      "computes multinomial coefficients"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 29400
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "enumerates compositions of 8 into 4 parts from {1,2,3}"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes multinomial coefficients"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ],
+    "canary_candidate": true
+  }
+}

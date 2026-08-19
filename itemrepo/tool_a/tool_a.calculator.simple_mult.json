@@ -1,0 +1,102 @@
+{
+  "item_key": "tool_a.calculator.simple_mult",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:5b2997acc503cbbeb256836e458cd97a6600770f8cef92476cdb6011f0ecb3bf",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "123 乘以 456 是多少？",
+    "tools": [
+      {
+        "name": "calculator",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "Math expression e.g. '(1+2)*3'"
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "db_query",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "sql"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "calculator",
+      "arg_constraints": {
+        "expression": {
+          "regex": "^123\\s*\\*\\s*456$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "calculator"
+  }
+}

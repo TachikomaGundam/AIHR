@@ -1,0 +1,127 @@
+{
+  "item_key": "tool_a.grep_search.console_log_count",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:4af5ed2742b63b1f07982a2ae36a9dcbf87f46f70227547de65369e9c6007f62",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "统计项目里有多少行包含 'console.log'。",
+    "tools": [
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "code_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "typescript",
+                "python",
+                "rust",
+                "go",
+                "java"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "grep_search",
+      "arg_constraints": {
+        "pattern": {
+          "regex": "console\\.log"
+        },
+        "output_mode": {
+          "enum": [
+            "count"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "grep_search"
+  }
+}

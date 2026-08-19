@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t2.mod-power",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "求 5^23 除以 101 的余数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 97
+    },
+    "checkpoints": [
+      "uses Fermat's little theorem with phi(101)=100"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 97
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses Fermat's little theorem with phi(101)=100"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

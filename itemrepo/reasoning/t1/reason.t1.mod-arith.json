@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t1.mod-arith",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求 17^5 除以 7 的余数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 5
+    },
+    "checkpoints": [
+      "reduces 17 ≡ 3 (mod 7)",
+      "computes 3^5 mod 7"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 5
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "reduces 17 ≡ 3 (mod 7)"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes 3^5 mod 7"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

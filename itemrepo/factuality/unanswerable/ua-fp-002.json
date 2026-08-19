@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.fp.aq-kong-ethui-dialogue",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出鲁迅作品中并无阿Q和孔乙己的会面/对话",
+      "指出咸亨酒店是《孔乙己》的场景",
+      "指出阿Q和孔乙己出自不同作品"
+    ],
+    "question": "鲁迅在《阿Q正传》中安排阿Q在咸亨酒店与孔乙己进行过一次对话。请引用其中阿Q的一段经典台词。",
+    "why_unanswerable": "前提不成立：《阿Q正传》中从未出现阿Q与孔乙己对话；《孔乙己》和《阿Q正传》是两篇独立作品。"
+  },
+  "tier": 2,
+  "type": "unanswerable"
+}

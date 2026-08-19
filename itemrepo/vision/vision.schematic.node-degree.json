@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.node-degree",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/sch_08_node_degree.png",
+    "kind": "schematic",
+    "question": "How many directed edges connect to or from the highlighted 'Router' node (counting both incoming and outgoing)?",
+    "answer": "4"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:dc3f171c4c21e21c65234928e7f17e7afd15775166e1836a232816ad84687d0c"
+}

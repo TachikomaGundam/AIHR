@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.signal-flow",
+  "type": "vision",
+  "tier": 3,
+  "payload": {
+    "image_ref": "img/sch_03_signal_flow.png",
+    "kind": "schematic",
+    "question": "Does a signal path exist from the output of the Sensor back into the Controller (answer 'yes' or 'no')?",
+    "answer": "yes"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:b9408f0a55edc829e7d0e4fa2ad1e4ca2f1b21a22c25ae7030d54aca94903523"
+}

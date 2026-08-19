@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.net-tcp-rfc-793",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "传输控制协议 (Transmission Control Protocol) 在哪个 RFC 文档中首次被完整定义？请给出 RFC 编号。",
+    "verifiable_answer": "RFC 793",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 793, Transmission Control Protocol, September 1981"
+    },
+    "verification": "exact",
+    "answer_explanation": "RFC 793 (September 1981) 是 TCP 的首个完整标准定义，取代了更早的实验性规范。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

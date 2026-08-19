@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t4.bipartite-edges",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "完全二部图 K_{5,7} 的边数是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 35
+    },
+    "checkpoints": [],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 35
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

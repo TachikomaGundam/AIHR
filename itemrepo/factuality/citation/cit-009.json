@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.gpt3-wrong-title-year",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "请给出 Brown 等人 2021 年发表在 NeurIPS 的论文《GPT-3: An Autoregressive Language Model with 175 Billion Parameters》的引用信息(arXiv 编号、发表年份、会议)。",
+    "required_claims": [
+      "陷阱:该论文的真实标题是《Language Models are Few-Shot Learners》(非'GPT-3: An Autoregressive L...'), 发表于 NeurIPS 2020 (非 2021), arXiv:2005.14165。模型应纠正或拒绝按错误前提引用。"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 4,
+  "type": "citation"
+}

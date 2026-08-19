@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.net-tcp-first-handshake-flag",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "TCP 连接的 '四次挥手' 关闭过程中：客户端 (主动关闭方) 先发送一个 FIN 报文给服务器。服务器 (被动关闭方) 收到该 FIN 后，首先回应的报文携带的标志位是什么？请只给出该报文携带的标志位英文缩写（如 SYN, FIN, ACK 之类）。",
+    "verifiable_answer": "ACK",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 793 §3.5 (CLOSE operation); TCP connection termination (four-way handshake)"
+    },
+    "verification": "exact",
+    "answer_explanation": "按 TCP 关闭序列: 1) active closer 发 FIN; 2) passive closer 回应 ACK (确认收到 FIN); 3) passive closer 发自己的 FIN (当其应用程序也关闭时); 4) active closer 回应 ACK。因此第二报文携带的标志位是 ACK（不是 SYN、FIN 或 RST）。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

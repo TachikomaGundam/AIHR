@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t1.lcm-set",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求整数集合 {8, 12, 18} 的最小公倍数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 72
+    },
+    "checkpoints": [
+      "factorizes each integer",
+      "combines using lcm rule"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 72
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "factorizes each integer"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "combines using lcm rule"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "deep"
+    ]
+  }
+}

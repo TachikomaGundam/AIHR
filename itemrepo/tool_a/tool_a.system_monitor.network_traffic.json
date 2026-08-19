@@ -1,0 +1,142 @@
+{
+  "item_key": "tool_a.system_monitor.network_traffic",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:09dc2e167346cc14cad9480a0314aef641255f06fedef4d1b763164c6d59f5b3",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "监控 60 秒的网络流量，5 秒采样。",
+    "tools": [
+      {
+        "name": "system_monitor",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process"
+              ]
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds to sample"
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "metric"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "system_monitor",
+      "arg_constraints": {
+        "metric": {
+          "enum": [
+            "network"
+          ]
+        },
+        "duration": {
+          "range": [
+            60,
+            60
+          ]
+        },
+        "interval": {
+          "range": [
+            5,
+            5
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "system_monitor"
+  }
+}

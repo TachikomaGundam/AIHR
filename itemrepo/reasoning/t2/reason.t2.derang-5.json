@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t2.derang-5",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "5 封信装入 5 个写有不同地址的信封,要使每封信都装错信封,共有多少种方案?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 44
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 44
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

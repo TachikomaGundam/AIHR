@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t3.hamilton-k5",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "完全图 K_5 中,以指定顶点 (例如顶点 1) 为起点访问所有顶点恰好一次的简单路径有多少条?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 24
+    },
+    "checkpoints": [
+      "recognizes this as permutations of remaining 4 vertices"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 24
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "recognizes this as permutations of remaining 4 vertices"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

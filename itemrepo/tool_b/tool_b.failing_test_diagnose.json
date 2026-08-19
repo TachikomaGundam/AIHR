@@ -1,0 +1,61 @@
+{
+  "item_key": "tool_b.failing_test_diagnose",
+  "type": "tool_b",
+  "tier": 5,
+  "content_hash": "sha256:7ab0816feee8ec06d1df3241a33ad4fd4758e63759cb44d1dc690f82f1fbf536",
+  "payload": {
+    "scenario_id": "tb_failing_test_diagnose",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "pytest 报错说 test_calculator.py::test_divide_by_zero 失败了。帮我诊断原因并修复。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 1,
+        "error": {
+          "code": "TEST_FAILURE",
+          "message": "FAILED test_calculator.py::test_divide_by_zero - ZeroDivisionError: division by zero\nActual: function raises ZeroDivisionError\nExpected: function returns float('inf')"
+        }
+      },
+      {
+        "at_tool_call": 4,
+        "error": {
+          "code": "EDIT_NOT_FOUND",
+          "message": "oldString not found in file; check exact match"
+        }
+      }
+    ],
+    "success_checks": [
+      "exit_code:0:pytest test_calculator.py",
+      "file_contains:src/calculator.py:try",
+      "file_contains:src/calculator.py:ZeroDivisionError",
+      "pytest_passes:test_calculator.py::test_divide_by_zero"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 6,
+      "max_turns": 12
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "Run failing tests, read failure output, diagnose root cause in source, fix and re-run",
+    "injection_count": 2
+  }
+}

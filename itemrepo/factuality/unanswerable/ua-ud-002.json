@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.ud.company-salary-system",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "声明信息不足，解不唯一",
+      "给出参数关系 c(x − 500) = −200",
+      "指出缺少C组人数或平均薪金的某个独立约束"
+    ],
+    "question": "某公司有A、B、C三个项目组。A组 5 人平均日薪 400 元，B组 7 人平均日薪 600 元，全体员工的平均日薪是 500 元。请问C组的平均日薪是多少？",
+    "why_unanswerable": "无法唯一确定：设C组有 c 人、平均日薪为 x，则 c(x − 500) = −200。有无穷多组 (c, x) 满足（例如 c=1,x=300；c=2,x=400；c=4,x=450）。必须额外指定 c（C组人数）或 x 的某个约束才能唯一确定。"
+  },
+  "tier": 3,
+  "type": "unanswerable"
+}

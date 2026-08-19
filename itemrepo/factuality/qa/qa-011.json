@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.geo-southernmost-africa-cape",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "非洲大陆地理上的最南端是哪一个海角？请给出该海角的中英文名称（注意：常被误认为好望角 Cape of Good Hope）。",
+    "verifiable_answer": "厄加勒斯",
+    "source_of_truth": {
+      "kind": "geographic_fact",
+      "ref": "Cape Agulhas at 34°49'S 19°58'E, southernmost point of mainland Africa"
+    },
+    "verification": "exact",
+    "answer_explanation": "厄加勒斯海角 (Cape Agulhas) 位于南纬 34°49'、东经 19°58'。是非洲大陆最南端，也常被官方定为大西洋与印度洋的分界点。好望角 (Cape of Good Hope) 位于更西北处，不是最南端。",
+    "answer_keys": [
+      "厄加勒斯",
+      "Agulhas"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

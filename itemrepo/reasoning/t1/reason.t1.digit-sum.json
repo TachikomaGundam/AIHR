@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t1.digit-sum",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求 7^6 的十进制表示中各位数字之和。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 28
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 28
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

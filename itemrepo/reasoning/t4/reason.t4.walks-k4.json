@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t4.walks-k4",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "在完全图 K_4 中,从顶点 1 到顶点 2、长度为 3 的游走 (walk,顶点和边允许重复) 共有多少条?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 7
+    },
+    "checkpoints": [
+      "uses adjacency matrix or eigenvalue method"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 7
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses adjacency matrix or eigenvalue method"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

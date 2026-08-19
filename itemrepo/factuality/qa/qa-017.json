@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.net-tls-1-3-rfc-8446",
+  "type": "factuality_qa",
+  "tier": 3,
+  "payload": {
+    "question": "TLS 1.2 协议在哪个 RFC 文档中定义？请给出该 RFC 编号与发布年份。（注意: 不要与定义 TLS 1.3 的 RFC 8446 混淆。）",
+    "verifiable_answer": "RFC 5246",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 5246, The Transport Layer Security (TLS) Protocol Version 1.2, August 2008"
+    },
+    "verification": "exact",
+    "answer_explanation": "TLS 1.2 由 RFC 5246 定义，发布于 August 2008。注意区分: TLS 1.3 = RFC 8446 (August 2018)；TLS 1.1 = RFC 4346 (April 2006)；TLS 1.0 = RFC 2246 (January 1999)。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

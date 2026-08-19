@@ -1,0 +1,110 @@
+{
+  "item_key": "tool_a.git_diff.last_commit_changes",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:343b20fd58ab5000e9e976d396d68f3358101a6a1ef921b97680f285a228b8b9",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "我想知道上次 commit 之后我改了啥。",
+    "tools": [
+      {
+        "name": "git_diff",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Base ref (commit/tag/branch)"
+            },
+            "head": {
+              "type": "string"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "base"
+          ]
+        }
+      },
+      {
+        "name": "git_commit",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "amend": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "git_diff",
+      "arg_constraints": {
+        "base": {
+          "regex": "^HEAD\\^?$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "git_diff"
+  }
+}

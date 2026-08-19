@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.dense-resistor-net",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/sch_10_dense_resistor_net.png",
+    "kind": "schematic",
+    "question": "How many resistors have one terminal connected to the 'GND' node?",
+    "answer": "4"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:f963e9c6e5b1a65bf25f025e99db2b7651ff8c5a646a53ff205c18e978e73c15"
+}

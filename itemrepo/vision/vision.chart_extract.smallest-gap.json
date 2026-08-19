@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.smallest-gap",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/crt_07_smallest_gap.png",
+    "kind": "chart_extract",
+    "question": "For which category is the absolute difference between Series A (blue) and Series B (red) the smallest? Answer with the category label.",
+    "answer": "Q5"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:a740e5ed539fe387b9f3b2b1cd493dfa1276bffec36305644da8eaa6bc61c263"
+}

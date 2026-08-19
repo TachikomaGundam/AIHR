@@ -1,0 +1,66 @@
+# models.yaml — per-model pricing + capability overlay (knowledge data).
+# pricing: output cost in USD per 1M output tokens (estimates where marked;
+# relative basis for ranking). Loaded by hr.recommend via hr.config.load_yaml.
+#
+# capabilities: conservative per-model overlay — entries keyed by bare slug
+#             (applies on every wire) or by namespaced "provider/slug" (wins).
+#             thinking/vision default to False for anything unstated.
+#
+# Provider WIRE TYPES are NOT declared in this file anymore: they are derived
+# at runtime from the opencode config's `provider.<name>.npm` field
+# (@ai-sdk/anthropic -> anthropic-compat; @ai-sdk/openai-compatible /
+# @ai-sdk/openai -> openai-compat) with the OPTIONAL `wire_overrides:` map
+# in configs/fleet.yaml for registry-only providers (kimi-for-coding ->
+# anthropic-compat, deepseek -> openai-compat). models.yaml therefore stays
+# valid as pure knowledge data for whatever model the opencode config
+# declares — new models get conservative capabilities until someone adds an
+# entry here, exactly like before.
+
+pricing:
+  qwen3.6-flash: 1.00
+  qwen3.6-plus: 3.00
+  qwen3.7-plus: 1.60
+  qwen3.7-max: 7.50
+  qwen3.8-max-preview: 3.75
+  kimi-k2.5: 2.00
+  kimi-k2.6: 2.00
+  kimi-k2.7-code: 3.00
+  kimi-for-coding: 3.00
+  kimi-for-coding-highspeed: 3.50
+  k3: 3.00
+  glm-5: 2.00
+  glm-5.1: 2.50
+  glm-5.2: 4.40
+  deepseek-v3.2: 0.41
+  deepseek-v4-flash: 0.28
+  deepseek-v4-pro: 0.87
+  MiniMax-M2.5: 2.40
+
+capabilities:
+  # Generic public knowledge: bare-slug thinking/vision facts. Flags that
+  # depend on THIS machine's gateway/wire live in the gitignored
+  # configs/models.local.yaml overlay.
+  qwen3.7-max: {thinking: true, vision: true}
+  qwen3.8-max: {thinking: true, vision: true}
+  qwen3.8-max-preview: {thinking: true, vision: true}
+  qwen3.7-plus: {thinking: true, vision: true}
+  qwen3.6-plus: {thinking: true, vision: true}
+  qwen3.6-flash: {thinking: true, vision: true}
+  kimi-k2.5: {thinking: true, vision: true}
+  kimi-k2.6: {thinking: true, vision: true}
+  kimi-k2.7-code: {thinking: true, vision: true}
+  glm-5: {thinking: true, vision: false}
+  glm-5.1: {thinking: true, vision: false}
+  glm-5.2: {thinking: true, vision: false}
+  MiniMax-M2.5: {thinking: false, vision: true}
+  # Kimi gateway (kimi-for-coding) — models.json reasoning:true + image/video
+  # modalities; these slugs were unlisted before (old default said no thinking).
+  kimi-for-coding: {thinking: true, vision: true}
+  kimi-for-coding-highspeed: {thinking: true, vision: true}
+  k3: {thinking: true, vision: true}
+  # DeepSeek wire — models.json reasoning:true, text-only.
+  deepseek/deepseek-v4-flash: {thinking: true, vision: false}
+  deepseek/deepseek-v4-pro: {thinking: true, vision: false}
+  # Deployment-specific namespaced facts (openjsonc flags on THIS machine's
+  # gateway) live in the gitignored configs/models.local.yaml overlay — this
+  # tracked file ships generic public model knowledge only.

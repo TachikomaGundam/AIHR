@@ -1,0 +1,138 @@
+{
+  "item_key": "tool_a.deploy_service.registry_gateway",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:3c2b741ddf0b9272066c472201c6edfac4c4e7ec7a27ac4ff5dd78e8ea25fc23",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "用 registry.internal/team/app:latest 部署 gateway 到 staging。",
+    "tools": [
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "deploy_service",
+      "arg_constraints": {
+        "service": {
+          "regex": "^gateway$"
+        },
+        "image": {
+          "regex": "^registry\\.internal/team/app:latest$"
+        },
+        "env": {
+          "enum": [
+            "staging"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "deploy_service"
+  }
+}

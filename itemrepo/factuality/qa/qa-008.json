@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-e-6-decimal-places",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "自然对数底 e (Euler's number) 的前 10 位小数（不含整数部分，按顺序给出 10 位数字）是什么？",
+    "verifiable_answer": "7182818284",
+    "source_of_truth": {
+      "kind": "mathematical_constant",
+      "ref": "Euler's number e, OEIS A001113; computed digits verifiable"
+    },
+    "verification": "exact",
+    "answer_explanation": "e = 2.71828182845904523536... 小数位 (1-indexed): 1→7, 2→1, 3→8, 4→2, 5→8, 6→1, 7→8, 8→2, 9→8, 10→4。前 10 位小数连续为 '7182818284'。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

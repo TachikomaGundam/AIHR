@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.ud.mean-score-insufficient",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "声明信息不足、无法唯一确定",
+      "指出仅凭'高于平均'这一个约束解不出来",
+      "可补全所缺条件（例如需要知道最高分或小明在班中排名等）"
+    ],
+    "question": "某班 30 名学生的平均分是 85 分，已知小明的成绩高于平均分。请问小明考了多少分？",
+    "why_unanswerable": "无法唯一确定：仅知道小明分数 > 85，缺少其他约束（如小明在班中的具体排名、班级最高分、考试满分等），答案不唯一。"
+  },
+  "tier": 1,
+  "type": "unanswerable"
+}

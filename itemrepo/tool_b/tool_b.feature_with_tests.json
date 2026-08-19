@@ -1,0 +1,56 @@
+{
+  "item_key": "tool_b.feature_with_tests",
+  "type": "tool_b",
+  "tier": 5,
+  "content_hash": "sha256:4db04b377c032055ddbc4c9e17e497cdb126dec5ad465a1f349aea2aaf9780b8",
+  "payload": {
+    "scenario_id": "tb_feature_with_tests",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "在 src/services/user_service.py 里加一个 search_by_email(email: str) -> Optional[User] 方法。同时写对应的测试在 tests/test_user_service.py。要求测试通过。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 3,
+        "error": {
+          "code": "TEST_FAILURE",
+          "message": "FAILED tests/test_user_service.py::test_search_by_email_not_found - AssertionError: expected None, got User()"
+        }
+      }
+    ],
+    "success_checks": [
+      "exit_code:0:pytest tests/test_user_service.py",
+      "file_contains:src/services/user_service.py:search_by_email",
+      "file_contains:tests/test_user_service.py:search_by_email",
+      "file_contains:src/services/user_service.py:Optional",
+      "pytest_passes:tests/test_user_service.py::test_search_by_email",
+      "pytest_passes:tests/test_user_service.py::test_search_by_email_not_found"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 9,
+      "max_turns": 18
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "Add 'user search by email' feature + write tests that pass",
+    "injection_count": 1
+  }
+}

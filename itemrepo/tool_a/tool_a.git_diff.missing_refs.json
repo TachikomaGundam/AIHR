@@ -1,0 +1,107 @@
+{
+  "item_key": "tool_a.git_diff.missing_refs",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:35f203a89b76bb8ec0ecc7f2dc5991336279ba0930dc31bd8f3d703485ca0ae9",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "比较两个东西。",
+    "tools": [
+      {
+        "name": "git_diff",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Base ref (commit/tag/branch)"
+            },
+            "head": {
+              "type": "string"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "base"
+          ]
+        }
+      },
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "git_diff"
+  }
+}

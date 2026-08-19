@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t1.sum-1-100",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求 1+2+⋯+100 的和。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 5050
+    },
+    "checkpoints": [
+      "states formula n(n+1)/2",
+      "computes 100*101/2 = 5050"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 5050
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "states formula n(n+1)/2"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes 100*101/2 = 5050"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

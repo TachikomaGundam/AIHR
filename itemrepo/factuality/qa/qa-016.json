@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.net-http-304",
+  "type": "factuality_qa",
+  "tier": 3,
+  "payload": {
+    "question": "HTTP/1.1 的核心语义（包括 methods、status codes、header fields 的通用定义）目前由哪个 RFC 文档统一规定？请给出当前有效 RFC 编号。（注意: 不是 2014 年发布的旧 RFC 7231。）",
+    "verifiable_answer": "RFC 9110",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "RFC 9110, HTTP Semantics, June 2022"
+    },
+    "verification": "exact",
+    "answer_explanation": "RFC 9110 (June 2022) 'HTTP Semantics' 统一规定了 HTTP/1.1 的核心语义，取代了 RFC 7231 (2014) 'HTTP/1.1 Semantics and Content' 及其相关兄弟 RFCs (7232..7235)。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

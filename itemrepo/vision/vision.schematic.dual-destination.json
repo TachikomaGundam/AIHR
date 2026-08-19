@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.schematic.dual-destination",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/sch_09_dual_destination.png",
+    "kind": "schematic",
+    "question": "Among the four nodes downstream of 'Router', which one does NOT have an outgoing edge to 'Sink'?",
+    "answer": "TaskD"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "circuit_engineer"
+    ]
+  },
+  "content_hash": "sha256:13d493434fa6fff763eb6eb0a02db3f1a86da35cf10bc9b944543126d34a6320"
+}

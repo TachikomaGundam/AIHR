@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.bio-dna-base-pairing",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "DNA 双螺旋中，腺嘌呤 (A)、胸腺嘧啶 (T)、鸟嘌呤 (G)、胞嘧啶 (C) 的配对规则是什么？请给出字母表示的配对（例如 'A 配 T; G 配 C' 之类）。",
+    "verifiable_answer": "A",
+    "source_of_truth": {
+      "kind": "scientific_fact",
+      "ref": "Watson & Crick 1953 Nature 171:737-738; base pairing rules"
+    },
+    "verification": "exact",
+    "answer_explanation": "Watson-Crick 碱基配对规则：腺嘌呤 A 与胸腺嘧啶 T 配对 (2 氢键)；鸟嘌呤 G 与胞嘧啶 C 配对 (3 氢键)。（模型答案中应出现 'A-T' 或 'A 配 T'、'G-C' 或 'G 配 C' 之类配对关系。）",
+    "answer_keys": [
+      "A-T",
+      "G-C"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.crypto-sha-256-output-bytes",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "SHA-3-512 哈希算法的输出字节长度是多少？请仅给出字节数（不是位数）。（注意: 不要与 SHA-256、SHA-512 (SHA-2 家族) 混淆。）",
+    "verifiable_answer": "64",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "FIPS 202, August 2015 (SHA-3 standard: SHA3-224, SHA3-256, SHA3-384, SHA3-512)"
+    },
+    "verification": "exact",
+    "answer_explanation": "SHA-3-512 输出 512 位，按 8 位/字节换算等于 64 字节。注意区分: SHA-2 家族的 SHA-256 输出 32 字节、SHA-512 输出 64 字节；但 SHA-3 与 SHA-2 是不同算法系列 (SHA-3 基于 Keccak)，虽然输出长度可以相同。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

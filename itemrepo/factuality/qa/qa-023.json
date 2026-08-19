@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.os-posix-stderr-fd",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "在 Linux / POSIX 系统中，信号 SIGKILL (用于强制终止进程、不可被捕获的信号) 对应的信号编号 (signal number) 是多少？请仅给出数字。",
+    "verifiable_answer": "9",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "POSIX.1 IEEE Std 1003.1 signal.h; Linux signal(7) man page"
+    },
+    "verification": "exact",
+    "answer_explanation": "SIGKILL 在 Linux 系统中对应的信号编号为 9 (常写作 'kill -9')。按 POSIX.1 规范 SIGKILL 与 SIGSTOP 不可被捕获或忽略; 在 Linux/BSD 的 signal.h 中，SIGKILL 的宏值定义为 9。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

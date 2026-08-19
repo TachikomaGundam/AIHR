@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.python3-division-1-over-2-type",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "在 Python 3 中，表达式 1 / 2 的返回值的数据类型 (Python type) 是什么？请给出类型名 (如 int, float 等)。",
+    "verifiable_answer": "float",
+    "source_of_truth": {
+      "kind": "language_specification",
+      "ref": "Python 3 language reference, §5.6 (Binary arithmetic operations); PEP 238"
+    },
+    "verification": "exact",
+    "answer_explanation": "Python 3 真除法 (true division): 1 / 2 = 0.5，type(1/2) 返回 <class 'float'>。若需整除请使用 //。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "item_key": "tool_b.refactor_rename",
+  "type": "tool_b",
+  "tier": 5,
+  "content_hash": "sha256:2322c4cb8c05d11d7b2ba88d91d24ef742e91553b83ec30f51b846c5549f850d",
+  "payload": {
+    "scenario_id": "tb_refactor_rename",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "请把 src/utils.js 里的 processData 函数改名为 transformPayload，同时更新所有调用方（至少 index.js 和 test.js 各有一处），类型签名也要同步。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 3,
+        "error": {
+          "code": "LSP_NO_DEFINITION",
+          "message": "LSP could not find definition for symbol; manual grep required"
+        }
+      }
+    ],
+    "success_checks": [
+      "file_exists:src/utils.js",
+      "file_contains:src/utils.js:transformPayload",
+      "file_not_contains:src/utils.js:processData",
+      "file_contains:index.js:transformPayload",
+      "file_not_contains:index.js:processData",
+      "file_contains:test.js:transformPayload",
+      "grep_count:processData:0"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 8,
+      "max_turns": 15
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "Rename exported function 'processData' to 'transformPayload' across 3 files with proper type propagation",
+    "injection_count": 1
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "item_key": "tool_b.data_pipeline_mid_failure",
+  "type": "tool_b",
+  "tier": 6,
+  "content_hash": "sha256:1b2aa86e4722d6ae0214b8d70e4ff89ad2e89f8cd63ddcc318f3fc62ada9585b",
+  "payload": {
+    "scenario_id": "tb_data_pipeline_mid_failure",
+    "env": "opencode-sandbox",
+    "turns": [
+      {
+        "user": "跑 /home/lab/pipeline/etl.py 时在第 3 步读 data/chunk_003.json 时报 JSONDecodeError。脚本一共 5 步。帮我修复数据问题，并在脚本里加上重试和校验。"
+      }
+    ],
+    "injections": [
+      {
+        "at_tool_call": 2,
+        "error": {
+          "code": "JSONDecodeError",
+          "message": "Expecting ',' delimiter: line 42 column 17 (char 654) in data/chunk_003.json"
+        }
+      },
+      {
+        "at_tool_call": 6,
+        "error": {
+          "code": "SCRIPT_RUNTIME_ERROR",
+          "message": "Traceback (most recent call last):\n  File etl.py line 47\n    json.loads(raw)\njson.decoder.JSONDecodeError: malformed"
+        }
+      }
+    ],
+    "success_checks": [
+      "exit_code:0:python /home/lab/pipeline/etl.py",
+      "file_contains:/home/lab/pipeline/etl.py:try",
+      "file_contains:/home/lab/pipeline/etl.py:json.loads",
+      "file_contains:/home/lab/pipeline/etl.py:retries",
+      "file_exists:data/chunk_003.json",
+      "json_valid:data/chunk_003.json"
+    ]
+  },
+  "grading": {
+    "grader": [
+      "unit_test@1.0",
+      "constraint@1.0"
+    ],
+    "params": {
+      "expected_optimal_turns": 10,
+      "max_turns": 20
+    },
+    "rubric_ref": "spec/5.3.tool_b"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "scenario_description": "ETL script fails mid-run at step 3 of 5 with malformed JSON; add validation and retry",
+    "injection_count": 2
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "item_key": "tool_a.browser_open.click_submit",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:0092a426a490afe7fdb3e2d7565d1a2c4f86a34fbc75d538fd52a3b36604df8f",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "打开 https://app.example.com 并点击按钮 '#submit-btn'。",
+    "tools": [
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "browser_open",
+      "arg_constraints": {
+        "url": {
+          "regex": "^https://app\\.example\\.com$"
+        },
+        "action": {
+          "enum": [
+            "click"
+          ]
+        },
+        "selector": {
+          "regex": "^#submit-btn$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "browser_open"
+  }
+}

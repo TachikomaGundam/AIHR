@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.geo-deepest-ocean-point",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "地球海洋已知的最深点位于哪条海沟中？该最深点的专门称呼是什么？请给出该海沟名与该最深点的中英文名称。",
+    "verifiable_answer": "挑战者深渊",
+    "source_of_truth": {
+      "kind": "geographic_fact",
+      "ref": "Mariana Trench > Challenger Deep, depth ~10,902-10,935 m (NOAA, GEBCO)"
+    },
+    "verification": "exact",
+    "answer_explanation": "地球海洋最深点位于马里亚纳海沟 (Mariana Trench) 中的挑战者深渊 (Challenger Deep)，深度约 10,902–10,935 米（不同测量有差异）。",
+    "answer_keys": [
+      "马里亚纳海沟",
+      "挑战者深渊"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

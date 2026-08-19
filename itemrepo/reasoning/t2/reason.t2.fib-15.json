@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t2.fib-15",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "斐波那契数列定义为 F(1)=1, F(2)=1, F(n)=F(n-1)+F(n-2)。求 F(15)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 610
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 610
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.crt-extra",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "求满足以下条件 x ≡ 2 (mod 7), x ≡ 3 (mod 11), x ≡ 5 (mod 13), x² ≡ 1 (mod 17) 的最小正整数 x。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 135,
+      "crosscheck_value": 135
+    },
+    "checkpoints": [
+      "solves CRT over 7·11·13",
+      "then imposes mod-17 constraint"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 135
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "solves CRT over 7·11·13"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "then imposes mod-17 constraint"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "deep"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.chem-iron-atomic-26",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "在元素周期表中，原子序数 74、标准原子量约 183.84 的元素是什么？请给出该元素的中英文名称及化学符号。（注意: 不要与邻近元素钽 / Tantalum, Z=73 混淆。）",
+    "verifiable_answer": "钨",
+    "source_of_truth": {
+      "kind": "iupac_periodic_table",
+      "ref": "IUPAC Standard Atomic Weights 2021; Tungsten (W), Z=74, Ar=183.84"
+    },
+    "verification": "exact",
+    "answer_explanation": "元素钨 (Tungsten, 符号 W; 源自德语 Wolfram)，原子序数 74，标准原子量 183.84。注意区分: 钽 (Tantalum, Ta, Z=73, Ar≈180.95)。",
+    "answer_keys": [
+      "钨",
+      "W"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

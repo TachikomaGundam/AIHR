@@ -1,0 +1,137 @@
+{
+  "item_key": "tool_a.deploy_service.analytics_prod",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:99c547a23c764764fbd5d62fa7ceddd1d421d621934531b7f61d70a1050de830",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "部署 analytics-worker 到 production，镜像 analytics:v4.0.0，20 副本。",
+    "tools": [
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "system_monitor",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process"
+              ]
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds to sample"
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "metric"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "deploy_service",
+      "arg_constraints": {
+        "service": {
+          "regex": "^analytics-worker$"
+        },
+        "image": {
+          "regex": "^analytics:v4\\.0\\.0$"
+        },
+        "env": {
+          "enum": [
+            "production"
+          ]
+        },
+        "replicas": {
+          "range": [
+            20,
+            20
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "deploy_service"
+  }
+}

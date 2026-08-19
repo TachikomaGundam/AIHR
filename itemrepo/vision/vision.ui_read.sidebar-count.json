@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.sidebar-count",
+  "type": "vision",
+  "tier": 2,
+  "payload": {
+    "image_ref": "img/ui_01_sidebar_count.png",
+    "kind": "ui_read",
+    "question": "How many navigation items are shown in the left sidebar?",
+    "answer": "5"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:8e521e0a9cd18702b5eabb2bdf61fd39a36c5cb58fb8cb2bff118ed89fbb7de2"
+}

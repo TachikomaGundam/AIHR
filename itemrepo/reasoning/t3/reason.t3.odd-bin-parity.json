@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t3.odd-bin-parity",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "在 1 到 127 (含两端) 中,二进制表示中 1 的个数为奇数的整数有多少个?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 64
+    },
+    "checkpoints": [
+      "recognizes balanced parity over full power-of-2 range"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 64
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "recognizes balanced parity over full power-of-2 range"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

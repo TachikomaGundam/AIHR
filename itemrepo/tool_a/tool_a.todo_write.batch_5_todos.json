@@ -1,0 +1,118 @@
+{
+  "item_key": "tool_a.todo_write.batch_5_todos",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:89586b0bc943b8f8d8b079b055baecc87ba9a2f6faccba69ba1c0c4cd6817875",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "创建 5 条 todo，content 分别是 A/B/C/D/E，初始全为 pending。id 从 'x1' 到 'x5'。",
+    "tools": [
+      {
+        "name": "todo_write",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "todos": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "in_progress",
+                      "completed"
+                    ]
+                  }
+                },
+                "required": [
+                  "id",
+                  "content",
+                  "status"
+                ]
+              }
+            }
+          },
+          "required": [
+            "todos"
+          ]
+        }
+      },
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "todo_write",
+      "arg_constraints": {
+        "todos": {
+          "type": "array"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "todo_write"
+  }
+}

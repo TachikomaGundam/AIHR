@@ -1,0 +1,137 @@
+{
+  "item_key": "tool_a.translate_text.missing_text_langs",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:db26b25e81353059d114f8c08bd0ae164e967d8b2302daf384cdf4017219c93d",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "做一下翻译。",
+    "tools": [
+      {
+        "name": "translate_text",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "source_lang": {
+              "type": "string",
+              "enum": [
+                "en",
+                "zh",
+                "ja",
+                "ko",
+                "fr",
+                "de",
+                "es"
+              ]
+            },
+            "target_lang": {
+              "type": "string",
+              "enum": [
+                "en",
+                "zh",
+                "ja",
+                "ko",
+                "fr",
+                "de",
+                "es"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "source_lang",
+            "target_lang"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "translate_text"
+  }
+}

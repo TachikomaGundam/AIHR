@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t4.multinomial-12",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "多项式系数 12! / (2! · 3! · 4! · 3!) 的值是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 277200
+    },
+    "checkpoints": [
+      "verifies the exponents sum to 12",
+      "computes factorials correctly"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 277200
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "verifies the exponents sum to 12"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes factorials correctly"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

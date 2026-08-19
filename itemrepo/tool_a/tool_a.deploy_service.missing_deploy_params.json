@@ -1,0 +1,116 @@
+{
+  "item_key": "tool_a.deploy_service.missing_deploy_params",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:16b3b9068d93bd56649bea983ab41c5a9de307e4158bd6b643847d3564a23bec",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "部署一个服务。",
+    "tools": [
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "system_monitor",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process"
+              ]
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds to sample"
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "metric"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "deploy_service"
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "item_key": "tool_a.glob_find.config_files_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:521c4dd3bf4d91de96ad7edc0506eb5747fe83672c1e585a197ed1af039e2337",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "给我看看项目里有哪些配置文件。",
+    "tools": [
+      {
+        "name": "glob_find",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Glob pattern like **/*.ts"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "code_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "typescript",
+                "python",
+                "rust",
+                "go",
+                "java"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "glob_find",
+      "arg_constraints": {
+        "pattern": {
+          "regex": "\\*\\*/\\*\\.(json|yaml|yml|toml|config)$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "glob_find"
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "item_key": "tool_a.browser_open.open_example",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:87ea88fd005385fe5711fa052faf39aa5b38de36d5d1f29cf009b29c2ded3aa3",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "用浏览器打开 https://example.com。",
+    "tools": [
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "browser_open",
+      "arg_constraints": {
+        "url": {
+          "regex": "^https://example\\.com$"
+        },
+        "action": {
+          "enum": [
+            "open"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "browser_open"
+  }
+}

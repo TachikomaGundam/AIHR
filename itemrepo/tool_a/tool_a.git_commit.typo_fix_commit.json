@@ -1,0 +1,110 @@
+{
+  "item_key": "tool_a.git_commit.typo_fix_commit",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:3f768b11de4992aa9df2113494b4b6713b3278dd450ff46740a66cc298a6c277",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "把当前所有改动提交一下，message 是 'fix: typo in README'。",
+    "tools": [
+      {
+        "name": "git_commit",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "amend": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        }
+      },
+      {
+        "name": "git_diff",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Base ref (commit/tag/branch)"
+            },
+            "head": {
+              "type": "string"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "base"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "git_commit",
+      "arg_constraints": {
+        "message": {
+          "regex": "^fix: typo in README$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "git_commit"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.dense-sidebar",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/ui_06_dense_sidebar.png",
+    "kind": "ui_read",
+    "question": "What is the label of the 7th navigation item in the left sidebar?",
+    "answer": "Billing"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:976ea608f1abc58fd44e8e7548288f753687bba2b0ad2aa4aba50bcdea38b3a5"
+}

@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t4.schroder-6",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "第 6 个大施罗德数 (large Schröder number) S_6 等于多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1806
+    },
+    "checkpoints": [],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1806
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "deep"
+    ]
+  }
+}
