@@ -2,10 +2,10 @@
   "item_key": "tool_a.grep_search.todo_ts",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:e878b068d038310611d5d4cfdcadabf716315ed765232b314f73089a21baebc8",
+  "content_hash": "sha256:89acd7599f2371aae80e10e32d89f753b305638e7e2d509eded4b0e38cb6d4c7",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "在 /home/lab/project 里搜索包含 'TODO' 的所有 TypeScript 文件。",
+    "user": "在 /project 里搜索包含 'TODO' 的所有 TypeScript 文件。",
     "tools": [
       {
         "name": "grep_search",

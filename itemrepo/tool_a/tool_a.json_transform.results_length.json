@@ -2,10 +2,10 @@
   "item_key": "tool_a.json_transform.results_length",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:f494d15cc891a5aa4c6e92809e3f95a23aff71ccf2f67213529f17eac216680e",
+  "content_hash": "sha256:5c30b17f7845194a233430d3f3ecfb2705ae507d5ed9fcdfb4d56820a8c79aab",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "对 /home/lab/result.json 应用 filter '.results | length'。",
+    "user": "对 /project/result.json 应用 filter '.results | length'。",
     "tools": [
       {
         "name": "json_transform",
@@ -82,7 +82,7 @@
           "regex": "^\\.results\\s*\\|\\s*length$"
         },
         "input_path": {
-          "regex": "^/home/lab/result\\.json$"
+          "regex": "^/project/result\\.json$"
         }
       }
     }

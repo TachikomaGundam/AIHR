@@ -2,10 +2,10 @@
   "item_key": "tool_a.write_file.format_json_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:96872b346ed0e53607552ed236ce2fe814a80a038244df461a21a179e4509204",
+  "content_hash": "sha256:989b97df06ae6e4ad52c257bbf0c686f01192b82aea5b6d7c746e961763f5f5c",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "把 /home/lab/data.json 的内容格式化成带缩进的版本（2 空格）。",
+    "user": "把 /project/data.json 的内容格式化成带缩进的版本（2 空格）。",
     "tools": [
       {
         "name": "write_file",
@@ -72,7 +72,7 @@
       "name": "write_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/data\\.json$"
+          "regex": "^/project/data\\.json$"
         },
         "content": {
           "type": "string"

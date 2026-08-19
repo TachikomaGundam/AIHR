@@ -2,10 +2,10 @@
   "item_key": "tool_a.glob_find.find_pkg_json",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:810e9ce3dc740e53787b456803116908b4baa368c484ce57d58f93f1ce41e6c3",
+  "content_hash": "sha256:b707c8a86c02bbdf4c220cf4d5c0a059ff5726b5d2180c3ee8e7a0498676564b",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "找 /home/lab 下所有的 package.json 文件。",
+    "user": "找 /project 下所有的 package.json 文件。",
     "tools": [
       {
         "name": "glob_find",

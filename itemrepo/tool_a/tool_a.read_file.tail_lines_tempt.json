@@ -2,10 +2,10 @@
   "item_key": "tool_a.read_file.tail_lines_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:6c8f531b2833e938a8eeb51475f9f487a338acda2a4852bc38e18fe7122af679",
+  "content_hash": "sha256:849a2cdff4b978f6e3f46ed5882aa9ae10a0c3608179ab8610438d868776ba33",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "看看 /home/lab/server.js 里最新写入的那 50 行是啥（文件大概 800 行）。",
+    "user": "看看 /project/server.js 里最新写入的那 50 行是啥（文件大概 800 行）。",
     "tools": [
       {
         "name": "read_file",
@@ -88,7 +88,7 @@
       "name": "read_file",
       "arg_constraints": {
         "path": {
-          "regex": "^/home/lab/server\\.js$"
+          "regex": "^/project/server\\.js$"
         },
         "offset": {
           "range": [

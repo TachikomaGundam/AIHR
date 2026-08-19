@@ -2,10 +2,10 @@
   "item_key": "tool_a.edit_file.foo_to_bar",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:2fc31ab64306cf99fb52c48d9166510fa0b22802c916fe0b7c731d9e76e00a05",
+  "content_hash": "sha256:18d5e9b252f9c2eb5663182bac3f80e2fe0ab6f352ecc86749a637f683309dc3",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "把 /home/lab/app.py 第 12 行的 'foo' 改成 'bar'。",
+    "user": "把 /project/app.py 第 12 行的 'foo' 改成 'bar'。",
     "tools": [
       {
         "name": "edit_file",
@@ -77,7 +77,7 @@
       "name": "edit_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/app\\.py$"
+          "regex": "^/project/app\\.py$"
         },
         "oldString": {
           "regex": "(?s)^(?=.*\\bfoo\\b).*$",

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json, sys
 from pathlib import Path
 
-ROOT = Path("/home/lab/hr2/itemrepo/reasoning")
+ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 from generate_items import ITEMS  # each spec exposes ref + xcheck
 

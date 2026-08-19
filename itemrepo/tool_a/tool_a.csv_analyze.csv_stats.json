@@ -2,10 +2,10 @@
   "item_key": "tool_a.csv_analyze.csv_stats",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:37b5e40da0a491bd8f9ddaa84c6b295f51e6d2b17cab776a7df08b2ab38f2e96",
+  "content_hash": "sha256:b6ab7408544666e8adedc58f6ff64937a8e7cc7ff2256aa19fa99510df8765cd",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "对 /home/lab/data.csv 做个统计概览。",
+    "user": "对 /project/data.csv 做个统计概览。",
     "tools": [
       {
         "name": "csv_analyze",
@@ -82,7 +82,7 @@
       "name": "csv_analyze",
       "arg_constraints": {
         "path": {
-          "regex": "^/home/lab/data\\.csv$"
+          "regex": "^/project/data\\.csv$"
         },
         "op": {
           "enum": [

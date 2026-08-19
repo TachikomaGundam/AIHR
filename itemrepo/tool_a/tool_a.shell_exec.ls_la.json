@@ -2,10 +2,10 @@
   "item_key": "tool_a.shell_exec.ls_la",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:7ec5b012cc7b32d6d81d4ad7154a74ddd4d7589d12cb518c40790a9f1dbd893c",
+  "content_hash": "sha256:09af0b6e3f94e74187179d9d3f210ca38faf8ecd293fdc79fca96735377e9565",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "在工作目录 /home/lab 执行 ls -la。",
+    "user": "在工作目录 /project 执行 ls -la。",
     "tools": [
       {
         "name": "shell_exec",
@@ -80,7 +80,7 @@
           "regex": "^ls\\s+-la$"
         },
         "workdir": {
-          "regex": "^/home/lab$"
+          "regex": "^/project$"
         }
       }
     }

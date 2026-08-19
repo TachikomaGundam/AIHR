@@ -2,13 +2,13 @@
   "item_key": "tool_b.data_pipeline_mid_failure",
   "type": "tool_b",
   "tier": 6,
-  "content_hash": "sha256:1b2aa86e4722d6ae0214b8d70e4ff89ad2e89f8cd63ddcc318f3fc62ada9585b",
+  "content_hash": "sha256:4c94a67bb7ff8dcfdc78edd43627b3458cde8b017921ae902cabec154c532438",
   "payload": {
     "scenario_id": "tb_data_pipeline_mid_failure",
     "env": "opencode-sandbox",
     "turns": [
       {
-        "user": "跑 /home/lab/pipeline/etl.py 时在第 3 步读 data/chunk_003.json 时报 JSONDecodeError。脚本一共 5 步。帮我修复数据问题，并在脚本里加上重试和校验。"
+        "user": "跑 /project/pipeline/etl.py 时在第 3 步读 data/chunk_003.json 时报 JSONDecodeError。脚本一共 5 步。帮我修复数据问题，并在脚本里加上重试和校验。"
       }
     ],
     "injections": [
@@ -28,10 +28,10 @@
       }
     ],
     "success_checks": [
-      "exit_code:0:python /home/lab/pipeline/etl.py",
-      "file_contains:/home/lab/pipeline/etl.py:try",
-      "file_contains:/home/lab/pipeline/etl.py:json.loads",
-      "file_contains:/home/lab/pipeline/etl.py:retries",
+      "exit_code:0:python /project/pipeline/etl.py",
+      "file_contains:/project/pipeline/etl.py:try",
+      "file_contains:/project/pipeline/etl.py:json.loads",
+      "file_contains:/project/pipeline/etl.py:retries",
       "file_exists:data/chunk_003.json",
       "json_valid:data/chunk_003.json"
     ]

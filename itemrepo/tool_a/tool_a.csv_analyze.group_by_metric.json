@@ -2,10 +2,10 @@
   "item_key": "tool_a.csv_analyze.group_by_metric",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:9221585b4a7d2244f62e5a59143a952b208e52bda1979ac77454e46c738cf33c",
+  "content_hash": "sha256:8e952a6b4dea1b9d9179b74fe305d74e6401d93bd44238efcd49896959e6ff4e",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "按 /home/lab/metrics.csv 的 metric 列做 group_by 聚合。",
+    "user": "按 /project/metrics.csv 的 metric 列做 group_by 聚合。",
     "tools": [
       {
         "name": "csv_analyze",
@@ -80,7 +80,7 @@
       "name": "csv_analyze",
       "arg_constraints": {
         "path": {
-          "regex": "^/home/lab/metrics\\.csv$"
+          "regex": "^/project/metrics\\.csv$"
         },
         "op": {
           "enum": [

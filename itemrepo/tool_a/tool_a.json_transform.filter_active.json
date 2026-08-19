@@ -2,10 +2,10 @@
   "item_key": "tool_a.json_transform.filter_active",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:eb4a1be1c9d50ff46c0970b68df4ac69d15c7eabc201795e396479d973512995",
+  "content_hash": "sha256:1b2f9971abbfc76cebdb13584c361312bbb59c517e63a4aade425fbe6488fedd",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "从 /home/lab/api.json 提取所有 status 为 'active' 的项，输出为数组。filter 用 select。",
+    "user": "从 /project/api.json 提取所有 status 为 'active' 的项，输出为数组。filter 用 select。",
     "tools": [
       {
         "name": "json_transform",

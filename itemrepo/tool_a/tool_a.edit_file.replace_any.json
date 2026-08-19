@@ -2,10 +2,10 @@
   "item_key": "tool_a.edit_file.replace_any",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:184016e65a36d3bc98b504783061a450d5fa1592356459d32453f1083a11a768",
+  "content_hash": "sha256:840448b249d174d7aa86279bfcf3d8cc35f779485400302c564656e71cb0dd96",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "在 /home/lab/src/utils.ts 里把所有 'any' 替换成 'unknown'。",
+    "user": "在 /project/src/utils.ts 里把所有 'any' 替换成 'unknown'。",
     "tools": [
       {
         "name": "edit_file",
@@ -90,7 +90,7 @@
       "name": "edit_file",
       "arg_constraints": {
         "filePath": {
-          "regex": "^/home/lab/src/utils\\.ts$"
+          "regex": "^/project/src/utils\\.ts$"
         }
       }
     }

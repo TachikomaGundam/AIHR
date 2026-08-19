@@ -2,7 +2,7 @@
   "item_key": "tool_a.read_file.rust_main_slice",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:0b052f04c96e697e42614bdb60386a088ffaeb7edd7e2d5e18963aa1f4817b76",
+  "content_hash": "sha256:5ea0cfd263ac57026836fbf6ebf3c9ef1fee73aac5efd75c64078523f6fe86ce",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "读取 ~/project/src/main.rs 中第 100 至 150 行。注意 home 要展开。",
@@ -91,7 +91,7 @@
       "name": "read_file",
       "arg_constraints": {
         "path": {
-          "regex": "^(/home/lab|/root)/project/src/main\\.rs$"
+          "regex": "^(/project|/root)/project/src/main\\.rs$"
         },
         "offset": {
           "range": [

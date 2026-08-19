@@ -2,10 +2,10 @@
   "item_key": "tool_a.shell_exec.docker_build",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:5b66774988b1e4a4b1ce39966f17070d2bce2e328a4029d6598c10fa4cca670d",
+  "content_hash": "sha256:d8fa1821b65ad22c58d99dc37e6574762690c28fc9851648214d8e5b798d5af8",
   "payload": {
     "system": "OpenCode coding assistant.",
-    "user": "执行一条 docker build 命令，Dockerfile 在 /home/lab/app 目录。镜像名 my-app:latest。",
+    "user": "执行一条 docker build 命令，Dockerfile 在 /project/app 目录。镜像名 my-app:latest。",
     "tools": [
       {
         "name": "shell_exec",
