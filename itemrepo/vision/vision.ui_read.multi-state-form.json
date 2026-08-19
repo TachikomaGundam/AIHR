@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.multi-state-form",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/ui_07_multi_state_form.png",
+    "kind": "ui_read",
+    "question": "What is the label of the form field directly below the disabled (gray, unfocusable) field?",
+    "answer": "Confirm Password"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:1aea02868fb01a853488af093e2fef7cb63bcb4c28a543de2c58cab328f07dea"
+}

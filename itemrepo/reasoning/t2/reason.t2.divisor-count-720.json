@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t2.divisor-count-720",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "求 720 的正因数个数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 30
+    },
+    "checkpoints": [
+      "factorizes 720 = 2^4·3^2·5",
+      "uses (4+1)(2+1)(1+1)"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 30
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "factorizes 720 = 2^4·3^2·5"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses (4+1)(2+1)(1+1)"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

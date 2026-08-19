@@ -1,0 +1,106 @@
+{
+  "item_key": "tool_a.shell_exec.ls_la",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:7ec5b012cc7b32d6d81d4ad7154a74ddd4d7589d12cb518c40790a9f1dbd893c",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "在工作目录 /home/lab 执行 ls -la。",
+    "tools": [
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "glob_find",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Glob pattern like **/*.ts"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      },
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "shell_exec",
+      "arg_constraints": {
+        "command": {
+          "regex": "^ls\\s+-la$"
+        },
+        "workdir": {
+          "regex": "^/home/lab$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "shell_exec"
+  }
+}

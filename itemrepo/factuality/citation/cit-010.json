@@ -1,0 +1,30 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.efficientnet-arxiv-and-venue",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "Tan 与 Le 2019 年论文《EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks》的 arXiv 编号及发表会议是什么？",
+    "required_claims": [
+      "1905.11946",
+      "ICML"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 3,
+  "type": "citation"
+}

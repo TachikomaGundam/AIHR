@@ -1,0 +1,26 @@
+# deployable.yaml — the ONLY hand-maintained model list in this repo.
+#
+# Every model the opencode config declares (opencode.jsonc provider.*;
+# models) is derived automatically — add/retire it there and it flows into
+# stage sweep pools / discover / routing / the deployable set with ZERO
+# edits here (hr/fleet.py resolves the fleet at runtime).
+#
+# `extra_deployable:` lists models served OUTSIDE the opencode config —
+# registry-only providers (kimi-for-coding, deepseek) opencode loads from
+# its own registry. This is user policy, not a mirror.
+#
+# Drift guard: an entry that duplicates a config-declared model is REJECTED
+# at runtime (hr.fleet.merge_with_extras) — the model must be removed from
+# this list, not duplicated. Add the provider's wire here and in the
+# `wire_overrides:` map of configs/fleet.yaml.
+# EXAMPLES ONLY — this tracked file ships with an EMPTY list. A live
+# machine's extra models live in the gitignored configs/deployable.local.yaml
+# overlay (deep-merged by hr.config.load_yaml; the overlay LIST REPLACES
+# this one, it is not appended). First-install: `cp configs/deployable.yaml
+# configs/deployable.local.yaml`, then fill the list with your registry-only
+# models (provider/slug) and declare each provider's wire in the
+# configs/fleet.local.yaml wire_overrides map. An extra duplicating a
+# config-declared model is still REJECTED at runtime (drift guard).
+extra_deployable: []
+# example:
+#   - example-provider/example-model-a

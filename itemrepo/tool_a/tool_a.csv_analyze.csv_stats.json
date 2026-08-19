@@ -1,0 +1,113 @@
+{
+  "item_key": "tool_a.csv_analyze.csv_stats",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:37b5e40da0a491bd8f9ddaa84c6b295f51e6d2b17cab776a7df08b2ab38f2e96",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "对 /home/lab/data.csv 做个统计概览。",
+    "tools": [
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "csv_analyze",
+      "arg_constraints": {
+        "path": {
+          "regex": "^/home/lab/data\\.csv$"
+        },
+        "op": {
+          "enum": [
+            "stats"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "csv_analyze"
+  }
+}

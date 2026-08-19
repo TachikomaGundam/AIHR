@@ -1,0 +1,130 @@
+{
+  "item_key": "tool_a.shell_exec.docker_build",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:5b66774988b1e4a4b1ce39966f17070d2bce2e328a4029d6598c10fa4cca670d",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "执行一条 docker build 命令，Dockerfile 在 /home/lab/app 目录。镜像名 my-app:latest。",
+    "tools": [
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "shell_exec",
+      "arg_constraints": {
+        "command": {
+          "regex": "(?s)^(?=.*docker build)(?=.*my-app:latest)(?=.*\\s\\.(\\s|$)).*$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "shell_exec"
+  }
+}

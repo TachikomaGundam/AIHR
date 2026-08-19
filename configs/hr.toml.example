@@ -1,0 +1,26 @@
+# HR v1 configuration template.
+# Copy to hr.toml and adjust for your environment.
+#
+# Secrets (db_password, API keys) are NEVER stored here.
+# Set them via environment variables instead:
+#   HR_DSN            — full PostgreSQL connection string (preferred); overrides individual db_* fields
+#   HR_DB_PASSWORD    — password for the wiki DB (required if HR_DSN is not set)
+#   HR_DB_USER        — DB username (default: "wikijs")
+#   HR_BAILIAN_API_KEY — Bailian provider API key
+#   WIKI_API_KEY_FILE — path to Wiki.js JWT token file (default: ~/.wikijs-api-key)
+
+# --- Database connection (non-secret fields) ---
+db_host = "localhost"
+db_port = 5432
+db_name = "wiki"
+db_user = "wikijs"
+
+# Example HR_DSN (uncomment and fill in real values):
+# dsn = "postgresql://username:PASSWORD@localhost:5432/wiki"
+
+# --- Optional Wiki.js publish target for `hr publish` ---
+# Without this [wiki] section the command prints "wiki not configured,
+# skipping" and exits 0 — the wiki is an optional publish target.
+# [wiki]
+# graphql_url = "http://localhost:3000/graphql"
+# api_key_file = "~/.wikijs-api-key"

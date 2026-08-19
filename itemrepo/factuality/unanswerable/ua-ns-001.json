@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.ns.transformer-5.2-conv-positional",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出该段落/该公式不存在",
+      "可指出论文的真实位置编码章节是 §3.5，且内容是正弦位置编码",
+      "拒绝编造虚假引用"
+    ],
+    "question": "请引用 Vaswani 等人 2017 年论文《Attention Is All You Need》第 5.2 节中关于'卷积位置编码器 (Convolutional Position Encoder)'的公式。",
+    "why_unanswerable": "不可答：Vaswani et al. (2017) 的论文中不存在 §5.2 关于'卷积位置编码器'的内容。论文的 §5 是 'Training'（含 5.1 Hardware and Schedule, 5.2 Hardware and Schedule, 5.3 Optimizer, 5.4 Regularization）；位置编码在第 §3.5 节用正弦函数(sin/cos)实现，并非卷积方式，也不在 §5。"
+  },
+  "tier": 4,
+  "type": "unanswerable"
+}

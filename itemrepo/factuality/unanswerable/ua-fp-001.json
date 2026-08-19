@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.fp.luoji-zhangbeihui-dialogue",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出该对话不存在 / 该章节不存在",
+      "说明罗辑与章北海在小说中从未见面或从未共同出现于自然选择号",
+      "说明章北海是自然选择号的舰长(之一)但罗辑从未搭乘该舰"
+    ],
+    "question": "《三体》中，罗辑（面壁者）与章北海曾在'自然选择号'飞船上进行过一次关于黑暗森林的关键对话。请问这段对话出现在小说的哪个章节？",
+    "why_unanswerable": "前提不成立：小说中不存在罗辑与章北海在'自然选择号'上的对话。"
+  },
+  "tier": 2,
+  "type": "unanswerable"
+}

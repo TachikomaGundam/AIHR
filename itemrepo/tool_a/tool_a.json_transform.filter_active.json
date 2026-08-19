@@ -1,0 +1,114 @@
+{
+  "item_key": "tool_a.json_transform.filter_active",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:eb4a1be1c9d50ff46c0970b68df4ac69d15c7eabc201795e396479d973512995",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "从 /home/lab/api.json 提取所有 status 为 'active' 的项，输出为数组。filter 用 select。",
+    "tools": [
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      },
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      },
+      {
+        "name": "grep_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string"
+            },
+            "include": {
+              "type": "string",
+              "description": "Glob filter, e.g. *.ts"
+            },
+            "path": {
+              "type": "string"
+            },
+            "output_mode": {
+              "type": "string",
+              "enum": [
+                "content",
+                "files_with_matches",
+                "count"
+              ]
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "json_transform",
+      "arg_constraints": {
+        "jq_filter": {
+          "regex": "(?s)^.*select\\(.*status.*==.*\\\"active\\\".*\\).*$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "json_transform"
+  }
+}

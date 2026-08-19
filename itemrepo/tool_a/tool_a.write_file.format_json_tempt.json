@@ -1,0 +1,101 @@
+{
+  "item_key": "tool_a.write_file.format_json_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:96872b346ed0e53607552ed236ce2fe814a80a038244df461a21a179e4509204",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "把 /home/lab/data.json 的内容格式化成带缩进的版本（2 空格）。",
+    "tools": [
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "write_file",
+      "arg_constraints": {
+        "filePath": {
+          "regex": "^/home/lab/data\\.json$"
+        },
+        "content": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "write_file"
+  }
+}

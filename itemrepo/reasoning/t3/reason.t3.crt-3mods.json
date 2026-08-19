@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t3.crt-3mods",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "求最小的正整数 x 满足:x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 2 (mod 7)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 23
+    },
+    "checkpoints": [
+      "applies Chinese remainder theorem",
+      "computes smallest positive solution"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 23
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies Chinese remainder theorem"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes smallest positive solution"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

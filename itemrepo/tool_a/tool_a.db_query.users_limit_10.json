@@ -1,0 +1,107 @@
+{
+  "item_key": "tool_a.db_query.users_limit_10",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:0721df5ef3831a02e2ee862b343e73c2869247ecb1156996f66edeeb33203bc5",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "从 users 表查询所有记录，限制 10 条。",
+    "tools": [
+      {
+        "name": "db_query",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "sql"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "db_query",
+      "arg_constraints": {
+        "sql": {
+          "regex": "(?i)^\\s*SELECT\\s+.+\\s+FROM\\s+users"
+        },
+        "limit": {
+          "range": [
+            10,
+            10
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "db_query"
+  }
+}

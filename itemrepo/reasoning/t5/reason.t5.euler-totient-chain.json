@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.euler-totient-chain",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "求满足 x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 4 (mod 7), x ≡ 5 (mod 11) 的最小正整数 x。计算 φ(x²)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 64768,
+      "crosscheck_value": 64768
+    },
+    "checkpoints": [
+      "applies CRT over 3·5·7·11",
+      "factors x and applies φ(x²)"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 64768
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies CRT over 3·5·7·11"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "factors x and applies φ(x²)"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "deep"
+    ]
+  }
+}

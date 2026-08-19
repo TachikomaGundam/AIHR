@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.bio-human-chromosome-pairs",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "正常人类体细胞 (somatic cell) 含有多少对染色体？请给出对数（不是条数总数）。",
+    "verifiable_answer": "23",
+    "source_of_truth": {
+      "kind": "scientific_fact",
+      "ref": "Human Genetics: NIH GHR — 'In humans, each cell normally contains 23 pairs of chromosomes'"
+    },
+    "verification": "exact",
+    "answer_explanation": "人类体细胞含 23 对 (46 条) 染色体，其中 22 对常染色体 + 1 对性染色体 (XX 或 XY)。配子 (精子/卵子) 含 23 条（单倍体）。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

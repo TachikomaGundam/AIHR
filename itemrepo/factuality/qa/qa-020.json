@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-ieee754-float64-mantissa-bits",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "IEEE 754 binary64 (通常称为 float64 / double precision) 的尾数部分 (significand) 中，实际显式存储在编码中的位数 (stored bits of fraction field) 是多少？（不含隐含的 leading 1 位）",
+    "verifiable_answer": "52",
+    "source_of_truth": {
+      "kind": "standards_document",
+      "ref": "IEEE Std 754-2019, Table 3.2 (binary64: k=64, w=11, t=53, fraction field = 52 bits)"
+    },
+    "verification": "exact",
+    "answer_explanation": "IEEE 754 binary64: 1 sign bit + 11 exponent bits + 52 stored fraction bits = 64 bits。尾数有效精度为 53 位 (52 显式 + 1 隐含前导 1)。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t1.gcd",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求 48 与 180 的最大公约数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 12
+    },
+    "checkpoints": [
+      "identifies prime factors or uses Euclidean algorithm"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 12
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "identifies prime factors or uses Euclidean algorithm"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

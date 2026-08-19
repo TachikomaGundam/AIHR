@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.gan-wrong-venue",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "请给出 Goodfellow 等人 2014 年的 GAN 论文《Generative Adversarial Networks》在 ICML 2014 会议上的引用信息（含会议卷号与页码）。",
+    "required_claims": [
+      "陷阱：该论文发表于 NeurIPS (NIPS) 2014，而不是 ICML 2014；正确引用应为 NIPS 27 (NeurIPS 2014), 页码 2672–2680"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 4,
+  "type": "citation"
+}

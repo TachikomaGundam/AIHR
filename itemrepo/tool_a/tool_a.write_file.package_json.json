@@ -1,0 +1,102 @@
+{
+  "item_key": "tool_a.write_file.package_json",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:0de4e3f58f20c7c83891fd9f2c191c97a0c9aa1974adf0ca583613dccdb1ba02",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "生成一个 package.json，name 是 my-app，version 1.0.0，type 是 module。写到 /home/lab/project/package.json。",
+    "tools": [
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "write_file",
+      "arg_constraints": {
+        "filePath": {
+          "regex": "^/home/lab/project/package\\.json$"
+        },
+        "content": {
+          "regex": "(?s)^(?=.*\\\"name\\\").*$",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "write_file"
+  }
+}

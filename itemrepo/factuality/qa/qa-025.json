@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.git-head-tilde-3-meaning",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "在 Git 中，符号引用 HEAD~3 是指向什么位置的？请简要说明其语义（不超过 15 字）。",
+    "verifiable_answer": "第三个祖先提交",
+    "source_of_truth": {
+      "kind": "language_specification",
+      "ref": "git rev-parse(1) and git-rev-parse documentation: revision 'HEAD~n'"
+    },
+    "verification": "exact",
+    "answer_explanation": "HEAD~N 表示沿第一条父提交链回溯 N 代的祖先。HEAD~3 = 沿父提交链接三次（即第三个祖先提交）。（若某个提交有多个父提交，'~' 只沿第一个父提交方向回溯。）",
+    "answer_keys": [
+      "3",
+      "祖先"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

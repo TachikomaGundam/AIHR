@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.dashboard-cross-region",
+  "type": "vision",
+  "tier": 5,
+  "payload": {
+    "image_ref": "img/ui_09_dashboard_cross_region.png",
+    "kind": "ui_read",
+    "question": "What status indicator is shown in the table row matching the highlighted sidebar item?",
+    "answer": "WARNING"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:fef7fe574db891e55323d82186c68244166296c632b8e5a289b50d82d9d9a220"
+}

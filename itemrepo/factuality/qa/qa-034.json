@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-golden-ratio-exact",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "黄金比例 (golden ratio, φ ≈ 1.618...) 的精确代数表达式 (用平方根表示) 是什么？",
+    "verifiable_answer": "(1+√5)/2",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "phi = (1+sqrt(5))/2, positive root of x²-x-1=0"
+    },
+    "verification": "exact",
+    "answer_explanation": "黄金比例 φ 是方程 x² - x - 1 = 0 的正根，其精确值为 (1 + √5) / 2 ≈ 1.6180339887...。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

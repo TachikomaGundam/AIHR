@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t6.crt-then-coprime-count",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "求满足 x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 4 (mod 7) 的最小正整数 x。然后求满足 1≤a≤x 且 1≤b≤x 且 gcd(a,b)=1 的有序对 (a,b) 的个数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1763,
+      "crosscheck_value": 1763
+    },
+    "checkpoints": [
+      "solves CRT to x0=53",
+      "counts coprime pairs via 2·Σφ(k)−1"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1763
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "solves CRT to x0=53"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "counts coprime pairs via 2·Σφ(k)−1"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "item_key": "reasoning.t6.derangement-constrained",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "{1,2,…,10} 的置换中,前 6 个元素 (1 至 6) 均不是不动点的置换共有多少个?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1965624,
+      "crosscheck_value": 1965624
+    },
+    "checkpoints": [
+      "applies IE on first 6 positions: Σ (-1)^k C(6,k)(10-k)!"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1965624
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies IE on first 6 positions: Σ (-1)^k C(6,k)(10-k)!"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "momus"
+    ]
+  }
+}

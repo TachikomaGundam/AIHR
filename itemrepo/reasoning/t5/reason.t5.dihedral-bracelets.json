@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.dihedral-bracelets",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "在二面体群 D_{10} 的作用下 (旋转 + 反射),正 10 边形 10 个顶点染 2 色的不等价方案中,共多少种本质不同的染色 (手镯数)?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 78,
+      "crosscheck_value": 78
+    },
+    "checkpoints": [
+      "enumerates 10 rotations with correct cycle counts",
+      "enumerates 10 reflections split into 2 classes"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 78
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "enumerates 10 rotations with correct cycle counts"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "enumerates 10 reflections split into 2 classes"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "momus"
+    ]
+  }
+}

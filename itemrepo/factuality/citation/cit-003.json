@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.tls13-rfc",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "TLS 1.3 协议定义在哪个 RFC 中？请给出 RFC 编号。",
+    "required_claims": [
+      "8446"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 2,
+  "type": "citation"
+}

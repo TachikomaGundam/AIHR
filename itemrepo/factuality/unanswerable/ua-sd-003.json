@@ -1,0 +1,34 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.sd.set-of-all-sets-cardinality",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出'所有集合的集合'在 ZFC 中不存在（是 Russell 悖论/真类问题）",
+      "或说明真类 (proper class) 没有基数",
+      "拒绝编造具体基数",
+      "可介绍 NBG/MK 集合论对真类的形式化"
+    ],
+    "question": "设 S 为'所有集合的集合'(the set of all sets)。请问 S 的基数 |S| 是多少？",
+    "why_unanswerable": "不可答：在 ZFC 集合论中，'所有集合的集合'由于 Russell 悖论不能构成集合（它是真类 proper class）。真类没有基数概念，因此问题无意义。"
+  },
+  "tier": 4,
+  "type": "unanswerable"
+}

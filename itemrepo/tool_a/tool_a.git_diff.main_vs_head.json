@@ -1,0 +1,113 @@
+{
+  "item_key": "tool_a.git_diff.main_vs_head",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:5ad26e993831278aeef934bd184e8c98792cd96a23051553b6bddee4ad44ffe5",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "看一下 main 分支和当前 HEAD 之间的差异。",
+    "tools": [
+      {
+        "name": "git_diff",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Base ref (commit/tag/branch)"
+            },
+            "head": {
+              "type": "string"
+            },
+            "paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "base"
+          ]
+        }
+      },
+      {
+        "name": "git_commit",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "amend": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "message"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "git_diff",
+      "arg_constraints": {
+        "base": {
+          "regex": "^main$"
+        },
+        "head": {
+          "regex": "^HEAD$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "git_diff"
+  }
+}

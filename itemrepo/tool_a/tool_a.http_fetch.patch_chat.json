@@ -1,0 +1,109 @@
+{
+  "item_key": "tool_a.http_fetch.patch_chat",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:7dd718ca0cd236be9c5b3204c676ec06c0efdddb40fd57534108f24e48e493ec",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "向 https://api.example.com/v1/chat 发 PATCH 请求，timeout 30000ms。",
+    "tools": [
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "http_fetch",
+      "arg_constraints": {
+        "url": {
+          "regex": "^https://api\\.example\\.com/v1/chat$"
+        },
+        "method": {
+          "enum": [
+            "PATCH"
+          ]
+        },
+        "timeout": {
+          "range": [
+            30000,
+            30000
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "http_fetch"
+  }
+}

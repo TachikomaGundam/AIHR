@@ -1,0 +1,51 @@
+{
+  "item_key": "reasoning.t6.matrix-power-trace",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "矩阵 A = [[1,1,0],[0,1,1],[1,0,1]]。求 tr(A⁵⁰) mod 1009。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 606,
+      "crosscheck_value": 606
+    },
+    "checkpoints": [
+      "derives char poly λ³−3λ²+3λ−2=0 via Cayley-Hamilton",
+      "sets up trace recurrence"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 606
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "derives char poly λ³−3λ²+3λ−2=0 via Cayley-Hamilton"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "sets up trace recurrence"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ],
+    "canary_candidate": true
+  }
+}

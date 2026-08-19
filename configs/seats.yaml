@@ -1,0 +1,206 @@
+# seats.yaml — the 18 oh-my-openagent seats (authoritative list; do not invent others)
+# Fields per seat: seat_code, seat_name, domain, domain_specificity (0 general - 1 specialized),
+# cost_tier / budget_tier: 'low' | 'mid' | 'high', required_capabilities (hard gates), ctx_p95,
+# primary_capabilities (benchmark-category names used by hr.recommend for seat fit ranking).
+# required_capabilities is a HARD GATE at assign time (spec §10.4): a model lacking any listed
+# capability is ineligible for that seat regardless of fitness.
+#
+# calibration_anchors (top level): `key -> 'provider/model_id'` pairs for the stage-0 anchor
+# calibration battery (spec §9.1, cheap/mid/expensive tiers). Loaded by hr.calibrate at runtime;
+# a missing section is a FAIL-LOUD error naming this file. Anchors live here, not in
+# configs/thresholds.yaml, because they are per-seat assignment policy (which seat tiers which
+# anchor model), not numeric sweep thresholds.
+#
+# EXAMPLES ONLY — this tracked file ships with zero real deployment values.
+# The REAL anchors for a live machine live in the gitignored
+# configs/seats.local.yaml overlay (deep-merged by hr.config.load_yaml;
+# local wins per key). First-install: `cp configs/seats.yaml
+# configs/seats.local.yaml` and replace the example-provider/example-*
+# values with your real anchors there. Never edit deployment values into
+# this tracked file.
+
+calibration_anchors:
+  cheap: example-provider/example-model-a
+  mid: example-provider/example-model-b
+  expensive: example-provider/example-model-c
+
+seats:
+  - seat_code: oracle
+    seat_name: High-IQ consultant (deep reasoning, architecture)
+    domain: reasoning
+    domain_specificity: 0.5
+    primary_capabilities: ['reasoning']
+    cost_tier: high
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: ultrabrain
+    seat_name: Deepest logic reasoning (irreplaceable)
+    domain: reasoning
+    domain_specificity: 0.5
+    primary_capabilities: ['reasoning']
+    cost_tier: high
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: deep
+    seat_name: Autonomous complex problem solving
+    domain: code
+    domain_specificity: 0.4
+    primary_capabilities: ['code_gen', 'reasoning']
+    cost_tier: mid
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: quick
+    seat_name: Trivial single-file edits (cheap + fast)
+    domain: code
+    domain_specificity: 0.1
+    primary_capabilities: ['speed', 'instruction_follow']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 65536
+
+  - seat_code: writing
+    seat_name: Docs / writing
+    domain: writing
+    domain_specificity: 0.3
+    primary_capabilities: ['instruction_follow', 'reasoning']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 131072
+
+  - seat_code: artistry
+    seat_name: Creative / unconventional solutions
+    domain: creative
+    domain_specificity: 0.5
+    primary_capabilities: ['reasoning', 'instruction_follow']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: [vision]
+    ctx_p95: 131072
+
+  - seat_code: visual_engineering
+    seat_name: Frontend / UI / UX (needs screenshots)
+    domain: frontend
+    domain_specificity: 0.7
+    primary_capabilities: ['vision', 'code_gen']
+    cost_tier: mid
+    budget_tier: low
+    required_capabilities: [vision]
+    ctx_p95: 131072
+
+  - seat_code: metis
+    seat_name: Pre-plan analysis (one-shot, cheap)
+    domain: reasoning
+    domain_specificity: 0.3
+    primary_capabilities: ['reasoning']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 131072
+
+  - seat_code: momus
+    seat_name: Plan critic (adversarial review, forced deep thinking)
+    domain: code
+    domain_specificity: 0.5
+    primary_capabilities: ['code_gen', 'reasoning']
+    cost_tier: mid
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: sisyphus_junior
+    seat_name: Delegate executor (coding + tool use, forced thinking)
+    domain: code
+    domain_specificity: 0.4
+    primary_capabilities: ['code_gen', 'tool_use']
+    cost_tier: mid
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: multimodal_looker
+    seat_name: Media analysis (ScreenSpot-level visual understanding)
+    domain: vision
+    domain_specificity: 0.6
+    primary_capabilities: ['vision', 'reasoning']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: [vision]
+    ctx_p95: 131072
+
+  - seat_code: atlas
+    seat_name: Support agent (fast turnaround)
+    domain: support
+    domain_specificity: 0.1
+    primary_capabilities: ['speed']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 65536
+
+  - seat_code: hephaestus
+    seat_name: Builder / tool-heavy implementation (1M context)
+    domain: code
+    domain_specificity: 0.5
+    primary_capabilities: ['tool_use', 'code_gen']
+    cost_tier: high
+    budget_tier: high
+    required_capabilities: [tools]
+    ctx_p95: 1000000
+
+  - seat_code: prometheus
+    seat_name: Planner (long-horizon, large context)
+    domain: planning
+    domain_specificity: 0.4
+    primary_capabilities: ['reasoning', 'long_context']
+    cost_tier: mid
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 1000000
+
+  - seat_code: explore
+    seat_name: Code search (cheap; long-context fallback)
+    domain: search
+    domain_specificity: 0.2
+    primary_capabilities: ['speed', 'code_gen']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: librarian
+    seat_name: External research (synthesis of long docs)
+    domain: research
+    domain_specificity: 0.3
+    primary_capabilities: ['reasoning', 'long_context']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 262144
+
+  - seat_code: unspecified_low
+    seat_name: Medium-difficulty tasks (cheap workhorse)
+    domain: general
+    domain_specificity: 0.1
+    primary_capabilities: ['speed']
+    cost_tier: low
+    budget_tier: low
+    required_capabilities: []
+    ctx_p95: 131072
+
+  - seat_code: unspecified_high
+    seat_name: Complex open-ended tasks (strong reasoning + code)
+    domain: general
+    domain_specificity: 0.3
+    primary_capabilities: ['reasoning', 'code_gen']
+    cost_tier: high
+    budget_tier: mid
+    required_capabilities: []
+    ctx_p95: 1000000

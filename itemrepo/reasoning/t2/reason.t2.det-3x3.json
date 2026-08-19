@@ -1,0 +1,42 @@
+{
+  "item_key": "reasoning.t2.det-3x3",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "计算行列式 |[[1,2,3],[0,1,4],[5,6,0]]|。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1
+    },
+    "checkpoints": [
+      "expands along a row or column"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "expands along a row or column"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

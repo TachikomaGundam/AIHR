@@ -1,0 +1,130 @@
+{
+  "item_key": "tool_a.http_fetch.post_user",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:b50271f642fe549393acaf1cb76608f9b6e01ef0c48179d076050df569e91928",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "POST https://api.example.com/users，body 是 {\"name\":\"alice\"}，headers 包含 Content-Type: application/json。",
+    "tools": [
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "db_query",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "sql"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "http_fetch",
+      "arg_constraints": {
+        "url": {
+          "regex": "^https://api\\.example\\.com/users$"
+        },
+        "method": {
+          "enum": [
+            "POST"
+          ]
+        },
+        "headers": {
+          "type": "object"
+        },
+        "body": {
+          "regex": "\\{.*\\\"name\\\".*\\\"alice\\\".*\\}"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "http_fetch"
+  }
+}

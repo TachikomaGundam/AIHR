@@ -1,0 +1,99 @@
+{
+  "item_key": "tool_a.csv_analyze.missing_csv_path",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:808e22e10a6739627d761d2030a355c9a72339d3983b4e802e4ed1d9850438a9",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "分析一下这个数据文件。",
+    "tools": [
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      },
+      {
+        "name": "db_query",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "sql"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "csv_analyze"
+  }
+}

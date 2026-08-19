@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.bar-max",
+  "type": "vision",
+  "tier": 2,
+  "payload": {
+    "image_ref": "img/crt_01_bar_max.png",
+    "kind": "chart_extract",
+    "question": "Which category has the tallest bar, and what is its exact value? Answer as 'category, value' (e.g. 'A, 45').",
+    "answer": "B, 72"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:7ed14256702f269800814b98bbbf38cabd1cb4369a405adffc46c793baa12b40"
+}

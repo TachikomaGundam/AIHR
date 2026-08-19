@@ -1,0 +1,154 @@
+{
+  "item_key": "tool_a.translate_text.good_morning_ja",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:96672f0f1a086e6cfa0dde65a65d86c1b1d3140d0a33ca4bac971405c5e0a414",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "Translate 'Good morning' from English to Japanese.",
+    "tools": [
+      {
+        "name": "translate_text",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string"
+            },
+            "source_lang": {
+              "type": "string",
+              "enum": [
+                "en",
+                "zh",
+                "ja",
+                "ko",
+                "fr",
+                "de",
+                "es"
+              ]
+            },
+            "target_lang": {
+              "type": "string",
+              "enum": [
+                "en",
+                "zh",
+                "ja",
+                "ko",
+                "fr",
+                "de",
+                "es"
+              ]
+            }
+          },
+          "required": [
+            "text",
+            "source_lang",
+            "target_lang"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "translate_text",
+      "arg_constraints": {
+        "text": {
+          "regex": "^Good morning$"
+        },
+        "source_lang": {
+          "enum": [
+            "en"
+          ]
+        },
+        "target_lang": {
+          "enum": [
+            "ja"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "translate_text"
+  }
+}

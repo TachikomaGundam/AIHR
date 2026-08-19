@@ -1,0 +1,29 @@
+{
+  "grading": {
+    "grader": "citation_exact@1.0",
+    "params": {
+      "checks": [
+        "required_claims_present_in_curated_db"
+      ]
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.cit.bert-arxiv",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "librarian",
+      "deep"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "question": "请给出 Devlin 等人 2019 年论文《BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding》的 arXiv 预印本编号。",
+    "required_claims": [
+      "1810.04805"
+    ],
+    "source_db": "curated_sources/"
+  },
+  "tier": 2,
+  "type": "citation"
+}

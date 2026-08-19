@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t6.cube-burnside-freq",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "用红、绿、蓝三色涂立方体的 6 个面 (每面一色),每种颜色恰好涂 2 面。在立方体 24 个旋转下不等价的涂色方案有多少种?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 6,
+      "crosscheck_value": 6
+    },
+    "checkpoints": [
+      "enumerates 24 cube rotations",
+      "applies Burnside with freq (2,2,2) constraint"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 6
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "enumerates 24 cube rotations"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies Burnside with freq (2,2,2) constraint"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "oracle"
+    ]
+  }
+}

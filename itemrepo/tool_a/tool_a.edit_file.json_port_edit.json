@@ -1,0 +1,102 @@
+{
+  "item_key": "tool_a.edit_file.json_port_edit",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:748d8dc8d4eb6058546fc06067b39b132566bc9e81d02285dcd07d3dadb1f5ca",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "把 /home/lab/config.json 里的 \"port\": 3000 改成 \"port\": 8080（精确 JSON 匹配）。",
+    "tools": [
+      {
+        "name": "edit_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string",
+              "description": "Exact substring to replace"
+            },
+            "newString": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "oldString",
+            "newString"
+          ]
+        }
+      },
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "edit_file",
+      "arg_constraints": {
+        "filePath": {
+          "regex": "^/home/lab/config\\.json$"
+        },
+        "oldString": {
+          "regex": "\\\"port\\\":\\s*3000",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "edit_file"
+  }
+}

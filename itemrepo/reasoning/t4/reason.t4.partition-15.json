@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t4.partition-15",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "分拆数 p(15) (即把 15 写成无序正整数之和的方案数) 是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 176
+    },
+    "checkpoints": [],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 176
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "deep"
+    ]
+  }
+}

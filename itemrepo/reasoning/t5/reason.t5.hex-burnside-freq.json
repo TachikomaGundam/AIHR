@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.hex-burnside-freq",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "正六边形 6 条边用 3 种颜色涂色 (每条边一色),其中红、绿、蓝各恰好用 2 次。若两种涂色可通过绕中心的旋转 (但不含反射) 重合则视为相同。共多少种本质不同的涂色?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 16,
+      "crosscheck_value": 16
+    },
+    "checkpoints": [
+      "analyzes cycle structure of each rotation of C_6",
+      "applies frequency constraint (2,2,2) to each cycle type"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 16
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "analyzes cycle structure of each rotation of C_6"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies frequency constraint (2,2,2) to each cycle type"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t3.stirling2-6-3",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "第二类斯特林数 S(6,3) (即把 6 个不同元素划分到 3 个非空、无标签集合的方案数) 是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 90
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 90
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

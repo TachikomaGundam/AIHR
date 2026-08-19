@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t6.burnside-s4-pairs",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "对称群 S₄ 作用于 C(4,2)=6 个无序对。用 3 种颜色给这 6 个无序对涂色,若两种涂色可通过 S₄ 中某置换的作用重合则视为相同。共多少种本质不同的涂色?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 66,
+      "crosscheck_value": 66
+    },
+    "checkpoints": [
+      "classifies S_4 conjugacy classes by cycle structure on pairs",
+      "computes fixed colorings per class"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 66
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "classifies S_4 conjugacy classes by cycle structure on pairs"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes fixed colorings per class"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "item_key": "reasoning.t4.cpm-slack",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "项目有 7 项活动:A(3 天,无前置), B(5 天,前置 A), C(4 天,前置 A), D(6 天,前置 B 与 C), E(2 天,前置 C), F(3 天,前置 D 与 E), G(4 天,前置 F)。求活动 E 的总浮时 (slack,LS−ES)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 5
+    },
+    "checkpoints": [
+      "computes ES/EF correctly",
+      "computes LS/LF correctly",
+      "identifies E's slack = 5"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 5
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes ES/EF correctly"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes LS/LF correctly"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "identifies E's slack = 5"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

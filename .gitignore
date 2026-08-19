@@ -1,0 +1,34 @@
+# Python / build artifacts
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+
+# Runtime outputs (may contain secrets / transient data)
+outputs/
+exports/
+
+# Local config holds real credentials; *.example is the secret-free template
+hr.toml
+
+# Local deployment overlays (real anchors / wire overrides / gateway URLs /
+# extra models) — never shipped; deep-merged over the tracked configs by
+# hr.config.load_yaml
+*.local.yaml
+
+# Node
+node_modules/
+
+# Misc
+*.dump
+.env
+*.bak
+
+# Runtime orchestration state
+.omo/
+
+# pytest
+.pytest_cache/
+
+# fastdraw esbuild build artifact (source repo gitignores test/.build/)
+fastdraw/test/.build/

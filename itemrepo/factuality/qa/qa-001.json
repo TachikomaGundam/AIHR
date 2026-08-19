@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.chem-copper-atomic-29",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "原子序数 29 对应的元素是什么？请给出该元素的中英文名称和化学符号。",
+    "verifiable_answer": "铜",
+    "source_of_truth": {
+      "kind": "iupac_periodic_table",
+      "ref": "Z=29, Cu, Copper, 铜"
+    },
+    "verification": "exact",
+    "answer_explanation": "原子序数 29 对应铜 (Copper)，化学符号 Cu。IUPAC 周期表第29号元素。",
+    "answer_keys": [
+      "铜",
+      "Cu"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

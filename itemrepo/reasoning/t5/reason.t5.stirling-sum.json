@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.stirling-sum",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "求 Σ_{k=1}^{8} S(8,k)·k²,  其中 S(n,k) 为第二类斯特林数。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 73681,
+      "crosscheck_value": 73681
+    },
+    "checkpoints": [
+      "computes S(8,k) via recurrence S(n,k)=k·S(n-1,k)+S(n-1,k-1)",
+      "weights by k² and sums"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 73681
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes S(8,k) via recurrence S(n,k)=k·S(n-1,k)+S(n-1,k-1)"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "weights by k² and sums"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "momus"
+    ]
+  }
+}

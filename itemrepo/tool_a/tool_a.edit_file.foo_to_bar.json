@@ -1,0 +1,111 @@
+{
+  "item_key": "tool_a.edit_file.foo_to_bar",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:2fc31ab64306cf99fb52c48d9166510fa0b22802c916fe0b7c731d9e76e00a05",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "把 /home/lab/app.py 第 12 行的 'foo' 改成 'bar'。",
+    "tools": [
+      {
+        "name": "edit_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "oldString": {
+              "type": "string",
+              "description": "Exact substring to replace"
+            },
+            "newString": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "oldString",
+            "newString"
+          ]
+        }
+      },
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      },
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "edit_file",
+      "arg_constraints": {
+        "filePath": {
+          "regex": "^/home/lab/app\\.py$"
+        },
+        "oldString": {
+          "regex": "(?s)^(?=.*\\bfoo\\b).*$",
+          "type": "string"
+        },
+        "newString": {
+          "regex": "(?s)^(?=.*\\bbar\\b).*$",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "edit_file"
+  }
+}

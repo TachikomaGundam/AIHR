@@ -1,0 +1,129 @@
+{
+  "item_key": "tool_a.deploy_service.deploy_recent_tempt",
+  "type": "tool_a",
+  "tier": 4,
+  "content_hash": "sha256:050845509cd7e02cd6e8c7f653c073a1606a5ac5319e38c516fd952d6ef2b43a",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "把刚才改好的服务部署上去。",
+    "tools": [
+      {
+        "name": "deploy_service",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "string"
+            },
+            "image": {
+              "type": "string",
+              "pattern": "^[a-z0-9._/-]+(?::[a-z0-9._-]+)?$"
+            },
+            "env": {
+              "type": "string",
+              "enum": [
+                "staging",
+                "production"
+              ]
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "required": [
+            "service",
+            "image",
+            "env"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "system_monitor",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process"
+              ]
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds to sample"
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "metric"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "deploy_service",
+      "arg_constraints": {
+        "service": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string"
+        },
+        "env": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iv",
+    "schema": "deploy_service"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "item_key": "factuality.qa.bio-photosynthesis-products",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "一般植物的光合作用总反应式中，除了利用的能量 (光能) 以外，主要产物包含哪两种物质的化学式？请写出这两种产物的化学式。（提示: 有机碳化合物 + 气体产物）",
+    "verifiable_answer": "C₆H₁₂O₆ 与 O₂",
+    "source_of_truth": {
+      "kind": "scientific_fact",
+      "ref": "standard photosynthesis stoichiometry; Taiz & Zeiger, Plant Physiology"
+    },
+    "verification": "exact",
+    "answer_explanation": "光合作用总反应式: 6 CO₂ + 6 H₂O + 光能 → C₆H₁₂O₆ + 6 O₂。主要产物是葡萄糖 (C₆H₁₂O₆) 和氧气 (O₂)。（C₆H₁₂O₆ 是葡萄糖的简写分子式，实际反应路径更复杂。）",
+    "answer_keys": [
+      "C₆H₁₂O₆",
+      "O₂"
+    ]
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "contains_all",
+          "field": "answer_keys"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

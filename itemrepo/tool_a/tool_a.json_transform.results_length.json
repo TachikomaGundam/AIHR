@@ -1,0 +1,108 @@
+{
+  "item_key": "tool_a.json_transform.results_length",
+  "type": "tool_a",
+  "tier": 2,
+  "content_hash": "sha256:f494d15cc891a5aa4c6e92809e3f95a23aff71ccf2f67213529f17eac216680e",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "对 /home/lab/result.json 应用 filter '.results | length'。",
+    "tools": [
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      },
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      },
+      {
+        "name": "calculator",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "Math expression e.g. '(1+2)*3'"
+            },
+            "precision": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 15
+            }
+          },
+          "required": [
+            "expression"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "json_transform",
+      "arg_constraints": {
+        "jq_filter": {
+          "regex": "^\\.results\\s*\\|\\s*length$"
+        },
+        "input_path": {
+          "regex": "^/home/lab/result\\.json$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "ii",
+    "schema": "json_transform"
+  }
+}

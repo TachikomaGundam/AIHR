@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.near-label-buttons",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/ui_08_near_label_buttons.png",
+    "kind": "ui_read",
+    "question": "Among the action buttons, which label is written as two separate words instead of a single compound word?",
+    "answer": "Roll back"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:78f7e8f3bad32d848bfb080df65572526656e4358a58e8bba4713fd59c607369"
+}

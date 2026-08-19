@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-pi-5-decimal-places",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "圆周率 π 的小数位中，第 7 位至第 12 位（按顺序，不含整数部分，连续给出 6 位数字）是什么？（注意: π 的小数位第 1 位是 1，π = 3.14159...）",
+    "verifiable_answer": "653589",
+    "source_of_truth": {
+      "kind": "mathematical_constant",
+      "ref": "Pi (π), OEIS A000796; computed digits verifiable via arbitrary-precision libraries"
+    },
+    "verification": "exact",
+    "answer_explanation": "π = 3.14159265358979323846... 小数位 (1-indexed): 1→1, 2→4, 3→1, 4→5, 5→9, 6→2, 7→6, 8→5, 9→3, 10→5, 11→8, 12→9。 第 7-12 位连续即为 '653589'。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

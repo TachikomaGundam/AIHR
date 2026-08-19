@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t4.cayley-7",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "Cayley 公式: n 个带标号顶点的树有多少棵?求 n=7 的答案。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 16807
+    },
+    "checkpoints": [],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 16807
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

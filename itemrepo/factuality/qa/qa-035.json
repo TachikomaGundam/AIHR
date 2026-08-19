@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-gauss-sum-1-to-100",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "前 100 个正整数的平方和 1² + 2² + 3² + ... + 100² 等于多少？",
+    "verifiable_answer": "338350",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "Faulhaber's formula / sum of squares formula"
+    },
+    "verification": "exact",
+    "answer_explanation": "平方和公式: Σ(k=1 to n) k² = n(n+1)(2n+1)/6。代入 n=100: 100 × 101 × 201 / 6 = (100 × 101 × 201) / 6 = 2030100 / 6 = 338350。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

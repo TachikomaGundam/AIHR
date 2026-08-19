@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.transport-london-underground-opening-year",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "巴黎地铁 (Métro de Paris) 于哪一年正式开通？请仅给出年份。（注意: 不要与 1863 年开通的伦敦地铁或 1896 年开通的布达佩斯地铁混淆。）",
+    "verifiable_answer": "1900",
+    "source_of_truth": {
+      "kind": "historical_record",
+      "ref": "Métro de Paris opened 19 July 1900 (RATP official history)"
+    },
+    "verification": "exact",
+    "answer_explanation": "巴黎地铁于 1900 年 7 月 19 日正式开通 (inaugurated for the 1900 Exposition Universelle)。首条线路为当时 Porte Maillot - Porte de Vincennes（即今 1 号线前身）。不要混淆: 伦敦地铁 1863、布达佩斯地铁 1896、纽约地铁 1904。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

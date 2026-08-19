@@ -1,0 +1,154 @@
+{
+  "item_key": "tool_a.image_generate.cyberpunk_tokyo",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:ddda019b8402e1bf5631486c21335cc987f3b1140f1d0442bee834f3c073718e",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "生成一个赛博朋克风格的东京街头夜景，256高度，512宽度，jpg 格式。",
+    "tools": [
+      {
+        "name": "image_generate",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string"
+            },
+            "width": {
+              "type": "integer",
+              "enum": [
+                256,
+                512,
+                1024
+              ]
+            },
+            "height": {
+              "type": "integer",
+              "enum": [
+                256,
+                512,
+                1024
+              ]
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "png",
+                "jpg",
+                "webp"
+              ]
+            }
+          },
+          "required": [
+            "prompt"
+          ]
+        }
+      },
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "http_fetch",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH"
+              ]
+            },
+            "headers": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "body": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "image_generate",
+      "arg_constraints": {
+        "width": {
+          "enum": [
+            512
+          ]
+        },
+        "height": {
+          "enum": [
+            256
+          ]
+        },
+        "format": {
+          "enum": [
+            "jpg"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "image_generate"
+  }
+}

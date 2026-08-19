@@ -1,0 +1,57 @@
+{
+  "item_key": "reasoning.t6.mod-cascade-3stage",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "先求满足 x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 4 (mod 7) 的最小正整数 x。令 a = x³ + x² + 1。求 2ᵃ mod (10⁹ + 7)。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 130363122,
+      "crosscheck_value": 130363122
+    },
+    "checkpoints": [
+      "CRT gives x0=53",
+      "computes a=151687",
+      "modular exponentiation"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 130363122
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "CRT gives x0=53"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes a=151687"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "modular exponentiation"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "prometheus"
+    ]
+  }
+}

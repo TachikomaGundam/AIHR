@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.sd.divide-by-zero-then-add",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出 1÷0 无定义 (division by zero undefined)",
+      "拒绝编造数值",
+      "可说明在扩展实数轴或某些非标准数学中可能有不同约定，但在标准实数算术中无定义"
+    ],
+    "question": "请计算：1 ÷ 0 + 2 的值。",
+    "why_unanswerable": "不可答：在实数算术中 1 ÷ 0 无定义（0 没有乘法逆元）。表达式的第一步就没有意义，无法再与 2 相加，因此整体无定义。"
+  },
+  "tier": 1,
+  "type": "unanswerable"
+}

@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.chart_extract.eight-near-bars",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/crt_06_eight_near_bars.png",
+    "kind": "chart_extract",
+    "question": "What is the exact numeric value shown above the bar for category 'F'?",
+    "answer": "48"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "artistry"
+    ]
+  },
+  "content_hash": "sha256:c070684b95602472b4a9383c251614f970edcbdb980a614b59d0d1b2ac2b1850"
+}

@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t3.squarefree-100",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "在 1 到 100 的整数中,有多少个是无平方因子的 (square-free)?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 61
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 61
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "deep"
+    ]
+  }
+}

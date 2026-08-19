@@ -1,0 +1,32 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.fp.fugui-kangmei",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出小说中不存在福贵参加/想参加抗美援朝的情节",
+      "指出福贵的经历序列不包含这一事件"
+    ],
+    "question": "余华小说《活着》中，福贵在哪个章节提到自己曾想去参加抗美援朝，但部队没要他？",
+    "why_unanswerable": "前提不成立：小说《活着》中并无福贵想参加抗美援朝或类似情节。"
+  },
+  "tier": 3,
+  "type": "unanswerable"
+}

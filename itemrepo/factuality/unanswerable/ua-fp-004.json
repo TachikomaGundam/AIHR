@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.fp.daiyu-baoyu-last-poem",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出该'对诗'情节不存在",
+      "说明焚稿时宝玉不在场（成婚骗局）",
+      "指出黛玉临终场景是独自焚稿，不是与宝玉共同作诗"
+    ],
+    "question": "在《红楼梦》后四十回（续作）中，林黛玉在焚稿断痴情之前，在大观园潇湘馆曾与贾宝玉有过一次'最后一次对诗'。这次对诗的诗作题目是什么？",
+    "why_unanswerable": "前提不成立：林黛玉焚稿前并未与贾宝玉在潇湘馆'最后一次对诗'。焚稿之时贾宝玉被骗娶亲，不在潇湘馆。"
+  },
+  "tier": 4,
+  "type": "unanswerable"
+}

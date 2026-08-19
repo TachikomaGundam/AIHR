@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t6.coupon-nonuniform",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "4 种优惠券,每次独立抽取,获得第 i 种的概率分别为 1/2, 1/4, 1/8, 1/8。求集齐全部 4 种所需抽取次数的数学期望 E。若 105·E = a (整数),求 a。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1339,
+      "crosscheck_value": 1339
+    },
+    "checkpoints": [
+      "applies I-E formula Σ (-1)^{|S|+1}/p_S",
+      "or sets up Markov chain on subsets"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1339
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies I-E formula Σ (-1)^{|S|+1}/p_S"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "or sets up Markov chain on subsets"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "prometheus"
+    ]
+  }
+}

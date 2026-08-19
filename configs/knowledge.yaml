@@ -1,0 +1,824 @@
+# knowledge.yaml — curated model knowledge data (reference scores + research
+# findings), the SINGLE knowledge store. Keyed by bare model slug; models with
+# no entry here are simply skipped at seed time (safe default). Loaded by
+# hr.reference / hr.research (and the CLI) through hr.config.load_yaml — the
+# engine code itself carries no model knowledge literals.
+#
+# reference_scores: model -> category -> [score, confidence, source]
+# findings:         model -> list of [category, finding, confidence, source_url]
+#
+reference_scores:
+  qwen3.7-max:
+    code_gen:
+    - 80
+    - 0.9
+    - SWE-bench Verified 80.4%
+    reasoning:
+    - 95
+    - 0.9
+    - GPQA 92.4, MATH-500 96.8, HMMT 97.1
+    tool_use:
+    - 75
+    - 0.6
+    - strong agentic tool use (est.)
+    long_context:
+    - 85
+    - 0.8
+    - 1M context window
+    speed:
+    - 80
+    - 0.8
+    - ~90 tok/s
+    vision:
+    - 0
+    - 0.8
+    - text-only
+  qwen3.8-max-preview:
+    code_gen:
+    - 88
+    - 0.4
+    - preview, estimated
+    reasoning:
+    - 92
+    - 0.4
+    - preview, estimated
+    tool_use:
+    - 80
+    - 0.4
+    - estimated
+    long_context:
+    - 90
+    - 0.7
+    - 983616 context window
+    speed:
+    - 75
+    - 0.5
+    - estimated
+    vision:
+    - 0
+    - 0.6
+    - text-only per local registry
+  qwen3.7-plus:
+    code_gen:
+    - 72
+    - 0.8
+    - Terminal-Bench 70.3
+    reasoning:
+    - 90
+    - 0.85
+    - GPQA Diamond 90.3
+    tool_use:
+    - 80
+    - 0.8
+    - MCP-Atlas 76.4
+    long_context:
+    - 82
+    - 0.8
+    - 1M context window
+    speed:
+    - 92
+    - 0.85
+    - ~147 tok/s real-world
+    vision:
+    - 92
+    - 0.85
+    - ScreenSpot Pro 79.0, AndroidWorld 81.0
+  qwen3.6-plus:
+    code_gen:
+    - 79
+    - 0.8
+    - SWE-bench Verified 78.8
+    reasoning:
+    - 88
+    - 0.8
+    - GPQA Diamond 88.2
+    tool_use:
+    - 90
+    - 0.85
+    - Tau-2 97.7 tool-use reliability
+    long_context:
+    - 82
+    - 0.8
+    - 1M context window
+    speed:
+    - 70
+    - 0.7
+    - ~124 tok/s nominal
+    vision:
+    - 85
+    - 0.85
+    - MMMU 81.7, VideoMMMU 83.7
+  qwen3.6-flash:
+    code_gen:
+    - 73
+    - 0.8
+    - SWE-bench Verified 73.4
+    reasoning:
+    - 60
+    - 0.7
+    - limited complex reasoning
+    tool_use:
+    - 75
+    - 0.6
+    - estimated
+    long_context:
+    - 80
+    - 0.7
+    - 1M context window
+    speed:
+    - 100
+    - 0.9
+    - 197.8 tok/s, fastest Qwen
+    vision:
+    - 80
+    - 0.75
+    - multimodal, MMMU 81.7
+  deepseek-v4-pro:
+    code_gen:
+    - 85
+    - 0.9
+    - SWE-bench 80.6, Codeforces 3206, LiveCodeBench 93.5 (0813 official)
+    reasoning:
+    - 93
+    - 0.9
+    - GPQA 90.1, HMMT 95.2, AIME 95.2
+    tool_use:
+    - 78
+    - 0.6
+    - '0813 official: Terminal-Bench 2.1 87.9, HLE w/tools 60.0 (provider-run); MCP-Atlas 73.6, Toolathlon 51.8'
+    long_context:
+    - 90
+    - 0.85
+    - MRCR 83.5% @800K, 1M context
+    speed:
+    - 70
+    - 0.8
+    - ~42-55 tok/s
+    vision:
+    - 0
+    - 0.8
+    - text-only
+  deepseek-v4-flash:
+    code_gen:
+    - 79
+    - 0.85
+    - SWE-bench 79.0, LiveCodeBench 91.6
+    reasoning:
+    - 90
+    - 0.85
+    - GPQA 88.1, HMMT 94.8
+    tool_use:
+    - 68
+    - 0.75
+    - MCP-Atlas 69.0
+    long_context:
+    - 85
+    - 0.8
+    - MRCR 78.7%, 1M context
+    speed:
+    - 85
+    - 0.85
+    - 83.7 tok/s
+    vision:
+    - 0
+    - 0.8
+    - text-only
+  deepseek-v3.2:
+    code_gen:
+    - 65
+    - 0.75
+    - V3.2 era, superseded
+    reasoning:
+    - 72
+    - 0.7
+    - MMLU-Pro 65.5 era
+    tool_use:
+    - 65
+    - 0.6
+    - estimated
+    long_context:
+    - 55
+    - 0.7
+    - 130K context
+    speed:
+    - 70
+    - 0.65
+    - estimated
+    vision:
+    - 0
+    - 0.7
+    - text-only
+  glm-5.2:
+    code_gen:
+    - 85
+    - 0.9
+    - FrontierSWE 74.4 (#1 open-weight), Terminal-Bench 81.0, SWE-bench Pro 62.1
+    reasoning:
+    - 95
+    - 0.9
+    - GPQA 91.2, AIME 99.2, HMMT 92.5, IMO 91.0
+    tool_use:
+    - 76
+    - 0.8
+    - MCP-Atlas 76.8, Tool-Decathlon 48.2
+    long_context:
+    - 95
+    - 0.9
+    - 1M context, verified long-horizon
+    speed:
+    - 68
+    - 0.7
+    - estimated moderate
+    vision:
+    - 0
+    - 0.8
+    - text-only
+  glm-5.1:
+    code_gen:
+    - 64
+    - 0.8
+    - SWE-bench Pro 58.4, Terminal-Bench 63.5
+    reasoning:
+    - 84
+    - 0.8
+    - GPQA 86.2, HMMT 82.6
+    tool_use:
+    - 70
+    - 0.65
+    - estimated
+    long_context:
+    - 68
+    - 0.75
+    - 200K context
+    speed:
+    - 65
+    - 0.6
+    - estimated
+    vision:
+    - 0
+    - 0.7
+    - text-only
+  glm-5:
+    code_gen:
+    - 58
+    - 0.7
+    - early release, superseded
+    reasoning:
+    - 78
+    - 0.65
+    - early release
+    tool_use:
+    - 66
+    - 0.6
+    - estimated
+    long_context:
+    - 68
+    - 0.7
+    - 200K context
+    speed:
+    - 65
+    - 0.6
+    - estimated
+    vision:
+    - 0
+    - 0.7
+    - text-only
+  MiniMax-M2.5:
+    code_gen:
+    - 81
+    - 0.9
+    - SWE-bench 80.2, Multi-SWE 51.3 (#1)
+    reasoning:
+    - 85
+    - 0.85
+    - GPQA 85.2, AIME 86.3
+    tool_use:
+    - 84
+    - 0.9
+    - BFCL Multi-Turn 76.8 (#1)
+    long_context:
+    - 65
+    - 0.75
+    - 205K context
+    speed:
+    - 90
+    - 0.9
+    - 100 tok/s native
+    vision:
+    - 0
+    - 0.8
+    - text-only
+  kimi-k2.5:
+    code_gen:
+    - 77
+    - 0.8
+    - SWE-bench 76.8
+    reasoning:
+    - 87
+    - 0.8
+    - GPQA 87.6, Agent Swarm
+    tool_use:
+    - 72
+    - 0.65
+    - estimated
+    long_context:
+    - 70
+    - 0.75
+    - 256K context
+    speed:
+    - 66
+    - 0.6
+    - estimated
+    vision:
+    - 78
+    - 0.7
+    - multimodal input
+  kimi-k2.6:
+    code_gen:
+    - 80
+    - 0.85
+    - SWE-bench Verified 80.2, SWE-bench Pro 58.6
+    reasoning:
+    - 93
+    - 0.85
+    - GPQA 90.5, AIME 96.4, DeepSearchQA 92.5
+    tool_use:
+    - 73
+    - 0.8
+    - MCP Mark 72.8, MCP Atlas 69.4
+    long_context:
+    - 70
+    - 0.75
+    - 256K context
+    speed:
+    - 68
+    - 0.7
+    - estimated latency-bound
+    vision:
+    - 78
+    - 0.7
+    - multimodal input
+  kimi-k2.7-code:
+    code_gen:
+    - 86
+    - 0.8
+    - SWE-bench 78.2, LiveCodeBench 94.2
+    reasoning:
+    - 86
+    - 0.75
+    - coding fine-tune
+    tool_use:
+    - 88
+    - 0.85
+    - MCP Mark Verified 81.1 (#1, beats Claude Opus 76.4)
+    long_context:
+    - 70
+    - 0.75
+    - 262K context
+    speed:
+    - 66
+    - 0.65
+    - estimated
+    vision:
+    - 75
+    - 0.7
+    - multimodal input
+  k3:
+    code_gen:
+    - 85
+    - 0.4
+    - new release, estimated
+    reasoning:
+    - 90
+    - 0.4
+    - new release, estimated
+    tool_use:
+    - 82
+    - 0.4
+    - estimated
+    long_context:
+    - 92
+    - 0.7
+    - 1M context
+    speed:
+    - 55
+    - 0.5
+    - estimated; effort-toggle can be slow
+    vision:
+    - 85
+    - 0.6
+    - image+video input
+  kimi-for-coding:
+    code_gen:
+    - 86
+    - 0.8
+    - '= Kimi K2.7 Code: SWE-bench 78.2, LiveCodeBench 94.2'
+    reasoning:
+    - 86
+    - 0.75
+    - coding fine-tune
+    tool_use:
+    - 88
+    - 0.85
+    - MCP Mark 81.1
+    long_context:
+    - 70
+    - 0.75
+    - 262K context
+    speed:
+    - 70
+    - 0.7
+    - estimated
+    vision:
+    - 75
+    - 0.7
+    - multimodal input
+  kimi-for-coding-highspeed:
+    code_gen:
+    - 84
+    - 0.7
+    - K2.7 highspeed variant
+    reasoning:
+    - 85
+    - 0.7
+    - K2.7 variant
+    tool_use:
+    - 85
+    - 0.75
+    - K2.7 MCP capability
+    long_context:
+    - 70
+    - 0.7
+    - 262K context
+    speed:
+    - 88
+    - 0.75
+    - low-latency variant
+    vision:
+    - 75
+    - 0.7
+    - multimodal input
+findings:
+  qwen3.7-max:
+  - - benchmark
+    - 'Arena ELO Text: 1455-1488 (#7-9 global, #1 Chinese model)'
+    - 0.9
+    - ''
+  - - benchmark
+    - 'Terminal-Bench 2.0: 69.7% — #1 at release'
+    - 0.9
+    - ''
+  - - benchmark
+    - 'MMLU-Pro: 89.6% (#3 of 310 models)'
+    - 0.9
+    - ''
+  - - strength
+    - Best coding model in Qwen family. Proven for agentic SWE tasks with 35-hour autonomous runs.
+    - 0.9
+    - ''
+  - - strength
+    - 90 tokens/sec throughput, 2.4s TTFT. Competitive speed for frontier-tier output.
+    - 0.85
+    - ''
+  - - weakness
+    - Text-only — no vision/video support. Most expensive Qwen tier (6x Plus).
+    - 0.9
+    - ''
+  - - pricing
+    - 'China: ¥12/¥36 per 1M tokens. Global: ~$1.67/$5.00 per 1M. 50% promo until July 22 2026.'
+    - 0.9
+    - ''
+  - - community
+    - 'HackerNews: ''Strong but still ~5-10 points below Western frontier on some benchmarks.'' Reddit r/LocalLLaMA: ''Impressive
+      programming capabilities.'''
+    - 0.8
+    - ''
+  qwen3.8-max-preview:
+  - - benchmark
+    - Preview release — no independent benchmarks yet. Alibaba claims '2.4T params, second only to Claude Fable 5'.
+    - 0.3
+    - https://www.ibtimes.sg/
+  - - weakness
+    - Too new for reliable scoring. No model card, no benchmark release, no activation-param details.
+    - 0.7
+    - ''
+  - - pricing
+    - 'Token Plan 10% promo pricing. Context: 983616, max output: 131072.'
+    - 0.7
+    - ''
+  - - community
+    - Community cautiously optimistic, waiting for independent validation.
+    - 0.6
+    - ''
+  qwen3.7-plus:
+  - - benchmark
+    - 'Arena ELO Vision: ~1463 (#16 vision)'
+    - 0.85
+    - ''
+  - - strength
+    - 'Vision champion: ScreenSpot Pro 79.0 is THE benchmark for GUI agents. 3.55x faster than 3.6-plus.'
+    - 0.9
+    - ''
+  - - strength
+    - Best cost/performance ratio. ~1/6th price of Max, best bang for buck.
+    - 0.9
+    - ''
+  - - weakness
+    - Vision hallucinations reported. No video support (unlike 3.6-plus). Lower reasoning ceiling than Max.
+    - 0.8
+    - ''
+  - - pricing
+    - 'China: ¥2/¥8 per 1M. Global: ~$0.28-0.48/$1.92 per 1M.'
+    - 0.9
+    - ''
+  - - community
+    - Plus scored 10/10 on real bug-fixing test, Max only 9/10.
+    - 0.7
+    - ''
+  qwen3.6-plus:
+  - - benchmark
+    - 'Arena ELO: 1437-1448'
+    - 0.85
+    - ''
+  - - strength
+    - Only Plus-tier with native video input. Tau-2 97.7% is exceptional for tool-use reliability.
+    - 0.9
+    - ''
+  - - weakness
+    - 3.55x slower than 3.7-plus in real-world (41.5 vs 147.5 t/s). Higher output cost.
+    - 0.85
+    - ''
+  - - pricing
+    - 'China: ¥2/¥12 per 1M (tiered). Global: ~$0.33-0.60/$1.98 per 1M.'
+    - 0.85
+    - ''
+  qwen3.6-flash:
+  - - benchmark
+    - 'Email classification: 99% accuracy'
+    - 0.85
+    - ''
+  - - benchmark
+    - 'Hallucination resistance: 96% (low hallucination rate)'
+    - 0.85
+    - ''
+  - - strength
+    - Cheapest Qwen model (~$0.17/M input). Fastest at 197.8 tok/s. Perfect for high-volume simple tasks.
+    - 0.9
+    - ''
+  - - weakness
+    - Zero scores on complex reasoning benchmarks. MoE architecture (35B total, 3B active) limits depth.
+    - 0.85
+    - ''
+  - - pricing
+    - 'China: ¥1.2/¥7.2 per 1M. Global: ~$0.17/$1.00 per 1M.'
+    - 0.9
+    - ''
+  kimi-k2.6:
+  - - strength
+    - Best open-weight for coding + reasoning combo. Strong Chinese-language capability. Agent Swarm (K2.5) for 300 sub-agents.
+    - 0.85
+    - ''
+  - - weakness
+    - 'Latency: 14s per response with 400+ line context. Thinking mode mandatory, burns tokens on simple tasks.'
+    - 0.8
+    - ''
+  - - weakness
+    - 'Architectural consistency issues: ''introduces generic types with no precedent in codebase'''
+    - 0.7
+    - ''
+  - - community
+    - Strongest open-weight for idiomatic Chinese.
+    - 0.7
+    - ''
+  kimi-k2.7-code:
+  - - strength
+    - Best MCP/tool-use in the entire set. Coding-specialist fine-tune with 30% fewer reasoning tokens than K2.6.
+    - 0.85
+    - ''
+  - - weakness
+    - Thinking-only mode — no non-thinking option. Wastes tokens on simple tasks.
+    - 0.8
+    - ''
+  - - weakness
+    - Vendor-reported benchmarks only. No independent 3rd-party reproduction yet.
+    - 0.6
+    - ''
+  kimi-k2.5:
+  - - strength
+    - 'Agent Swarm: 300 sub-agents for long-horizon orchestration. Unique capability not in K2.6/K2.7.'
+    - 0.75
+    - ''
+  - - weakness
+    - Superseded by K2.6 on most benchmarks. Consider K2.6 unless Agent Swarm needed.
+    - 0.85
+    - ''
+  glm-5.2:
+  - - benchmark
+    - 'HLE w/ tools: 54.7'
+    - 0.85
+    - ''
+  - - strength
+    - 1M context window — real, verified long-horizon. Massive gen-over-gen improvement (+43.9 FrontierSWE). MIT license.
+    - 0.9
+    - ''
+  - - strength
+    - ~1/6th cost of comparable closed models. Claude Code native support.
+    - 0.85
+    - ''
+  - - weakness
+    - 'Benchmark-maxxing concerns: GLM-5.1 scored 0.0% on a bench GLM-5.2 now excels at. No published architecture paper.'
+    - 0.7
+    - ''
+  - - weakness
+    - 'Tool use gap: trails Opus 4.8 on Tool-Decathlon (48.2 vs 59.9).'
+    - 0.85
+    - ''
+  glm-5.1:
+  - - benchmark
+    - 'Arena WebDev Elo: 1535'
+    - 0.8
+    - ''
+  - - strength
+    - Budget long-horizon option. 200K context. MIT license.
+    - 0.8
+    - ''
+  - - weakness
+    - Significantly outperformed by GLM-5.2 on every benchmark. Consider upgrading.
+    - 0.85
+    - ''
+  glm-5:
+  - - benchmark
+    - Early 2026 release, no detailed benchmarks available vs 5.1/5.2 comparisons.
+    - 0.5
+    - ''
+  - - weakness
+    - Superseded. Upgrade to GLM-5.2.
+    - 0.9
+    - ''
+  deepseek-v4-pro:
+  - - benchmark
+    - 'SimpleQA-Verified: 57.9% (vs 45.3 GPT-5.4)'
+    - 0.8
+    - ''
+  - - benchmark
+    - '0813 official release (Aug 13 2026): GA build replaces the April preview; API model renamed DeepSeek-V4-Pro-0813.'
+    - 0.9
+    - https://www.digitaltoday.co.kr/en/view/92711/deepseek-v4-pro-official-release-0813-build-claude-46-times-cheaper-5-percent-gap
+  - - benchmark
+    - 0813 HLE 42.7% (was 37.7) — knowledge still trails frontier (Claude Opus 5 64.7).
+    - 0.7
+    - ''
+  - - strength
+    - '#1 Codeforces rating. Best coding value — 7x cheaper than Opus for near-identical verified coding scores.'
+    - 0.9
+    - ''
+  - - strength
+    - MIT license. 1M context real.
+    - 0.9
+    - ''
+  - - strength
+    - '0813 keeps the price edge: $0.435/$0.87 per M, ~46x cheaper blended than Claude Fable 5 within ~5% on agentic benchmarks.'
+    - 0.8
+    - ''
+  - - weakness
+    - 'Factual knowledge gap: HLE 37.7 vs Gemini-3.1-Pro 44.4. SimpleQA 57.9 vs Gemini 75.6.'
+    - 0.8
+    - ''
+  - - weakness
+    - Advertised pricing ≠ real production pricing. Budget ~$1.74/M not $0.43/M.
+    - 0.75
+    - ''
+  - - weakness
+    - 0813 results are provider-reported; Hugging Face card still lists preview and weights for the 0813 checkpoint are unpublished
+      — external verification pending.
+    - 0.7
+    - ''
+  deepseek-v4-flash:
+  - - strength
+    - 'Surprise value: 79% on the reference code benchmark at $0.28/M output. Functionally interchangeable with Pro for most
+      coding.'
+    - 0.85
+    - ''
+  - - strength
+    - 'Very fast: 83.7 tok/s ''feels instant''.'
+    - 0.85
+    - ''
+  - - weakness
+    - Limited vision. Weaker than Pro on competitive programming.
+    - 0.8
+    - ''
+  - - pricing
+    - $0.14/$0.28 per 1M input/output.
+    - 0.9
+    - ''
+  deepseek-v3.2:
+  - - weakness
+    - Predecessor to V4 series. Upgrade to V4-Pro or V4-Flash.
+    - 0.9
+    - ''
+  MiniMax-M2.5:
+  - - benchmark
+    - 'BrowseComp context mgmt: 76.3%'
+    - 0.85
+    - ''
+  - - strength
+    - Best multilingual open-weight coding. Office productivity (Excel 74.4). Unmatched economics (~$1/hr continuous).
+    - 0.85
+    - ''
+  - - strength
+    - BFCL Multi-Turn 76.8 vs Opus 4.6 63.3 — multi-step function calling champion.
+    - 0.85
+    - ''
+  - - weakness
+    - 88% hallucination rate (up from 67% in M2.1) — DISQUALIFYING for factual work.
+    - 0.9
+    - ''
+  - - weakness
+    - 'Text-only, no vision. Math gap: AIME 86.3 vs Opus 95.6.'
+    - 0.85
+    - ''
+  k3:
+  - - benchmark
+    - 1M token context window — largest in the Kimi family. Max output 131072 tokens.
+    - 0.85
+    - https://www.kimi.com/code/docs/en/third-party-tools/other-coding-agents.html
+  - - benchmark
+    - Multimodal input (text + image + video); toggleable max-effort thinking (low/high/max).
+    - 0.8
+    - ''
+  - - strength
+    - Newest Kimi (released 2026-07-16). Purpose-built for long-horizon agent work with toggleable reasoning effort — dial
+      cost vs depth per task.
+    - 0.75
+    - ''
+  - - strength
+    - Effort-level reasoning toggle is unique; 1M context fits entire large codebases for repo-level reasoning.
+    - 0.8
+    - ''
+  - - weakness
+    - Brand-new — limited independent benchmark coverage and community track record vs established K2.7. Not yet validated
+      against Claude/GPT frontier.
+    - 0.7
+    - ''
+  - - weakness
+    - attachment:false in the local opencode integration — image input may be restricted by client wiring despite the multimodal
+      spec.
+    - 0.75
+    - ''
+  - - pricing
+    - Accessed via Moonshot's Kimi For Coding gateway (Anthropic-compatible Messages API). cost fields show 0
+      in the local registry.
+    - 0.65
+    - ''
+  kimi-for-coding:
+  - - benchmark
+    - 'Kimi Code Bench v2: 62.0 vs GPT-5.5 69.0 / Claude Opus 4.8 67.4 (vendor in-house).'
+    - 0.7
+    - ''
+  - - strength
+    - Same model family as the Kimi K2.7 line in the anthropic-compatible fleet, but reached via Moonshot's own Kimi For Coding gateway
+      — benchmarks transfer, latency/pricing may differ by gateway.
+    - 0.8
+    - ''
+  - - strength
+    - Coding-focused fine-tune with ~30% fewer reasoning tokens than K2.6 — efficient for agentic coding loops. Best-in-class
+      MCP tool use.
+    - 0.85
+    - ''
+  - - strength
+    - 262K context, vision (image+video) input, Anthropic-compatible Messages API — drop-in for coding agents.
+    - 0.85
+    - ''
+  - - weakness
+    - Thinking-only mode — no non-thinking option, burns tokens on trivial tasks (same as the K2.7 family).
+    - 0.8
+    - ''
+  - - weakness
+    - Kimi Code Bench v2 (62.0) still trails GPT-5.5 (69.0) and Claude Opus 4.8 (67.4) on the in-house coding suite.
+    - 0.7
+    - ''
+  kimi-for-coding-highspeed:
+  - - strength
+    - Lower-latency variant of Kimi K2.7 Code — best for interactive edits and tight coding-agent loops where TTFT matters
+      more than peak depth.
+    - 0.75
+    - ''
+  - - strength
+    - Same kimi-k2 coding capability, tool use, and 262K vision-capable context as the standard kimi-for-coding model, at
+      higher throughput.
+    - 0.7
+    - ''
+  - - weakness
+    - Speed-tuned — likely trades some peak reasoning depth for latency; no distinct benchmark data separates it from K2.7
+      Code.
+    - 0.7
+    - ''
+  - - weakness
+    - Thinking-only mode (same as kimi-for-coding); 262K context is smaller than k3's 1M.
+    - 0.75
+    - ''
+  - - pricing
+    - Via Moonshot's Kimi For Coding gateway (Anthropic-compatible Messages API). cost fields show 0 in the
+      local registry.
+    - 0.65
+    - ''

@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t1.mean",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求数列 12, 15, 18, 21, 24 的算术平均值。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 18
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 18
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t6.polya-d12-freq3",
+  "type": "reasoning",
+  "tier": 6,
+  "payload": {
+    "question": "正 12 边形的 12 个顶点染 3 种颜色 (红绿蓝各 4 个顶点)。在二面体群 D₁₂ 作用下 (旋转 + 反射),共多少种本质不同的染色?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1493,
+      "crosscheck_value": 1493
+    },
+    "checkpoints": [
+      "analyzes cycle types for rotations and reflections in D_12",
+      "applies Pólya enumeration with frequency constraint (4,4,4)"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1493
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "analyzes cycle types for rotations and reflections in D_12"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies Pólya enumeration with frequency constraint (4,4,4)"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.math-fibonacci-10",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "Fibonacci 数列的第 10 项 F(10) 是多少？（定义 F(0)=0, F(1)=1, F(n)=F(n-1)+F(n-2)）",
+    "verifiable_answer": "55",
+    "source_of_truth": {
+      "kind": "mathematical_proof",
+      "ref": "Fibonacci sequence definition"
+    },
+    "verification": "exact",
+    "answer_explanation": "Fibonacci 序列前若干项: 0,1,1,2,3,5,8,13,21,34,55,...  因此 F(10)=55。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

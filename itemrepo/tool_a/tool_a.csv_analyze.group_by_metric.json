@@ -1,0 +1,114 @@
+{
+  "item_key": "tool_a.csv_analyze.group_by_metric",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:9221585b4a7d2244f62e5a59143a952b208e52bda1979ac77454e46c738cf33c",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "按 /home/lab/metrics.csv 的 metric 列做 group_by 聚合。",
+    "tools": [
+      {
+        "name": "csv_analyze",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "op": {
+              "type": "string",
+              "enum": [
+                "stats",
+                "filter",
+                "group_by",
+                "join"
+              ]
+            },
+            "column": {
+              "type": "string"
+            },
+            "value": {}
+          },
+          "required": [
+            "path",
+            "op"
+          ]
+        }
+      },
+      {
+        "name": "db_query",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string"
+            },
+            "params": {
+              "type": "array"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "sql"
+          ]
+        }
+      },
+      {
+        "name": "json_transform",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "jq_filter": {
+              "type": "string",
+              "description": "jq-style filter expression"
+            },
+            "input_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "jq_filter",
+            "input_path"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "csv_analyze",
+      "arg_constraints": {
+        "path": {
+          "regex": "^/home/lab/metrics\\.csv$"
+        },
+        "op": {
+          "enum": [
+            "group_by"
+          ]
+        },
+        "column": {
+          "regex": "^metric$"
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "csv_analyze"
+  }
+}

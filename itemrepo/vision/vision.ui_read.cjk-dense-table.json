@@ -1,0 +1,23 @@
+{
+  "item_key": "vision.ui_read.cjk-dense-table",
+  "type": "vision",
+  "tier": 4,
+  "payload": {
+    "image_ref": "img/ui_10_cjk_dense_table.png",
+    "kind": "ui_read",
+    "question": "In the data table, what numeric value is displayed in the row for the section highlighted in the sidebar?",
+    "answer": "32"
+  },
+  "grading": {
+    "grader": "exact_match@1.0"
+  },
+  "meta": {
+    "source": "generated",
+    "generated_by": "hr2-itemgen-b4@0.1",
+    "seats": [
+      "multimodal_looker",
+      "visual_engineering"
+    ]
+  },
+  "content_hash": "sha256:cf64c66a9d8e8428731501ee9a7002f14d63959490cfab1a7740723e4ce45628"
+}

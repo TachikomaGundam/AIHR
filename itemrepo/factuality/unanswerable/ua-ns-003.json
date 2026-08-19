@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.ns.lstm-1997-sec4-peephole",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出 §4 是 Experiments，不是 Peephole 主题",
+      "指出 peephole 是 2000 年的后续工作",
+      "拒绝编造虚假引用"
+    ],
+    "question": "请引用 Hochreiter 和 Schmidhuber 1997 年论文《Long Short-Term Memory》(Neural Computation 9(8):1735-1780) 第 4 节中关于 'Peephole Connections' 的定理 4.1。",
+    "why_unanswerable": "不可答：该论文 §4 是 'Experiments'（4.1 Continuity-Sensitive Sequences, 4.2 Bridge Benchmark, ...），不包含任何关于 Peephole Connections 的内容。'Peephole connections' 是 Gers、Schmidhuber、Cummins 在 2000 年的后续论文 'Learning to Forget: Continual Prediction with Fresh Neural Memory' (Neural Computation 12(10):2451-2471) 中提出的，不在 1997 年的原论文中。"
+  },
+  "tier": 5,
+  "type": "unanswerable"
+}

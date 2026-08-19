@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t2.sum-3digit-div7",
+  "type": "reasoning",
+  "tier": 2,
+  "payload": {
+    "question": "求所有三位数 (100–999) 中 7 的倍数之和。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 70336
+    },
+    "checkpoints": [
+      "identifies first multiple 105 and last 994",
+      "uses arithmetic series formula"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 70336
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "identifies first multiple 105 and last 994"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses arithmetic series formula"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

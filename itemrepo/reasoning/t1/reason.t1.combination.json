@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t1.combination",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "从 10 个不同元素中选取 2 个的方案数是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 45
+    },
+    "checkpoints": [],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 45
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "oracle",
+      "ultrabrain"
+    ]
+  }
+}

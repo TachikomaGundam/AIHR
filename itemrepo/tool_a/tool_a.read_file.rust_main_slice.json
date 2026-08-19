@@ -1,0 +1,129 @@
+{
+  "item_key": "tool_a.read_file.rust_main_slice",
+  "type": "tool_a",
+  "tier": 3,
+  "content_hash": "sha256:0b052f04c96e697e42614bdb60386a088ffaeb7edd7e2d5e18963aa1f4817b76",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "读取 ~/project/src/main.rs 中第 100 至 150 行。注意 home 要展开。",
+    "tools": [
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "code_search",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string"
+            },
+            "language": {
+              "type": "string",
+              "enum": [
+                "typescript",
+                "python",
+                "rust",
+                "go",
+                "java"
+              ]
+            },
+            "path": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "query"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "read_file",
+      "arg_constraints": {
+        "path": {
+          "regex": "^(/home/lab|/root)/project/src/main\\.rs$"
+        },
+        "offset": {
+          "range": [
+            100,
+            100
+          ]
+        },
+        "limit": {
+          "range": [
+            51,
+            51
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "iii",
+    "schema": "read_file"
+  }
+}

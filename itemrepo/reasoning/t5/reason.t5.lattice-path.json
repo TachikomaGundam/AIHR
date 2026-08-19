@@ -1,0 +1,50 @@
+{
+  "item_key": "reasoning.t5.lattice-path",
+  "type": "reasoning",
+  "tier": 5,
+  "payload": {
+    "question": "在网格纸上从 (0,0) 走到 (7,7),每步只能向右或向上。但禁止经过矩形区域 [3,4] × [3,5] 内的任何格点 (即 x ∈ {3,4} 且 y ∈ {3,4,5} 的点均不可到达)。共有多少条合法路径?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 667,
+      "crosscheck_value": 667
+    },
+    "checkpoints": [
+      "uses DP with obstacle cells set to 0",
+      "computes dp[7][7]"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 667
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "uses DP with obstacle cells set to 0"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes dp[7][7]"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "metis",
+      "prometheus"
+    ]
+  }
+}

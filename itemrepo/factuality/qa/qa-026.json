@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.hist-principia-mathematica-year",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "艾萨克·牛顿 (Isaac Newton) 出版《自然哲学的数学原理》(Philosophiæ Naturalis Principia Mathematica) 首版是在哪一年？",
+    "verifiable_answer": "1687",
+    "source_of_truth": {
+      "kind": "historical_record",
+      "ref": "Principia first published 5 July 1687 (Hall, 1992; Newton Project)"
+    },
+    "verification": "exact",
+    "answer_explanation": "牛顿的 Principia Mathematica 首版于 1687 年 7 月 5 日在伦敦由 Joseph Streater 出版。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

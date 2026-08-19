@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.geo-china-longest-inland-river",
+  "type": "factuality_qa",
+  "tier": 1,
+  "payload": {
+    "question": "中国最长的内流河是哪一条？请给出中文名称。",
+    "verifiable_answer": "塔里木河",
+    "source_of_truth": {
+      "kind": "geographic_fact",
+      "ref": "塔里木河 ≈ 2,137 km, 中国最长内流河"
+    },
+    "verification": "exact",
+    "answer_explanation": "塔里木河全长约 2,137 公里，是中国最长的内流河（inland river），位于新疆塔里木盆地。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

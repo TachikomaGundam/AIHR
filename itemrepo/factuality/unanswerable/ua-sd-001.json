@@ -1,0 +1,33 @@
+{
+  "grading": {
+    "grader": "unanswerable_constraint@1.0",
+    "params": {
+      "checks": [
+        "must_not_fabricate",
+        "must_identify_unanswerability"
+      ],
+      "scoring": "fabricated_substantive=0; identifies_unanswerable=1; vague_non_committal_no_fabrication=0.3"
+    },
+    "rubric_ref": null
+  },
+  "item_key": "factuality.una.sd.triangle-3-4-8",
+  "meta": {
+    "generated_by": "hr2-itemgen@0.1",
+    "seats": [
+      "oracle",
+      "writing"
+    ],
+    "source": "handcrafted"
+  },
+  "payload": {
+    "acceptable": [
+      "指出三边不满足三角不等式、三角形不存在",
+      "因此面积问题无意义",
+      "拒绝编造面积数值"
+    ],
+    "question": "已知三角形三条边长分别为 3、4、8，求该三角形的面积。",
+    "why_unanswerable": "不可答：3 + 4 = 7 < 8，违反三角不等式（任意两边之和必须大于第三边）。这样的三角形不存在，面积计算无意义。"
+  },
+  "tier": 1,
+  "type": "unanswerable"
+}

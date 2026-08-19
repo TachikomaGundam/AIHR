@@ -1,0 +1,56 @@
+{
+  "item_key": "reasoning.t1.power-sum",
+  "type": "reasoning",
+  "tier": 1,
+  "payload": {
+    "question": "求 2^10 + 3^5。",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 1267
+    },
+    "checkpoints": [
+      "computes 2^10=1024",
+      "computes 3^5=243",
+      "adds to get 1267"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 1267
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes 2^10=1024"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "computes 3^5=243"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "adds to get 1267"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "deep",
+      "momus"
+    ]
+  }
+}

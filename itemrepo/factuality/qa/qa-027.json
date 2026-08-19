@@ -1,0 +1,33 @@
+{
+  "item_key": "factuality.qa.hist-first-opium-war-end-year",
+  "type": "factuality_qa",
+  "tier": 2,
+  "payload": {
+    "question": "第一次鸦片战争正式结束于哪一年？（注意：不是战争爆发的 1840 年，请给出结束的年份）",
+    "verifiable_answer": "1842",
+    "source_of_truth": {
+      "kind": "historical_record",
+      "ref": "Treaty of Nanking signed 29 August 1842 on HMS Cornwallis"
+    },
+    "verification": "exact",
+    "answer_explanation": "第一次鸦片战争 (1840-06-28 ~ 1842-08-29)。中英《南京条约》 (Treaty of Nanking) 签订于 1842 年 8 月 29 日，标志着战争正式结束。"
+  },
+  "grading": {
+    "grader": "factuality_constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "exact_match"
+        }
+      ]
+    }
+  },
+  "meta": {
+    "seats": [
+      "oracle",
+      "writing",
+      "librarian"
+    ],
+    "source": "handcrafted"
+  }
+}

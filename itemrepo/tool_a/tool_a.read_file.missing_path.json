@@ -1,0 +1,108 @@
+{
+  "item_key": "tool_a.read_file.missing_path",
+  "type": "tool_a",
+  "tier": 5,
+  "content_hash": "sha256:35dd2b55fdc18bfd40287a2c8a4b9863dd3fd0f02415bf4a047973ee55712ae3",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "请给我读一下那个日志文件。",
+    "tools": [
+      {
+        "name": "read_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Absolute file path"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Start line (1-indexed)"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      },
+      {
+        "name": "shell_exec",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "workdir": {
+              "type": "string"
+            },
+            "timeout": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 900000,
+              "description": "Timeout in ms"
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      },
+      {
+        "name": "system_monitor",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "metric": {
+              "type": "string",
+              "enum": [
+                "cpu",
+                "memory",
+                "disk",
+                "network",
+                "process"
+              ]
+            },
+            "duration": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Seconds to sample"
+            },
+            "interval": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "metric"
+          ]
+        }
+      }
+    ],
+    "correct": null
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "v",
+    "schema": "read_file"
+  }
+}

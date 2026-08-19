@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t3.coprime-4primes",
+  "type": "reasoning",
+  "tier": 3,
+  "payload": {
+    "question": "在 1 到 1000 之间 (含两端),有多少个整数同时不被 2, 3, 5, 7 整除?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 228
+    },
+    "checkpoints": [
+      "applies inclusion-exclusion",
+      "correctly counts each intersection"
+    ],
+    "multi_step_state": false
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 228
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "applies inclusion-exclusion"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "correctly counts each intersection"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "momus",
+      "prometheus"
+    ]
+  }
+}

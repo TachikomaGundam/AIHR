@@ -1,0 +1,49 @@
+{
+  "item_key": "reasoning.t4.burnside-cube",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "用 3 种颜色给立方体的 6 个面涂色 (每面一色),若两种涂色可通过立方体的旋转重合则视为相同,共多少种?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 57
+    },
+    "checkpoints": [
+      "enumerates 24 rotations of cube",
+      "counts fixed colorings per rotation"
+    ],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 57
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "enumerates 24 rotations of cube"
+          ]
+        },
+        {
+          "kind": "contains_all",
+          "phrases": [
+            "counts fixed colorings per rotation"
+          ]
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "ultrabrain",
+      "metis"
+    ]
+  }
+}

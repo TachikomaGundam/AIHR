@@ -1,0 +1,34 @@
+{
+  "item_key": "reasoning.t4.menage-6",
+  "type": "reasoning",
+  "tier": 4,
+  "payload": {
+    "question": "夫妻围桌问题 (ménage):6 对夫妻坐成一圈男女相间且每对夫妻不相邻,方案数 M(6) 是多少?",
+    "answer_schema": {
+      "kind": "numeric",
+      "expected_value": 80
+    },
+    "checkpoints": [],
+    "multi_step_state": true
+  },
+  "grading": {
+    "grader": "constraint@1.0",
+    "params": {
+      "checks": [
+        {
+          "kind": "numeric_eq",
+          "value": 80
+        }
+      ]
+    }
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "hr2-itemgen-b1@0.1",
+    "contamination_guard": "no-model-derived-truth-handcrafted-only",
+    "seats": [
+      "prometheus",
+      "oracle"
+    ]
+  }
+}

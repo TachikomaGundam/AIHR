@@ -1,0 +1,138 @@
+{
+  "item_key": "tool_a.image_generate.apple_png",
+  "type": "tool_a",
+  "tier": 1,
+  "content_hash": "sha256:a18bf1fe9b43e7391189b5d9a7d4c8a66bfb17ef0952b901a56cc2d7b80b7bad",
+  "payload": {
+    "system": "OpenCode coding assistant.",
+    "user": "生成一张 512x512 的 PNG 图片，内容是 'a red apple on a wooden table'。",
+    "tools": [
+      {
+        "name": "image_generate",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string"
+            },
+            "width": {
+              "type": "integer",
+              "enum": [
+                256,
+                512,
+                1024
+              ]
+            },
+            "height": {
+              "type": "integer",
+              "enum": [
+                256,
+                512,
+                1024
+              ]
+            },
+            "format": {
+              "type": "string",
+              "enum": [
+                "png",
+                "jpg",
+                "webp"
+              ]
+            }
+          },
+          "required": [
+            "prompt"
+          ]
+        }
+      },
+      {
+        "name": "browser_open",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https?://"
+            },
+            "selector": {
+              "type": "string",
+              "description": "CSS selector to interact with"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "open",
+                "click",
+                "fill",
+                "screenshot",
+                "close"
+              ]
+            }
+          },
+          "required": [
+            "url"
+          ]
+        }
+      },
+      {
+        "name": "write_file",
+        "schema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "filePath",
+            "content"
+          ]
+        }
+      }
+    ],
+    "correct": {
+      "name": "image_generate",
+      "arg_constraints": {
+        "prompt": {
+          "regex": "(?i)a red apple on a wooden table"
+        },
+        "width": {
+          "enum": [
+            512
+          ]
+        },
+        "height": {
+          "enum": [
+            512
+          ]
+        },
+        "format": {
+          "enum": [
+            "png"
+          ]
+        }
+      }
+    }
+  },
+  "grading": {
+    "grader": "schema_valid@1.0",
+    "params": {},
+    "rubric_ref": "spec/5.3.tool_a"
+  },
+  "meta": {
+    "source": "handcrafted",
+    "generated_by": "b3_generator",
+    "generated_at": "2026-07-27T00:00:00Z",
+    "knowledge_after": false,
+    "contamination_guard": false,
+    "seats": [
+      "hephaestus",
+      "sisyphus_junior"
+    ],
+    "tool_type": "i",
+    "schema": "image_generate"
+  }
+}
