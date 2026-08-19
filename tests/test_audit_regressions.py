@@ -41,26 +41,20 @@ from hr.models import BenchmarkCategory as BC
 # Shared hermetically-sealed environment
 # ---------------------------------------------------------------------------
 @pytest.fixture
-def hr_env(tmp_path: Path, monkeypatch) -> dict[str, Path]:
+def hr_env(hr_sandbox: dict, monkeypatch) -> dict[str, Path]:
     """Seal HOME, OPENCODE_CONFIG_DIR and HR_HOME into tmp; chdir to tmp.
 
     Returns ``{"home", "config_dir", "hr_home", "project"}``.
     """
-    home = tmp_path / "home"
-    config_dir = tmp_path / "opencode-config"
-    hr_home = tmp_path / "hr-home"
-    project = tmp_path / "project"
-    for p in (home, config_dir, hr_home, project):
-        p.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
-    monkeypatch.setenv("HR_HOME", str(hr_home))
-    for var in ("HR_ITEMREPO", "HR_DSN", "HR_DB_PASSWORD", "HR_COMPOSE_FILE"):
-        monkeypatch.delenv(var, raising=False)
-    monkeypatch.chdir(project)
-    configs = hr_home / "configs"
-    configs.mkdir(exist_ok=True)
-    return {"home": home, "config_dir": config_dir, "hr_home": hr_home, "project": project}
+    # itemrepo-resolution tests exercise the HR_HOME default explicitly,
+    # so the staging workspace must not preset HR_ITEMREPO here.
+    monkeypatch.delenv("HR_ITEMREPO", raising=False)
+    return {
+        "home": hr_sandbox["home"],
+        "config_dir": hr_sandbox["config_dir"],
+        "hr_home": hr_sandbox["hr_home"],
+        "project": hr_sandbox["project"],
+    }
 
 
 def _write(hr_home: Path, name: str, text: str) -> Path:
@@ -344,8 +338,7 @@ class TestRecommendReadsSeatsYaml:
 # ---------------------------------------------------------------------------
 class TestItemrepoResolution:
     def test_default_is_hr_home_itemrepo(self, hr_env) -> None:
-        # Given: HR_HOME with an itemrepo directory
-        (hr_env["hr_home"] / "itemrepo").mkdir()
+        # Given: HR_HOME with an itemrepo directory (staging presets it)
         # When: itemrepo_path()
         # Then: the HR_HOME-derived default
         assert itemrepo_path() == hr_env["hr_home"] / "itemrepo"
@@ -361,7 +354,8 @@ class TestItemrepoResolution:
         assert itemrepo_path() == custom.resolve()
 
     def test_missing_dir_fails_loud_naming_resolution(self, hr_env) -> None:
-        # Given: HR_HOME without an itemrepo directory and no override
+        # Given: no override and the default HR_HOME/itemrepo does not exist
+        (hr_env["hr_home"] / "itemrepo").rmdir()
         # When/Then: RuntimeError naming the resolution chain
         with pytest.raises(RuntimeError, match="HR_HOME/itemrepo|HR_ITEMREPO"):
             itemrepo_path()
@@ -457,3 +451,46 @@ class TestLocalOverlay:
             "calibration_anchors:\n  cheap: fixture-provider/fixture-model\n",
         )
         assert load_anchors() == {"cheap": "fixture-provider/fixture-model"}
+
+
+# ---------------------------------------------------------------------------
+# 8. Runtime output root (staging-workspace contract)
+# ---------------------------------------------------------------------------
+
+
+class TestOutputRoot:
+    def test_env_override_wins(self, hr_env, monkeypatch) -> None:
+        from hr.config import output_root
+
+        out = hr_env["project"] / "artifacts"
+        monkeypatch.setenv("HR_OUTPUT_DIR", str(out))
+        assert output_root() == out.resolve()
+
+    def test_xdg_cache_default_never_repo(self, hr_env, monkeypatch) -> None:
+        from hr.config import output_root
+
+        monkeypatch.delenv("HR_OUTPUT_DIR", raising=False)
+        monkeypatch.setenv("XDG_CACHE_HOME", str(hr_env["home"] / ".cache"))
+        root = output_root()
+        assert root == (hr_env["home"] / ".cache" / "hr").resolve()
+        # the staging workspace is outside the repo by construction — and so is
+        # the resolved root
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parents[1]
+        sandbox_tmp = hr_env["project"].parent
+        assert sandbox_tmp.resolve().is_relative_to(repo) is False
+        assert root.is_relative_to(repo) is False
+
+    def test_home_fallback_under_sealed_home(self, hr_env, monkeypatch) -> None:
+        from hr.config import output_root
+
+        monkeypatch.delenv("HR_OUTPUT_DIR", raising=False)
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+        root = output_root()
+        assert root == (hr_env["home"] / ".cache" / "hr").resolve()
+        assert root.is_relative_to(repo_root()) is False
+
+
+def repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]

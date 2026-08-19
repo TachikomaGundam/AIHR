@@ -22,6 +22,8 @@ This module is THE config module for the hr package:
   ``configs/fleet.yaml``
 * ``itemrepo_path()`` — calibration item repo (``HR_ITEMREPO`` env >>
   ``HR_HOME/itemrepo``, fail loud naming the resolution)
+* ``output_root()`` — runtime output root for run artifacts
+  (``HR_OUTPUT_DIR`` env >> platform cache dir; never the repo tree)
 * ``Settings`` / ``load_settings()`` — v1 backward-compat pydantic contract
   (consumed by ``hr.database``, ``hr.recommend``, ``hr.bench``), reimplemented
   on top of this layer.
@@ -36,6 +38,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -382,6 +385,34 @@ def itemrepo_path() -> Path:
             "HR_ITEMREPO at a directory of calibration items"
         )
     return path
+
+
+def output_root() -> Path:
+    """Runtime output root for run artifacts (never the repo tree).
+
+    Contract: generated artifacts (bench exports, calibration reports, sweep
+    dumps, …) land OUTSIDE the repository — tests run in a staging workspace,
+    and a live ``hr`` run must never dirty its own checkout. Resolution order:
+
+      1. ``HR_OUTPUT_DIR`` env var (explicit override; CLI flags that name an
+         explicit output path still win at the call site),
+      2. platform cache dir: ``$XDG_CACHE_HOME/hr`` (Linux),
+         ``~/Library/Caches/hr`` (macOS), ``%LOCALAPPDATA%/hr\\Cache`` (Windows),
+      3. the system temp dir (``tempdir()/hr``) as last resort.
+
+    Callers create/use subdirectories under the returned root; the root itself
+    is not created here (resolution must stay side-effect free).
+    """
+    env = os.environ.get("HR_OUTPUT_DIR")
+    if env:
+        return Path(env).expanduser().resolve()
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "Cache"
+        return base / "hr"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Caches" / "hr"
+    base = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
+    return base / "hr"
 
 
 # ---------------------------------------------------------------------------
