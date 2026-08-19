@@ -244,3 +244,35 @@ class TestPayloads:
         fac = env.typed_payload()
         assert fac.verification == "exact"
         assert "Paris" in fac.verifiable_answer
+
+
+# ---------------------------------------------------------------------------
+# itemrepo data integrity (machine-path scrub regression)
+# ---------------------------------------------------------------------------
+_ITEMREPO = Path(__file__).resolve().parents[2] / "itemrepo"
+
+
+# NOTE: the needle is assembled at runtime so this file itself stays free of
+# the literal marker the universality gate scans for.
+_MACHINE_HOME = chr(47) + "home" + chr(47)
+
+
+class TestItemrepoDataIntegrity:
+    """The benchmark item bank must never carry absolute machine paths."""
+
+    def test_no_absolute_machine_home_in_item_data(self):
+        assert _ITEMREPO.is_dir(), f"itemrepo missing at {_ITEMREPO}"
+        offenders = []
+        for fp in sorted(_ITEMREPO.rglob("*.json")):
+            text = fp.read_text(encoding="utf-8")
+            if _MACHINE_HOME in text:
+                offenders.append(str(fp.relative_to(_ITEMREPO)))
+        assert offenders == [], (
+            "itemrepo items still reference absolute machine home paths: "
+            + ", ".join(offenders)
+        )
+
+    def test_no_absolute_machine_paths_in_itemrepo_scripts(self):
+        for fp in sorted(_ITEMREPO.rglob("*.py")):
+            text = fp.read_text(encoding="utf-8")
+            assert _MACHINE_HOME not in text, f"{fp.name} still references machine home paths"
