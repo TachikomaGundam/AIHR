@@ -5,7 +5,8 @@
 #
 #   (a) zero model-name literals in hr/ engine code (allowlisted comments,
 #       docstrings, and provider-wire constants documented below)
-#   (b) zero absolute /home/ paths in hr/ + tests/
+#   (b) zero absolute /home/ paths in hr/ + tests/ + itemrepo/ (itemrepo is
+#       benchmark task DATA, scrub-guarded by tests/items/data-integrity)
 #   (c) hr.scheduler/taxonomy.py + hr.items/loader.py alive (import smoke)
 #   (d) no secrets: known DB password absent from full git history + worktree
 #
@@ -60,17 +61,12 @@ from pathlib import Path
 
 RE = re.compile(r"qwen|deepseek|kimi|glm|minimax|gpt-", re.IGNORECASE)
 
-# Exact-value allowlist — the remaining provider-wire infrastructure in
-# hr/adapters/openai_compat.py (deepseek openai-compat special-case) and the
-# keyscan pattern label. Anything else matching the regex in a code position
-# is a residual. No model ids, no fleet lists, no calibration anchors: those
-# are config data (configs/) and never appear in engine code.
+# Exact-value allowlist — engine-internal identifiers that are NOT model
+# names: the keyscan pattern label. Anything else matching the regex in a
+# code position is a residual. No model ids, no fleet lists, no calibration
+# anchors, no gateway URLs: those are config data (configs/) and never appear
+# in engine code.
 ALLOWED = {
-    # openai_compat.py special-case: the openai-compat pool's provider id
-    # (deepseek provider wired via openai-compat in configs/fleet.yaml).
-    "deepseek",
-    # openai_compat.py DEFAULT_BASE_URL (gateway endpoint, not a model name).
-    "https://api.deepseek.com",
     # keyscan.py pattern label for the kimi gateway key format.
     "sk_kimi",
 }
@@ -160,10 +156,10 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# (b) absolute /home/ paths in hr/ + tests/
+# (b) absolute /home/ paths in hr/ + tests/ + itemrepo/
 # ---------------------------------------------------------------------------
 echo "== (b) absolute /home/ paths =="
-b_hits=$(grep -rnE --exclude-dir=__pycache__ --exclude-dir=.venv '/home/' hr/ tests/ 2>/dev/null)
+b_hits=$(grep -rnE --exclude-dir=__pycache__ --exclude-dir=.venv '/home/' hr/ tests/ itemrepo/ 2>/dev/null)
 if [ -n "$b_hits" ]; then
     echo "$b_hits"
     echo "FAIL (b): absolute /home/ paths found above."
