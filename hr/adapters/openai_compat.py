@@ -28,7 +28,6 @@ from .fleet import VALID_TYPES, provider_type, resolve_capabilities
 
 log = logging.getLogger(__name__)
 
-DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_CONFIG = os.path.expanduser("~/.cache/opencode/models.json")
 DEFAULT_AUTH = os.path.expanduser("~/.local/share/opencode/auth.json")
 DEFAULT_TIMEOUT_S = 180.0
@@ -82,8 +81,16 @@ def _resolve_endpoint(
 ) -> _Endpoint:
     """Resolve (url, headers) for an OpenAI-compatible provider.
 
-    Uses opencode models.json for the api_base_url and auth.json for the bearer
-    token. Both files are cached to first-read; subsequent calls are cheap.
+    The base URL is resolved dynamically — never hardcoded — from, in order:
+
+      1. ``base_url_override`` (explicit constructor flag);
+      2. the ``api``/``baseURL`` entry for the provider in the opencode models
+         cache (``config_path``);
+      3. the opencode provider block ``options.baseURL`` (live opencode.jsonc);
+      4. ``gateway_urls: {provider: ...}`` in configs/fleet.yaml.
+
+    When nothing declares a base URL the resolution FAILS LOUD, naming every
+    declaration site. The bearer token comes from auth.json (``auth_path``).
     """
     provider = _provider_for(model_id)
 
@@ -92,6 +99,18 @@ def _resolve_endpoint(
         base = base_url_override
     else:
         base = _api_base_from_config(provider, config_path)
+        if base is None:
+            base = _api_base_from_opencode_config(provider)
+        if base is None:
+            base = _api_base_from_gateway_urls(provider)
+        if base is None:
+            raise AdapterError(
+                f"No base URL declared for provider {provider!r} (from model "
+                f"{model_id!r}). Declare it in one of: the provider block "
+                f"'options.baseURL' in opencode.jsonc; 'api'/'baseURL' for "
+                f"{provider!r} in the opencode models cache at {config_path}; "
+                f"or 'gateway_urls:' for {provider!r} in configs/fleet.yaml"
+            )
 
     url = base.rstrip("/") + "/chat/completions"
 
@@ -104,36 +123,54 @@ def _resolve_endpoint(
     return _Endpoint(provider=provider, url=url, headers=headers)
 
 
-def _api_base_from_config(provider: str, config_path: str) -> str:
-    # The OpenAI-compat pool currently has only one provider (deepseek-direct)
-    # whose base URL is statically known; if the config is unreadable, fall back
-    # rather than fail hard — this lets the adapter work in CI/slim environments.
-    if provider == "deepseek":
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-            entry = _provider_entry(cfg, provider)
-            base = (entry or {}).get("api") or (entry or {}).get("baseURL")
-            if base:
-                return base
-        except OSError:
-            pass
-        return DEFAULT_BASE_URL
+def _api_base_from_config(provider: str, config_path: str) -> str | None:
+    """Base URL from the opencode models cache (``api``/``baseURL``), if present.
 
+    The cache is optional: None means "not declared here" and the caller moves
+    on to the next declaration site. There is deliberately NO hardcoded
+    fallback — the historic DEFAULT_BASE_URL deepseek special-case was removed.
+    """
     try:
         with open(config_path, "r", encoding="utf-8") as f:
             cfg = json.load(f)
-    except OSError as e:
-        raise AdapterError(
-            f"Cannot read opencode models config at {config_path}: {e}",
-        ) from e
-
+    except (OSError, json.JSONDecodeError):
+        return None
     entry = _provider_entry(cfg, provider) or {}
     base = entry.get("api") or entry.get("baseURL")
-    if not base:
-        raise AdapterError(
-            f"No 'api' base URL defined for provider '{provider}' in {config_path}"
-        )
+    if not isinstance(base, str) or not base.strip():
+        return None
+    return base
+
+
+def _api_base_from_opencode_config(provider: str) -> str | None:
+    """Base URL from the live opencode.jsonc provider block ``options.baseURL``."""
+    from hr import opencfg  # lazy: keep adapter import cycles out
+
+    try:
+        blocks = opencfg.read_providers()
+    except Exception:
+        # Missing/unreadable opencode config: the models cache and the
+        # gateway_urls overlay may still declare the provider — keep the chain.
+        return None
+    opts = (blocks.get(provider) or {}).get("options") or {}
+    base = opts.get("baseURL")
+    if not isinstance(base, str) or not base.strip():
+        return None
+    return base
+
+
+def _api_base_from_gateway_urls(provider: str) -> str | None:
+    """Base URL from the configs/fleet.yaml ``gateway_urls`` overlay."""
+    from hr import config as hr_config  # lazy: keep adapter import cycles out
+
+    try:
+        urls = hr_config.gateway_urls()
+    except FileNotFoundError:
+        # No fleet.yaml — the overlay declares nothing; earlier sources rule.
+        return None
+    base = urls.get(provider)
+    if not isinstance(base, str) or not base.strip():
+        return None
     return base
 
 
