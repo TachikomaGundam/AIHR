@@ -6,29 +6,51 @@ build-backend = "setuptools.build_meta"
 name = "hr-agent"
 version = "0.2.0"
 description = "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "typer",
     "rich",
     "httpx",
     "pydantic>=2.0",
-    "pydantic-settings>=2.0",
     "psycopg2-binary>=2.9",
     "numpy>=1.26",
     "pyyaml>=6.0",
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
-test = ["pytest"]
+test = ["basedpyright>=1.39", "pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.16"]
 
 [project.scripts]
 hr = "hr.cli:app"
-hr2 = "hr.cli:app"  # compat alias — same app, not a copy
 
 [tool.setuptools.packages.find]
 include = ["hr*"]
 exclude = ["hr.hr*"]
 
+[tool.setuptools.data-files]
+"share/hr-agent/configs" = [
+    "configs/deployable.yaml",
+    "configs/fleet.yaml",
+    "configs/hr.toml.example",
+    "configs/knowledge.yaml",
+    "configs/models.yaml",
+    "configs/seats.yaml",
+    "configs/thresholds.yaml",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+
+[tool.basedpyright]
+typeCheckingMode = "recommended"
+reportImportCycles = false
+reportMissingTypeArgument = false
+
+[tool.coverage.run]
+branch = true
+source = ["hr"]
