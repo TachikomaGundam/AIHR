@@ -53,6 +53,8 @@ def test_bench_rejects_unknown_battery() -> None:
     assert "not_a_battery" in result.output
 
 
+@pytest.mark.db
+@pytest.mark.integration
 def test_bench_mocked_e2e_writes_measurements(
     scratch_db, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -81,19 +83,19 @@ def test_bench_mocked_e2e_writes_measurements(
             cur.execute(
                 """
                 SELECT COUNT(m.measurement_id)::int, AVG(m.score)::float8
-                  FROM hr2.measurement m
-                  JOIN hr2.run r ON r.run_id = m.run_id
+          FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
                  WHERE r.sweep_id LIKE 'livebench-%'
                 """
             )
             count, mean = cur.fetchone()
             cur.execute(
-                "SELECT COUNT(*) FROM hr2.run "
+            "SELECT COUNT(*) FROM hr.run "
                 "WHERE model_id = 'fake/e2e-model'"
             )
             runs = cur.fetchone()[0]
             cur.execute(
-                "SELECT COUNT(*) FROM hr2.sweep WHERE purpose = 'livebench'"
+            "SELECT COUNT(*) FROM hr.sweep WHERE purpose = 'livebench'"
             )
             sweeps = cur.fetchone()[0]
     finally:
