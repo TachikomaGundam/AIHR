@@ -48,6 +48,13 @@ _CONFIG_NAMES = (
 )
 _DB_ENVS = ("HR_DSN", "HR_DB_PASSWORD", "HR_DB_USER", "HR_COMPOSE_FILE")
 
+# Coverage artifacts are excluded from the guard's comparison set: pytest-cov
+# erases `.coverage` BEFORE pytest_sessionstart's snapshot and writes it back
+# BEFORE the after-snapshot, so it is always absent from the before set and
+# present in the after one (flipping the guard on every --cov run). `.coverage`
+# and the CI `coverage.xml` report are test-infra byproducts, not test leaks.
+_COVERAGE_ARTIFACTS = {".coverage", "coverage.xml"}
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _sealed_home(tmp_path_factory: pytest.TempPathFactory) -> None:
@@ -125,7 +132,13 @@ def _repo_status() -> str:
         text=True,
         check=False,
     )
-    return proc.stdout
+    lines = []
+    for line in proc.stdout.splitlines():
+        path = line[3:].strip() if len(line) > 3 else line
+        if path in _COVERAGE_ARTIFACTS:
+            continue
+        lines.append(line)
+    return "\n".join(lines)
 
 
 _cleanliness_before: str | None = None

@@ -23,6 +23,8 @@ def test_thresholds_yaml_loads():
     assert cfg.n_initial == 3
     assert cfg.n_max == 10
 
+@pytest.mark.db
+@pytest.mark.integration
 def test_dry_run_no_api_calls_with_db_empty():
     """With no Stage 0 data, dry-run with --models override should still work.
 

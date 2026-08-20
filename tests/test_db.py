@@ -90,6 +90,8 @@ def test_schema_guard_does_not_touch_public_tables():
     assert "public." not in ddl
 
 
+@pytest.mark.db
+@pytest.mark.integration
 @pytest.mark.skipif(
     os.environ.get("HR_TEST_DB") != "1",
     reason="requires a live DB; set HR_TEST_DB=1 + HR_DB_NAME/HR_DSN pointing at a SCRATCH DB",

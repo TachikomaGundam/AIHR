@@ -161,6 +161,8 @@ def test_build_finals_plan_basic():
     assert plan.estimated_max_calls == 2 * total * 10
     assert plan.budget_cap == STAGE1_TOKEN_CAP
 
+@pytest.mark.db
+@pytest.mark.integration
 def test_dry_run_with_override_finalists(capsys):
     """--dry-run with overridden finalists should produce a plan without touching DB.
 

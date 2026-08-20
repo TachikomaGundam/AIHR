@@ -231,6 +231,8 @@ def test_selection_indices_invalid_inputs():
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.db
+@pytest.mark.integration
 def test_pick_feeds_engine_run_set(scratch_db, pick_env, monkeypatch):
     """Real CLI -> real scratch DB, fake adapter; entry 1 picked, entry 2 not."""
     ids = _ordered_discover_ids()
