@@ -22,6 +22,7 @@ import hr.bench.engine as engine_mod
 from hr.cli import _selection_indices, app
 from hr.discover import enumerate_models, scope_providers
 from tests.bench.fake_adapter import FakeAdapter
+from tests.conftest import materialize_templates
 
 runner = CliRunner()
 
@@ -50,6 +51,7 @@ _GLOBAL_JSONC = """\
 def pick_env(hr_sandbox: dict):
     """Global opencode.jsonc (2 providers/3 models, all in default scope);
     empty project cwd; no auth files (auth markers irrelevant to picking)."""
+    materialize_templates(hr_sandbox)  # engine e2e needs tracked configs (thresholds.yaml)
     (hr_sandbox["config_dir"] / "opencode.jsonc").write_text(
         textwrap.dedent(_GLOBAL_JSONC), encoding="utf-8"
     )
@@ -233,6 +235,9 @@ def test_pick_feeds_engine_run_set(scratch_db, pick_env, monkeypatch):
     """Real CLI -> real scratch DB, fake adapter; entry 1 picked, entry 2 not."""
     ids = _ordered_discover_ids()
     monkeypatch.setattr(engine_mod, "adapter_for", lambda model_id: FakeAdapter())
+    # hr_sandbox removes DB envs inside the sandbox; point the CLI at the
+    # scratch DB explicitly so the real engine path resolves credentials
+    monkeypatch.setenv("HR_DSN", scratch_db[1])
     result = runner.invoke(
         app,
         ["bench", "--pick", "--battery", "instruction_follow"],
@@ -246,7 +251,7 @@ def test_pick_feeds_engine_run_set(scratch_db, pick_env, monkeypatch):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT model_id FROM hr2.run WHERE sweep_id LIKE 'livebench-%'"
+            "SELECT model_id FROM hr.run WHERE sweep_id LIKE 'livebench-%'"
             )
             ran = [row[0] for row in cur.fetchall()]
     finally:
