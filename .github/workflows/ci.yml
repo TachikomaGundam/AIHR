@@ -44,7 +44,7 @@ jobs:
         env:
           HR_DSN: postgresql://hr:hr@localhost:5432/hr_test
           HR_TEST_DB: "1"
-        run: python -m pytest --cov=hr --cov-report=term-missing --cov-report=xml -q
+        run: python -m pytest --cov=hr --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:
