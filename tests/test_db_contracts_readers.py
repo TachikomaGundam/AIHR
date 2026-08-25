@@ -269,15 +269,6 @@ def test_seat_assignments_primary_and_elimination(
     assert len(assignments) == 18  # every SEAT_CODES seat gets a row
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "hr/seats/health_gates.py:190 divides Decimal token_efficiency by "
-        "1000.0 — live NUMERIC/INTEGER rows produce Decimal efficiency while "
-        "unit fakes use floats, so the seat-weighted tie-break crashes only "
-        "against real PostgreSQL"
-    ),
-)
 def test_health_rank_score_with_seat_multiplies_token_efficiency(
     db_conn: psycopg2.extensions.connection,
 ) -> None:

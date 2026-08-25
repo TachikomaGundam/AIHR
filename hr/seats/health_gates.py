@@ -1,6 +1,6 @@
-"""hr2.seats.health_gates — behavioral-health gates per seat level.
+"""Behavioral-health gates per seat level.
 
-Wires the zero-cost health metrics (``hr2.health``, mined from already-run
+Wires the zero-cost health metrics (``hr.health``, mined from already-run
 sweep measurements — no new API calls) into seat assignment:
 
   * each seat belongs to a ``GateLevel`` (strict / moderate / lenient);
@@ -24,139 +24,14 @@ Semantics:
 
 from __future__ import annotations
 
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict
-
 from ..health import HealthReport
-from .rolespec import SEAT_CODES
-
-GateLevel = Literal["strict", "moderate", "lenient"]
-
-
-class HealthThresholds(BaseModel):
-    """Per-level thresholds on HealthReport metrics.
-
-    Mirror of the rolespec.py style: extra fields are rejected so a typo'd
-    threshold name fails loudly at import time.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    loop_mean_max: float | None = None   # max allowed mean loop score
-    truncation_max: float | None = None  # max allowed truncation rate
-    unanimity_min: float | None = None   # min allowed unanimity %
-    completion_min: float | None = None  # min allowed answer completion rate
-
-
-GATES: dict[GateLevel, HealthThresholds] = {
-    "strict": HealthThresholds(
-        loop_mean_max=0.10, truncation_max=0.05,
-        unanimity_min=0.90, completion_min=0.80
-    ),
-    "moderate": HealthThresholds(
-        loop_mean_max=0.15, truncation_max=0.08,
-        unanimity_min=None, completion_min=0.70
-    ),
-    "lenient": HealthThresholds(
-        loop_mean_max=0.20, truncation_max=0.10,
-        unanimity_min=None, completion_min=None
-    ),
-}
-
-# Every seat in SEAT_CODES maps to exactly one gate level.
-#   strict   — decision-facing / judgment seats: low tolerance for looping
-#              output, truncation, or disagreement.
-#   moderate — working seats with real failure cost but less finality.
-#   lenient  — high-frequency / low-stakes seats: only gross health failures
-#              should block.
-SEAT_HEALTH_GATE: dict[str, GateLevel] = {
-    # strict
-    "oracle": "strict",
-    "ultrabrain": "strict",
-    "metis": "strict",
-    "momus": "strict",
-    "writing": "strict",
-    "librarian": "strict",
-    "prometheus": "strict",
-    # moderate
-    "deep": "moderate",
-    "unspecified_high": "moderate",
-    "visual_engineering": "moderate",
-    "artistry": "moderate",
-    "multimodal_looker": "moderate",
-    "hephaestus": "moderate",
-    "sisyphus_junior": "moderate",
-    # lenient
-    "explore": "lenient",
-    "quick": "lenient",
-    "atlas": "lenient",
-    "unspecified_low": "lenient",
-}
-
-# All SEAT_CODES covered? (defensive — kept in sync by test_health_gates.py)
-assert set(SEAT_HEALTH_GATE) == set(SEAT_CODES), (
-    "SEAT_HEALTH_GATE must cover every seat in SEAT_CODES"
-)
-
-# Per-role weights for weighted health scoring (TIER 2).
-# Each weight represents penalty contribution to health_rank_score.
-# Based on industry research: HELM, OpenCompass, AgentCARD, Harness Effect,
-# PraisonAI, Anthropic evals, CrewAI, Automatos.
-ROLE_HEALTH_WEIGHTS: dict[str, dict[str, float]] = {
-    # Strict seats: reasoning-heavy, low loop tolerance
-    "oracle":            {"loop": 0.20, "truncation": 0.10, "efficiency": 0.10, "completion": 0.15},
-    "ultrabrain":        {"loop": 0.20, "truncation": 0.10, "efficiency": 0.10, "completion": 0.15},
-    "metis":             {"loop": 0.25, "truncation": 0.10, "efficiency": 0.10, "completion": 0.15},
-    "momus":             {"loop": 0.25, "truncation": 0.10, "efficiency": 0.10, "completion": 0.15},
-    "prometheus":        {"loop": 0.20, "truncation": 0.10, "efficiency": 0.10, "completion": 0.15},
-    "writing":           {"loop": 0.20, "truncation": 0.05, "efficiency": 0.10, "completion": 0.30},
-    "librarian":         {"loop": 0.15, "truncation": 0.10, "efficiency": 0.30, "completion": 0.15},
-    # Moderate seats: working seats
-    "deep":              {"loop": 0.20, "truncation": 0.25, "efficiency": 0.15, "completion": 0.15},
-    "hephaestus":        {"loop": 0.20, "truncation": 0.25, "efficiency": 0.15, "completion": 0.15},
-    "sisyphus_junior":   {"loop": 0.20, "truncation": 0.25, "efficiency": 0.15, "completion": 0.15},
-    "artistry":          {"loop": 0.20, "truncation": 0.10, "efficiency": 0.15, "completion": 0.15},
-    "visual_engineering":{"loop": 0.20, "truncation": 0.10, "efficiency": 0.15, "completion": 0.15},
-    "multimodal_looker": {"loop": 0.20, "truncation": 0.10, "efficiency": 0.15, "completion": 0.15},
-    "unspecified_high":  {"loop": 0.30, "truncation": 0.10, "efficiency": 0.20, "completion": 0.15},
-    # Lenient seats: high-frequency, cost-sensitive
-    "explore":           {"loop": 0.20, "truncation": 0.05, "efficiency": 0.50, "completion": 0.05},
-    "quick":             {"loop": 0.20, "truncation": 0.05, "efficiency": 0.50, "completion": 0.05},
-    "atlas":             {"loop": 0.20, "truncation": 0.05, "efficiency": 0.50, "completion": 0.05},
-    "unspecified_low":   {"loop": 0.20, "truncation": 0.05, "efficiency": 0.50, "completion": 0.05},
-}
-
-# Per-role hard veto thresholds (TIER 1).
-# If ANY of these are exceeded, the model is eliminated regardless of weights.
-# Based on industry consensus: loop ≥3 iterations (≈0.15), code truncation >10%.
-ROLE_HARD_VETOS: dict[str, dict[str, float]] = {
-    "oracle":            {"loop_max": 0.15},
-    "ultrabrain":        {"loop_max": 0.15},
-    "metis":             {"loop_max": 0.15, "truncation_max": 0.15},
-    "momus":             {"loop_max": 0.15, "truncation_max": 0.15},
-    "prometheus":        {"loop_max": 0.15, "truncation_max": 0.15},
-    "writing":           {"loop_max": 0.15},
-    "librarian":         {"loop_max": 0.15, "truncation_max": 0.20},
-    "deep":              {"loop_max": 0.15, "truncation_max": 0.10},
-    "hephaestus":        {"loop_max": 0.15, "truncation_max": 0.10},
-    "sisyphus_junior":   {"loop_max": 0.15, "truncation_max": 0.10},
-    "artistry":          {"loop_max": 0.15},
-    "visual_engineering":{"loop_max": 0.15},
-    "multimodal_looker": {"loop_max": 0.15},
-    "unspecified_high":  {"loop_max": 0.15},
-    "explore":           {"loop_max": 0.15},
-    "quick":             {"loop_max": 0.15},
-    "atlas":             {"loop_max": 0.15},
-    "unspecified_low":   {"loop_max": 0.15},
-}
-
-# All SEAT_CODES covered by the role tables too? (kept in sync by tests)
-assert set(ROLE_HEALTH_WEIGHTS) == set(SEAT_CODES), (
-    "ROLE_HEALTH_WEIGHTS must cover every seat in SEAT_CODES"
-)
-assert set(ROLE_HARD_VETOS) == set(SEAT_CODES), (
-    "ROLE_HARD_VETOS must cover every seat in SEAT_CODES"
+from .health_policy import (
+    GATES,
+    ROLE_HARD_VETOS,
+    ROLE_HEALTH_WEIGHTS,
+    SEAT_HEALTH_GATE,
+    GateLevel,
+    HealthThresholds,
 )
 
 
@@ -311,8 +186,11 @@ def health_rank_score(
         return (report.loop_mean or 0.0) + (report.truncation_rate or 0.0)
     loop_penalty = weights["loop"] * (report.loop_mean or 0.0)
     truncation_penalty = weights["truncation"] * (report.truncation_rate or 0.0)
+    # token_efficiency can be a Decimal from live NUMERIC rows — normalize
+    # once so the / 1000.0 division never sees a Decimal.
+    efficiency = float(report.token_efficiency or 0.0)
     efficiency_penalty = weights["efficiency"] * max(
-        0.0, (report.token_efficiency or 0.0) / 1000.0 - 1.0
+        0.0, efficiency / 1000.0 - 1.0
     )
     completion_penalty = weights["completion"] * (
         1.0 - (report.answer_completion_rate or 1.0)
