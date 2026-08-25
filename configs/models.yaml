@@ -36,6 +36,21 @@ pricing:
   deepseek-v4-pro: 0.87
   MiniMax-M2.5: 2.40
 
+# tokens_per_call: expected output-token-equivalent usage per task battery
+# (estimates for single-request cost planning in `hr recommend`). A task that
+# matches several batteries is costed at the MAXIMUM of their profiles; a
+# battery missing from this profile falls back to the stage-0 estimate
+# (EST_TOKENS_PER_CALL = 5000, hr/calibration_items.py) rather than 0.
+tokens_per_call:
+  code_gen: 6000
+  reasoning: 4000
+  instruction_follow: 3000
+  tool_a: 1500
+  livebench_speed: 1200
+  vision: 2000
+  livebench_long_context: 1500
+  long_horizon: 4000
+
 capabilities:
   # Generic public knowledge: bare-slug thinking/vision facts. Flags that
   # depend on THIS machine's gateway/wire live in the gitignored
