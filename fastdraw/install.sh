@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # FastDraw installer for opencode.
 #
-#   curl -fsSL https://raw.githubusercontent.com/YOUR-GITHUB-USER/opencode-fastdraw/main/install.sh | bash
+#   FASTDRAW_REPO=user/repo bash install.sh
 #
 # Env overrides:
 #   FASTDRAW_REPO=user/repo   FASTDRAW_REF=tag-or-branch   OPENCODE_CONFIG_DIR=/path
 set -euo pipefail
 
-REPO="${FASTDRAW_REPO:-YOUR-GITHUB-USER/opencode-fastdraw}"
+REPO="${FASTDRAW_REPO:-}"
 REF="${FASTDRAW_REF:-main}"
 CONFIG_DIR="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
 PKG_DIR="$CONFIG_DIR/plugins/fastdraw"
+
+if [ -z "$REPO" ]; then
+  printf 'FASTDRAW_REPO is required (for example, user/repo)\n' >&2
+  exit 2
+fi
 
 info() { printf '\033[1;34m→\033[0m %s\n' "$*"; }
 ok()   { printf '\033[1;32m✓\033[0m %s\n' "$*"; }
