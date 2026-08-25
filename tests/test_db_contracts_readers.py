@@ -292,12 +292,10 @@ def test_compute_health_metrics_from_seeded_measurements(
     assert report.loop_mean == pytest.approx(0.0)
     assert report.truncation_rate == pytest.approx(0.0)
     assert float(report.token_efficiency) == pytest.approx(4700 / 7.95)
-    # Consistency is UNMEASURED on live rows (prod-bug pin): NUMERIC scores
-    # arrive as Decimal, which _self_consistency rejects via
-    # isinstance(score, (int, float)) at hr/health_metrics.py:131-132 —
-    # reported to the orchestrator; fix breaks this pin deliberately.
-    assert report.consistency_mean_range is None
-    assert report.consistency_unanimity_pct is None
+    # h1/h2 each carry two identical 0.8-score reps -> zero mean range,
+    # full unanimity (single-rep items excluded from the denominator)
+    assert report.consistency_mean_range == pytest.approx(0.0)
+    assert report.consistency_unanimity_pct == pytest.approx(1.0)
     assert report.answer_completion_rate == pytest.approx(1.0)
     assert "no measurements" not in report.notes
 
@@ -360,15 +358,6 @@ def test_recommend_with_constraints_defaults_pass(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "hr/benchmark_banks.py:86 unpacks the 4-column exposure SELECT "
-        "(item_id, total, unique, last) into 3 variables — get_item_exposure "
-        "raises ValueError against any non-empty measurement set; production "
-        "bug exposed by the live scratch-DB seed, reported to the orchestrator"
-    ),
-)
 def test_bank_item_exposure_counts_measurements(
     db_conn: psycopg2.extensions.connection,
 ) -> None:
