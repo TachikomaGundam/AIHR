@@ -18,6 +18,9 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 
+GRADER_VERSION = "1.0.0"
+
+
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
