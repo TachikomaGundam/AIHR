@@ -555,12 +555,11 @@ def test_calibration_persistence_corrupt_provenance_failure_paths(
     * truly corrupt input never reaches the column (JSONB rejects it);
     * a nested-JSON *string* value (``'"{\\"nested\\": 1}"'``) is the
       intended str-branch: the reader recovers the dict via json.loads;
-    * a plain-string detail (psycopg2 already parsed the JSON string to
-      ``plain string``; the reader's str-branch double-parses it and raises
-      JSONDecodeError) — pinned as the live contract so the drift is visible;
-    * an anchor row whose score is NULL crashes the reader with TypeError
-      (``float(None)`` at hr/calibration_persistence.py:51) — pinned as the
-      live contract so the drift is visible.
+    * a plain-string detail round-trips verbatim: psycopg2 auto-parses the
+      JSON string to ``plain string``, and the reader keeps non-JSON text
+      as-is (no double-parse crash);
+    * an anchor row with a NULL score/tier is SKIPPED by the reader (no
+      reconstructible measurement) instead of crashing on int/float(None).
     """
     seed_envelope_item(db_conn, "tool_a.calc.001")
     with pytest.raises(psycopg2.errors.InvalidTextRepresentation):
@@ -593,12 +592,11 @@ def test_calibration_persistence_corrupt_provenance_failure_paths(
     assert nested._recorded_measurements[0].detail == {"nested": 1}
 
     plain = _Probe(_FakeDb(db_conn), "pool-str", resume=True)
-    with pytest.raises(json.JSONDecodeError):
-        plain._load_recorded_pairs()
+    plain._load_recorded_pairs()
+    assert plain._recorded_measurements[0].detail == "plain string"
 
-    # NULL score with item_type+passed set: reader crashes at
-    # float(row[5]) instead of returning a measurement — prod-bug pin
-    # (hr/calibration_persistence.py:51), reported to the orchestrator.
+    # NULL score with item_type+passed set: the reader SKIPS the row (no
+    # reconstructible measurement) instead of crashing on int/float(None).
     with db_conn.cursor() as cur:
         cur.execute(
             "INSERT INTO hr.calibration_event (event_id, item_id, kind, pool_hash, anchor, "
@@ -608,5 +606,6 @@ def test_calibration_persistence_corrupt_provenance_failure_paths(
         )
     db_conn.commit()
     nullscore = _Probe(_FakeDb(db_conn), "pool-nullscore", resume=True)
-    with pytest.raises(TypeError, match="float\\(\\) argument"):
-        nullscore._load_recorded_pairs()
+    nullscore._load_recorded_pairs()
+    assert nullscore._recorded_measurements == []
+    assert nullscore._recorded_pairs == set()
