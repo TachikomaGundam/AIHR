@@ -30,12 +30,6 @@
     "oh-my-openagent"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/YOUR-GITHUB-USER/opencode-fastdraw.git"
-  },
-  "homepage": "https://github.com/YOUR-GITHUB-USER/opencode-fastdraw#readme",
-  "bugs": "https://github.com/YOUR-GITHUB-USER/opencode-fastdraw/issues",
   "engines": {
     "opencode": ">=1.0.0"
   },

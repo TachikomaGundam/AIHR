@@ -14,18 +14,14 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from hr.benchmark import (
-    BenchmarkEngine,
-    _bench_code_gen,
-    _bench_reasoning,
-    _bench_tool_use,
-)
+from hr.bench.engine import LivebenchEngine
+from hr.models import BenchmarkCategory
 
 MODELS = ["qwen3.6-flash", "deepseek-v3.2"]
 BENCHES = [
-    ("code_gen", _bench_code_gen),
-    ("reasoning", _bench_reasoning),
-    ("tool_use", _bench_tool_use),
+    BenchmarkCategory.code_gen,
+    BenchmarkCategory.reasoning,
+    BenchmarkCategory.tool_use,
 ]
 
 

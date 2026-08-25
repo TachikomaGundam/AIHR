@@ -1,0 +1,12 @@
+{
+  "name": "opencode-hr-agent",
+  "version": "0.2.0",
+  "description": "HR Agent OpenCode integration with FastDraw as the verdict-application layer",
+  "type": "module",
+  "exports": {
+    "./server": "./server.ts"
+  },
+  "peerDependencies": {
+    "@opencode-ai/plugin": ">=1.0.0"
+  }
+}
