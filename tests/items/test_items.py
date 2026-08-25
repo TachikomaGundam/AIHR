@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -276,3 +277,69 @@ class TestItemrepoDataIntegrity:
         for fp in sorted(_ITEMREPO.rglob("*.py")):
             text = fp.read_text(encoding="utf-8")
             assert _MACHINE_HOME not in text, f"{fp.name} still references machine home paths"
+
+
+# ---------------------------------------------------------------------------
+# reasoning tier 3/4 registry-vs-disk completeness (hr-evolution T5)
+# ---------------------------------------------------------------------------
+
+
+class TestReasoningRegistryCompleteness:
+    """Every registry slug resolves to exactly one item file and vice versa.
+
+    The registry module uses flat sibling imports, so ``itemrepo/reasoning``
+    itself is inserted on ``sys.path`` to import it (same pattern as the
+    shared conftest root insert). The one-to-one check is validation: a
+    mismatch is a finding, not a cleanup.
+    """
+
+    _REASONING_DIR = _ITEMREPO / "reasoning"
+
+    def _registry(self):
+        sys.path.insert(0, str(self._REASONING_DIR))
+        import reasoning_registry
+
+        return reasoning_registry
+
+    def test_t3_t4_registry_and_disk_slugs_one_to_one(self):
+        registry = self._registry()
+        report = registry.validate_registry_vs_disk()
+
+        assert set(report) == {3, 4}
+        for tier, entry in report.items():
+            assert entry["registry_only"] == [], f"t{tier} slugs without disk items"
+            assert entry["disk_only"] == [], f"t{tier} items without registry slugs"
+            assert entry["duplicate_registry_slugs"] == []
+            assert entry["duplicate_disk_slugs"] == []
+            assert entry["registry_count"] == entry["disk_count"] > 0
+
+    def test_t3_t4_item_keys_match_on_disk_slugs(self):
+        registry = self._registry()
+        for tier in (3, 4):
+            for slug in registry.registry_slugs(tier):
+                path = self._REASONING_DIR / f"t{tier}" / f"reason.t{tier}.{slug}.json"
+                assert path.is_file(), f"missing item file for {slug}"
+                envelope = json.loads(path.read_text(encoding="utf-8"))
+                assert envelope["item_key"] == f"reasoning.t{tier}.{slug}"
+
+    def test_validate_registry_vs_disk_detects_mismatches(self, tmp_path):
+        registry = self._registry()
+        reg_slugs = registry.registry_slugs(3)
+        assert reg_slugs  # t3 is non-empty
+        renamed = reg_slugs[0]
+        # every real file is copied, but the first slug's file is renamed:
+        # it becomes registry-only, and the replacement is disk-only
+        t3 = tmp_path / "t3"
+        t3.mkdir()
+        for real in sorted((self._REASONING_DIR / "t3").glob("reason.t3.*.json")):
+            content = real.read_text(encoding="utf-8")
+            if real.stem == f"reason.t3.{renamed}":
+                (t3 / f"reason.t3.{renamed}-renamed.json").write_text(content, encoding="utf-8")
+            else:
+                (t3 / real.name).write_text(content, encoding="utf-8")
+        (t3 / "reason.t3.fake-extra.json").write_text('{"item_key": "fake"}', encoding="utf-8")
+
+        report = registry.validate_registry_vs_disk(root=tmp_path, tiers=(3,))
+
+        assert report[3]["registry_only"] == [renamed]
+        assert report[3]["disk_only"] == [f"{renamed}-renamed", "fake-extra"]
