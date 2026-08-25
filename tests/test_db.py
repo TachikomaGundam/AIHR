@@ -1,14 +1,15 @@
 """Tests for db.py — verify schema DDL without hitting a live database."""
 from __future__ import annotations
 
-import os
-
 import pytest
 from hr import db
 from hr.schema_migration import migrate_schema_namespace
 
 
-# Expected tables from spec §4 (all 19)
+# Expected tables from spec §4, including the migration-added tables the
+# base DDL now ships: 20 tables in DDL order (verified live against
+# information_schema on a fresh scratch DB — experiment_manifest is the
+# 20th, created by the base DDL, not only by a later migration).
 EXPECTED_TABLES = [
     "provider",
     "model",
@@ -20,6 +21,7 @@ EXPECTED_TABLES = [
     "battery_item",
     "seat_battery",
     "sweep",
+    "experiment_manifest",
     "run",
     "measurement",
     "infra_incident",
@@ -40,7 +42,7 @@ def test_ddl_creates_hr_schema():
     assert "hr2" not in ddl
 
 
-def test_all_19_tables_defined():
+def test_all_20_tables_defined():
     ddl = db.ddl()
     for table in EXPECTED_TABLES:
         assert f"CREATE TABLE IF NOT EXISTS hr.{table}" in ddl
@@ -92,13 +94,16 @@ def test_schema_guard_does_not_touch_public_tables():
 
 @pytest.mark.db
 @pytest.mark.integration
-@pytest.mark.skipif(
-    os.environ.get("HR_TEST_DB") != "1",
-    reason="requires a live DB; set HR_TEST_DB=1 + HR_DB_NAME/HR_DSN pointing at a SCRATCH DB",
-)
-def test_init_schema_against_live_db():  # pragma: no cover
-    if os.environ.get("HR_TEST_DB") != "1":
-        return
+def test_init_schema_against_live_db(scratch_db: tuple[str, str]) -> None:
+    """init_schema on the SHARED scratch DB (T1 fixture): idempotent + exact.
+
+    The shared fixture already initialized the schema; re-running the full
+    pipeline twice must be a no-op and must produce EXACTLY the authoritative
+    EXPECTED_TABLES set (information_schema-verified; experiment_manifest is
+    the 20th table, shipped by the base DDL). Offline runs skip via the
+    shared fixture's admission rule (HR_TEST_PG_DSN unset).
+    """
+    _name, _scratch_dsn = scratch_db
     conn = db.connect()
     try:
         db.init_schema(conn, own_connection=False)
@@ -106,10 +111,12 @@ def test_init_schema_against_live_db():  # pragma: no cover
         db.init_schema(conn, own_connection=False)
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='hr'"
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema='hr'"
             )
-            n = cur.fetchone()[0]
-            assert n == len(EXPECTED_TABLES)
+            live = {row[0] for row in cur.fetchall()}
+        assert len(live) == len(EXPECTED_TABLES)
+        assert set(EXPECTED_TABLES) == live
     finally:
         conn.close()
 
@@ -141,6 +148,9 @@ class _RecordingCursor:
 
     def execute(self, sql, params=None):
         self.executed.append((sql, tuple(params or ())))
+
+    def fetchone(self):
+        return (1,)
 
     def __enter__(self):
         return self
@@ -207,3 +217,40 @@ def test_calibration_migration_adds_resumable_outcome_columns() -> None:
     statements = [statement for statement, _ in conn.cursor_.executed]
     assert any("item_type TEXT" in statement for statement in statements)
     assert any("passed BOOLEAN" in statement for statement in statements)
+
+
+def test_run_status_migration_adds_status_and_failure_reason() -> None:
+    # Given
+    conn = _RecordingConn()
+
+    # When
+    db.migrate_run_status_columns(conn)
+
+    # Then
+    statements = [statement for statement, _ in conn.cursor_.executed]
+    assert any("status TEXT NOT NULL DEFAULT 'scored'" in s for s in statements)
+    assert any("failure_reason TEXT" in s for s in statements)
+
+
+def test_run_status_migration_is_idempotent() -> None:
+    # Given
+    conn = _RecordingConn()
+
+    # When
+    db.migrate_run_status_columns(conn)
+    n_first = len(conn.cursor_.executed)
+    db.migrate_run_status_columns(conn)
+
+    # Then
+    assert len(conn.cursor_.executed) == 2 * n_first
+    assert conn.commits >= 2
+
+
+def test_measurement_scorer_migration_adds_provenance_columns() -> None:
+    conn = _RecordingConn()
+
+    db.migrate_measurement_scorer_columns(conn)
+
+    statements = [statement for statement, _ in conn.cursor_.executed]
+    assert any("scorer_name TEXT NOT NULL DEFAULT 'unknown'" in s for s in statements)
+    assert any("scorer_version TEXT" in s for s in statements)
