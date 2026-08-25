@@ -2,6 +2,13 @@
 
 SequentialStopper: pilot n=3, per-battery half-width thresholds, recompute
 CI after each round, stop when half-width below threshold or n_max=10.
+
+Pair *decisions* (which finalist wins a battery) do NOT use the bootstrap-CI
+stopper: they go through the anytime-valid empirical-Bernstein confidence
+sequence in :mod:`hr.stats.empirical_bernstein`, fed with complete-round
+paired differences normalized to [0, 1]. ``SequentialConfig`` carries the
+per-battery ``min_effect`` region and the Bonferroni ``family_alpha`` for
+that machinery.
 """
 from __future__ import annotations
 
@@ -10,13 +17,64 @@ from typing import Dict, Optional
 from dataclasses import dataclass, field
 import yaml
 
+#: Default practical-effect region half-width (normalized units) applied when
+#: a battery has no explicit ``min_effect`` entry in thresholds.yaml.
+DEFAULT_MIN_EFFECT: float = 0.05
+
+
+def normalize_bounded_score(score: float, *, max_score: float) -> float:
+    """Map a bounded raw score on ``[0, max_score]`` into normalized [0, 1] units.
+
+    Explicit normalization boundary: benchmark scores (``ItemResult.score``,
+    0-100) pass ``max_score=100.0``; grader/health scores
+    (``GradeResult.score``, 0-1) pass ``max_score=1.0``.  Values are clamped
+    into [0, 1] because the empirical-Bernstein bound requires observations
+    known to lie in a bounded range.
+    """
+    if max_score <= 0:
+        raise ValueError(f"max_score must be positive, got {max_score}")
+    return float(np.clip(float(score) / max_score, 0.0, 1.0))
+
+
+def bonferroni_pair_alpha(family_alpha: float, n_pairs: int) -> float:
+    """Per-pair alpha after a Bonferroni split of the family alpha.
+
+    With ``k`` configured finalist pairs per battery, each pair's sequence
+    runs at ``family_alpha / k`` so the family-wise error stays at
+    ``family_alpha``.
+    """
+    if n_pairs < 1:
+        raise ValueError(f"n_pairs must be >= 1, got {n_pairs}")
+    return family_alpha / n_pairs
+
 
 @dataclass
 class SequentialConfig:
-    """Per-battery half-width thresholds + stopping params."""
+    """Per-battery half-width thresholds + stopping params + decision config."""
     thresholds: Dict[str, float]  # {battery_code: half_width}
     n_initial: int = 3            # pilot n
-    n_max: int = 10               # max rounds
+    n_max: int = 10               # max rounds (budget cap in complete rounds)
+    min_effect: Dict[str, float] = field(default_factory=dict)  # {battery_code: practical-effect half-width, normalized}
+    family_alpha: float = 0.05    # family-wise error across finalist pairs
+
+    @property
+    def max_rounds(self) -> int:
+        """Semantic alias for ``n_max``: the budget cap in complete rounds
+        per battery.  Reuses the ``n_max`` config key — no second key."""
+        return self.n_max
+
+    def min_effect_for(self, battery: str) -> float:
+        """Practical-effect region half-width (normalized [0,1] units) for a
+        battery; falls back to :data:`DEFAULT_MIN_EFFECT` (0.05) when the
+        battery has no explicit entry."""
+        value = self.min_effect.get(battery)
+        if value is None:
+            return DEFAULT_MIN_EFFECT
+        if value <= 0:
+            raise ValueError(
+                f"min_effect must be > 0 (normalized units), got {value} for {battery}"
+            )
+        return float(value)
 
     @classmethod
     def from_yaml(
@@ -25,26 +83,38 @@ class SequentialConfig:
         """Load per-battery thresholds from thresholds.yaml.
 
         ``required_batteries`` collects the exact battery set the caller
-        expects half_width config for; a battery missing from the yaml
-        raises so a forgotten thresholds entry fails loud instead of
-        silently never stopping.
+        expects half_width *and* min_effect config for; a battery missing
+        from either map raises so a forgotten thresholds entry fails loud
+        instead of silently never stopping (or silently applying the default
+        practical-effect region).
         """
         with open(path, "r", encoding="utf-8") as fh:
             data = yaml.safe_load(fh) or {}
         thresholds = data.get("half_width", {})
+        min_effect = data.get("min_effect", {})
         if required_batteries:
-            missing = [
+            missing_hw = [
                 b for b in required_batteries
                 if b not in thresholds or thresholds[b] is None
             ]
-            if missing:
+            if missing_hw:
                 raise ValueError(
-                    f"thresholds.yaml missing half_width entry/entries for: {', '.join(missing)}"
+                    f"thresholds.yaml missing half_width entry/entries for: {', '.join(missing_hw)}"
+                )
+            missing_me = [
+                b for b in required_batteries
+                if b not in min_effect or min_effect[b] is None
+            ]
+            if missing_me:
+                raise ValueError(
+                    f"thresholds.yaml missing min_effect entry/entries for: {', '.join(missing_me)}"
                 )
         return cls(
             thresholds=thresholds,
             n_initial=data.get("n_initial", 3),
             n_max=data.get("n_max", 10),
+            min_effect=min_effect,
+            family_alpha=float(data.get("family_alpha", 0.05)),
         )
 
 

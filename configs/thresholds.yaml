@@ -2,7 +2,11 @@
 # Starting defaults for Stage 1. Tune per observed empirical variance.
 
 n_initial: 3   # pilot
-n_max: 10      # budget cap per battery
+n_max: 10      # budget cap per battery (complete rounds; read as max_rounds)
+
+# Family-wise error rate across finalist pairs per battery. Each pair's
+# anytime-valid sequence runs at family_alpha / n_pairs (Bonferroni).
+family_alpha: 0.05
 
 # Stage-0 token budget cap (tokens) — the dry-run pilot estimate must fit
 # under this cap or the runner halts before the pilot completes.
@@ -38,6 +42,31 @@ half_width:
   livebench_vision: 5.0
   livebench_speed: 5.0
   livebench_long_horizon: 5.0
+
+# Practical-effect region half-widths (NORMALIZED units, scores mapped to
+# [0,1] before paired differences). A pair's anytime-valid interval fully
+# outside [-min_effect, +min_effect] rejects practical equivalence (winner);
+# fully inside accepts it; overlapping is indeterminate. Required entry per
+# battery, mirroring the half_width validation (SequentialConfig.from_yaml
+# raises naming any missing battery); 0.05 is the default when a battery is
+# absent from this map. livebench_speed overrides to 0.10: speed differences
+# below 10 normalized tok/s are practically irrelevant.
+min_effect:
+  reasoning: 0.05
+  hallucination: 0.05
+  tool_a: 0.05
+  tool_b: 0.05
+  vision: 0.05
+  livebench_code_gen: 0.05
+  livebench_reasoning: 0.05
+  livebench_instruction_follow: 0.05
+  livebench_tool_use: 0.05
+  livebench_long_context: 0.05
+  livebench_attention_probe: 0.05
+  livebench_attention_stress: 0.05
+  livebench_vision: 0.05
+  livebench_speed: 0.10
+  livebench_long_horizon: 0.05
 
 # Verdict fitness knob→battery mapping (cli.py _KNOB_TO_BATTERY). The three
 # legacy knobs (reasoning/top_tool_fraction/coverage) are hardcoded in cli.py;
