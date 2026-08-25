@@ -604,6 +604,11 @@ def test_legacy_sweep_restarted_not_reinterpreted_live(scratch_db) -> None:
     _dbname, dsn = scratch_db
     conn = psycopg2.connect(dsn)
     try:
+        # hr.sweep.seat_code has an FK to hr.seat: seed the pseudo-seat row
+        # (sweeps always originate from a real seat in production).
+        from tests._db_contracts_helpers import seed_seat
+
+        seed_seat(conn, "_stage1_finals", "Stage 1 finalists sweep")
         _insert_sweep(conn, "legacy-sweep-restart", "_stage1_finals", "Stage 1 finalists sweep\nfinalists: [a, b]\n")
         item = load_full_banks(ITEM_REPO, batteries=("vision",))["vision"][0]
         state = Stage1SweepState(sweep_id="legacy-sweep-restart", finalists=["a", "b"])
@@ -638,6 +643,11 @@ def test_legacy_sweep_restarted_not_reinterpreted_live(scratch_db) -> None:
         assert _sweep_state_version(conn, "legacy-sweep-restart") == STAGE1_STATE_VERSION
     finally:
         conn.close()
+
+
+@pytest.mark.db
+@pytest.mark.integration
+def test_legacy_sweep_state_version_live(scratch_db) -> None:
     """Live: a legacy sweep row (no marker) reads back as version-less, a
     current-marker purpose reads back as STAGE1_STATE_VERSION, and
     _ensure_sweep_state_stamped upgrades a legacy purpose in place."""
@@ -649,6 +659,11 @@ def test_legacy_sweep_restarted_not_reinterpreted_live(scratch_db) -> None:
     _dbname, dsn = scratch_db
     conn = psycopg2.connect(dsn)
     try:
+        # hr.sweep.seat_code has an FK to hr.seat: seed the pseudo-seat row
+        # (sweeps always originate from a real seat in production).
+        from tests._db_contracts_helpers import seed_seat
+
+        seed_seat(conn, "_stage1_finals", "Stage 1 finalists sweep")
         _insert_sweep(conn, "legacy-sweep-t3", "_stage1_finals", "Stage 1 finalists sweep\nfinalists: [a]\n")
         assert _sweep_state_version(conn, "legacy-sweep-t3") is None
         _insert_sweep(
