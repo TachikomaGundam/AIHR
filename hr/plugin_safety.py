@@ -25,6 +25,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import psycopg2
+
 from hr.config import opencode_config_dir
 
 
@@ -58,6 +60,32 @@ def _sha256(path: Path) -> str | None:
     if not path.exists():
         return None
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _evidence_read_error(action: str, exc: Exception) -> str:
+    """Concise, actionable refusal message for a failed evidence read.
+
+    Mirrors the T6 ``_read_evidence`` philosophy: unreadable evidence degrades
+    to a clean refusal, never a crash. The known live-DB drift is a missing
+    ``hr.separation.directional`` column; any other unreadable read reports
+    its type and message instead of leaking a raw traceback.
+    """
+    pg_errors = getattr(psycopg2, "errors", None)
+    undefined_column = (
+        getattr(pg_errors, "UndefinedColumn", ()) if pg_errors is not None else ()
+    )
+    if undefined_column and isinstance(exc, undefined_column):
+        diag = getattr(exc, "diag", None)
+        table = getattr(diag, "table_name", None) if diag is not None else None
+        column = getattr(diag, "column_name", None) if diag is not None else None
+        if table and column:
+            detail = f"live schema missing {table}.{column}"
+        elif column:
+            detail = f"live schema missing column {column}"
+        else:
+            detail = str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
+        return f"cannot read {action}: {detail} (run schema migration)"
+    return f"cannot read {action}: {type(exc).__name__}: {exc}"
 
 
 def _snapshot_files(config_dir: Path) -> dict[str, Path]:
@@ -108,11 +136,11 @@ def preview_apply(
     from hr.apply import agents_from_assignments, latest_assignments  # avoid circular deps
 
     owns_connection = conn is None
-    if conn is None:
-        from hr.db import connect
-
-        conn = connect()
     try:
+        if conn is None:
+            from hr.db import connect
+
+            conn = connect()
         assignments, sweep_id = latest_assignments(conn)
         agents = agents_from_assignments(assignments)
 
@@ -178,8 +206,14 @@ def preview_apply(
             result["preview_record"] = str(record_path)
 
         return result
+    except Exception as exc:
+        # Unreadable evidence → clean refusal, never a leak of the raw driver
+        # exception (mirrors the T6 _read_evidence philosophy: live DBs may
+        # predate columns the contract-test schema has — e.g. the live
+        # hr.separation table has no `directional` column).
+        return {"success": False, "error": _evidence_read_error("seat assignments", exc)}
     finally:
-        if owns_connection:
+        if owns_connection and conn is not None:
             conn.close()
 
 
@@ -575,6 +609,8 @@ def safe_apply(
         }
 
     preview = preview_apply(preset_name, include_state, conn=conn, config_dir=cfg_dir)
+    if preview.get("success") is False:
+        return {"success": False, "error": preview["error"], "preview": preview}
 
     if dry_run:
         return {
@@ -592,7 +628,13 @@ def safe_apply(
     if conn is None:
         from hr.db import connect
 
-        conn = connect()
+        try:
+            conn = connect()
+        except Exception as exc:
+            return {
+                "success": False,
+                "error": _evidence_read_error("seat assignments", exc),
+            }
     try:
         from hr.apply import apply
 
@@ -617,6 +659,8 @@ def safe_apply(
         if backup_path is not None:
             restore = _restore_from_backup(backup_path, cfg_dir)
         error = str(e)
+        if isinstance(e, psycopg2.Error):
+            error = _evidence_read_error("seat assignments", e)
         if not restore["success"]:
             error += f"; auto-restore failed: {restore['error']}"
         return {
