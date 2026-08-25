@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import psycopg2
 import site
 import subprocess
 import sys
@@ -512,6 +513,45 @@ class TestPreviewAndSafeApplyFlow:
             # nothing written, no backup created
             assert not (config_dir / PRESETS_FILENAME).exists()
             assert not (config_dir / "hr-apply-backups").exists()
+
+    def test_preview_apply_refuses_cleanly_on_schema_drift(self, monkeypatch) -> None:
+        """Live schema drift (hr.separation.directional missing) degrades to a
+        clean refusal — NEVER an unhandled psycopg2 traceback (mirrors the T6
+        _read_evidence philosophy)."""
+        from hr.plugin_safety import preview_apply
+
+        def _drifted(conn, **_kw):  # what live latest_assignments does today
+            raise psycopg2.errors.UndefinedColumn("column s.directional does not exist")
+
+        monkeypatch.setattr("hr.db.connect", lambda: MagicMock())
+        monkeypatch.setattr("hr.apply.latest_assignments", _drifted)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = preview_apply(config_dir=Path(tmpdir))
+
+        assert result["success"] is False
+        assert result["error"].startswith("cannot read seat assignments")
+        assert "run schema migration" in result["error"]
+
+    def test_safe_apply_refuses_cleanly_on_schema_drift(self, monkeypatch) -> None:
+        """safe_apply converts the same drift into a refusal BEFORE any write —
+        no backup is created, no exception escapes."""
+        from hr.plugin_safety import safe_apply
+
+        def _drifted(conn, **_kw):
+            raise psycopg2.errors.UndefinedColumn("column s.directional does not exist")
+
+        monkeypatch.setattr("hr.db.connect", lambda: MagicMock())
+        monkeypatch.setattr("hr.apply.latest_assignments", _drifted)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            result = safe_apply(config_dir=config_dir)
+
+        assert result["success"] is False
+        assert result["error"].startswith("cannot read seat assignments")
+        assert result["preview"]["success"] is False
+        assert not (config_dir / "hr-apply-backups").exists()
 
 
 class TestSubprocessLifecycle:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import psycopg2
 import typer
 from typer.testing import CliRunner
 
@@ -156,6 +157,27 @@ class TestPreviewDriftBindingCLI:
         assert "preview drift" in apply_result.output
         # no writes: the drifted bytes are untouched
         assert "/* drifted */" in (tmp_path / PRESETS_FILENAME).read_text(encoding="utf-8")
+
+    def test_apply_preview_prints_clean_error_on_live_schema_drift(self, monkeypatch, tmp_path):
+        """Live schema drift (hr.separation.directional missing) must surface as
+        a clean one-line error + exit 1 — never a raw psycopg2 traceback."""
+        cli = _standalone_cli()
+        cli_runner = CliRunner()
+        monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+        monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(_router()))
+
+        def _drifted(conn, **_kw):
+            raise psycopg2.errors.UndefinedColumn("column s.directional does not exist")
+
+        monkeypatch.setattr("hr.apply.latest_assignments", _drifted)
+
+        result = cli_runner.invoke(cli, ["apply-preview", "--preset", "p1"])
+
+        assert result.exit_code == 1
+        assert "cannot read seat assignments" in result.output
+        assert "run schema migration" in result.output
+        assert "Traceback" not in result.output
+        assert "UndefinedColumn" not in result.output
 
 
 class TestApplyCliFileCommands:

@@ -99,6 +99,8 @@ def apply_preview(
 
     def run(conn) -> str:
         result = preview_apply(preset, set_state, conn=conn, record_preview=True)
+        if result.get("success") is False:
+            raise RuntimeError(result["error"])
         return json.dumps(result, default=str)
 
     _with_conn(run)
