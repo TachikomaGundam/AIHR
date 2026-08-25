@@ -96,6 +96,12 @@ def test_from_yaml_accepts_full_battery_set(tmp_path):
         "  tool_a: 3.0\n"
         "  tool_b: 5.0\n"
         "  vision: 3.0\n"
+        "min_effect:\n"
+        "  reasoning: 0.05\n"
+        "  hallucination: 0.05\n"
+        "  tool_a: 0.05\n"
+        "  tool_b: 0.05\n"
+        "  vision: 0.05\n"
         "n_initial: 3\n"
         "n_max: 10\n",
         encoding="utf-8",

@@ -147,6 +147,10 @@ def test_engine_validates_thresholds_missing_entry(
             "livebench_reasoning": 3.0,
             "livebench_speed": 5.0,
         },
+        "min_effect": {
+            "livebench_reasoning": 0.05,
+            "livebench_speed": 0.05,
+        },
     }
     (thresholds / "thresholds.yaml").write_text(
         yaml.safe_dump(cfg), encoding="utf-8"
