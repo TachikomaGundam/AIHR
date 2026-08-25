@@ -124,11 +124,42 @@ def seat_battery_bounds(battery: BenchmarkCategory) -> tuple[int, int]:
     return min(3, n_items), min(10, n_items)
 
 
+def battery_item_stratum(battery: BenchmarkCategory, label: str) -> str:
+    """Stratum an item label belongs to (difficulty/characteristic group).
+
+    ``code_gen`` items group by source problem (8 median tests, 3 burst
+    balloons, 1 inversion, 1 performance gate); every other battery is its
+    own single stratum.
+    """
+    if battery is not BenchmarkCategory.code_gen:
+        return battery.value
+    idx = int(label.split(".", 1)[1])
+    if idx <= 7:
+        return "sliding_window_median"
+    if idx <= 10:
+        return "burst_balloons"
+    if idx == 11:
+        return "count_inversions"
+    return "perf_gate"
+
+
+def battery_strata(battery: BenchmarkCategory) -> dict[str, tuple[str, ...]]:
+    """Group the battery's item labels into their strata, in label order."""
+    groups: dict[str, list[str]] = {}
+    for label in battery_item_labels(battery):
+        groups.setdefault(battery_item_stratum(battery, label), []).append(label)
+    return {stratum: tuple(labels) for stratum, labels in groups.items()}
+
+
+
+
 __all__ = [
     "LIVEBENCH_BATTERIES",
     "battery_code",
     "battery_description",
     "battery_item_id",
     "battery_item_labels",
+    "battery_item_stratum",
+    "battery_strata",
     "seat_battery_bounds",
 ]
