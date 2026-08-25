@@ -18,13 +18,22 @@ from hr.items.schema import GradingSpec, ItemEnvelope, ItemMeta
 
 
 class FakeCursor:
-    """Records every execute() against its parent FakeConn."""
+    """Records every execute() against its parent FakeConn.
 
-    def __init__(self, conn: "FakeConn") -> None:
+    ``fetchone`` serves the scorer-identity lookup the measurement writer
+    performs when no scorer is passed explicitly: the fake item_pool row
+    reports kind ``tool_a`` unless a test overrides ``kind_row``.
+    """
+
+    def __init__(self, conn: "FakeConn", kind_row: tuple[str, ...] = ("tool_a",)) -> None:
         self.conn = conn
+        self.kind_row = kind_row
 
     def execute(self, sql: str, params: object = None) -> None:
         self.conn.executed.append((sql, params))
+
+    def fetchone(self) -> tuple[str, ...] | None:
+        return self.kind_row
 
     def __enter__(self) -> "FakeCursor":
         return self
@@ -110,13 +119,55 @@ def test_insert_measurement_sanitizes_text_and_records_max_output() -> None:
         thinking_text="th\x01ink",
         requested_max_output=2048,
     )
-    (sql, params) = conn.executed[0]
+    # first statement resolves the scorer identity from item_pool.kind
+    (kind_sql, kind_params) = conn.executed[0]
+    assert "SELECT kind FROM hr.item_pool" in kind_sql
+    assert kind_params == ("tool_a.calc.001",)
+    (sql, params) = conn.executed[1]
     assert "INSERT INTO hr.measurement" in sql
     assert params[0:8] == ("m-1", "run-1", "tool_a.calc.001", 1, 0.9, 100, 50, 42)
     assert params[8] is not None  # created_at
     assert params[9] == "ok"
     assert params[10] == "think"
     assert params[11] == 2048
+    # kind tool_a -> schema_valid@1.0 — never 'unknown'
+    assert params[12] == "schema_valid"
+    assert params[13] == "1.0"
+
+
+def test_insert_measurement_explicit_scorer_skips_kind_lookup() -> None:
+    conn = FakeConn()
+    storage._insert_measurement(
+        conn,
+        "m-2",
+        "run-1",
+        "tool_a.calc.001",
+        1,
+        0.9,
+        100,
+        50,
+        42,
+        scorer_name="livebench:code_gen",
+        scorer_version="1.0.0",
+    )
+    (sql, params) = conn.executed[0]
+    assert "INSERT INTO hr.measurement" in sql
+    assert params[12] == "livebench:code_gen"
+    assert params[13] == "1.0.0"
+
+
+def test_resolve_scorer_identity_maps_kind_to_routed_grader() -> None:
+    # routed kinds resolve to their _ROUTING grader spec (name@version)
+    assert storage.resolve_scorer_identity("tool_a") == ("schema_valid", "1.0")
+    assert storage.resolve_scorer_identity("reasoning") == ("constraint", "1.0")
+    assert storage.resolve_scorer_identity("factuality_qa") == ("exact_match", "1.0")
+
+
+def test_resolve_scorer_identity_unknown_kinds_are_explicit_not_unknown() -> None:
+    # kinds with no grader routing must never masquerade as 'unknown'
+    assert storage.resolve_scorer_identity("longctx") == ("no_grader", None)
+    assert storage.resolve_scorer_identity("replay") == ("no_grader", None)
+    assert storage.resolve_scorer_identity("bogus-kind") == ("no_grader", None)
 
 
 def test_insert_infra_incident_uses_uuid_and_json_details() -> None:
