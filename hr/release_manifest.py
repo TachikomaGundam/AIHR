@@ -57,6 +57,8 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/stage1_cli.py",                    # release-surface helper: stage1 CLI facade (tracked with tests)
     "hr/stage1_plan.py",                   # imported by included hr/stage1_cli.py
     "hr/stage1_selection.py",              # imported by tracked tests/test_sequential_validity.py
+    "hr/deployment_manager.py",            # todo 9 release lifecycle core module (took over the untracked EXCLUDED disposition); tracked together with tests/test_deployment_manager.py
+    "hr/release_manifest.py",              # the manifest file itself: tracked by T8; ships in every release because deployment_manager imports it at runtime
 })
 
 # ---------------------------------------------------------------------------
@@ -93,7 +95,6 @@ _WORKTREE_ERA: Dict[str, str] = {
     "hr/calibration_cli.py": "imported only by the uncommitted revision of tracked hr/calibrate.py",
     "hr/config_resources.py": "imported only by the uncommitted revision of tracked hr/config.py",
     "hr/db_schema.py": "unified-era DDL source; imported only by the uncommitted revision of tracked hr/db.py (HEAD's hr/db.py carries its own DDL)",
-    "hr/deployment_manager.py": "release deployment orchestrator (todo 9 core module); no tracked-importer; covered by untracked tests/test_deployment_manager.py; lands with todo 9 or the unification commit",
     "hr/fleet_policy.py": "imported only by the uncommitted revision of tracked hr/fleet.py",
     "hr/graders/constraint_dsl.py": "imported only by the uncommitted revision of tracked hr/graders/constraint.py",
     "hr/health_metrics.py": "imported only by the uncommitted revision of tracked hr/health.py",
