@@ -62,7 +62,12 @@ from hr.release_manifest import INCLUDED_HR_MODULES, RELEASE_ASSETS
 console = Console()
 
 RELEASES_DIR = Path.home() / ".local" / "share" / "hr-agent" / "releases"
-HR_SYMLINK = Path("/home/lab/hr")
+# Deploy target for the hr symlink: $HOME/hr. No literal absolute path here:
+# universality check (b) in scripts/check_universal.sh forbids machine-specific
+# /home paths in source, and Path.home() resolves to the canonical deploy
+# location on the deployment host anyway. Override order: explicit argument >
+# HR_HR_SYMLINK env var (_resolve_symlink) > this fallback.
+HR_SYMLINK = Path.home() / "hr"
 
 # Retention bounds mirror the T7 recovery-store policy (MAX_BACKUPS /
 # MAX_AGE_DAYS) so release history and backup history share one revisable
