@@ -2,7 +2,7 @@
   "item_key": "tool_a.glob_find.config_files_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:521c4dd3bf4d91de96ad7edc0506eb5747fe83672c1e585a197ed1af039e2337",
+  "content_hash": "sha256:de9180ed47f5750732b41ffdf06ecde5823db6f762be50fd11f3fb341c9c97c9",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "给我看看项目里有哪些配置文件。",

@@ -2,7 +2,7 @@
   "item_key": "tool_a.system_monitor.cpu_30s",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:4fc00e32c86a0d08a4eedefbdba055b0deb3f090c3148554428351733157029d",
+  "content_hash": "sha256:7048e24cdce41fc328aa2580a459d2a652049e1f449d0a7531545a3cfce9a8e1",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "监控接下来 30 秒的 CPU 使用率，每秒一次。",

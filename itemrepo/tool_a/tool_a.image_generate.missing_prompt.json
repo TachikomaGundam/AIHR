@@ -2,7 +2,7 @@
   "item_key": "tool_a.image_generate.missing_prompt",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:76716889db55a2f915ab0d9eea677bcf5dc88ca7ebad81eef16f839f975cbde6",
+  "content_hash": "sha256:61ef10da65c8544bce7868ef4c32c612c2eb6066fc8ab748034d4317fbf1f796",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "生成一张图。",

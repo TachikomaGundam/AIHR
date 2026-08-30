@@ -2,7 +2,7 @@
   "item_key": "tool_a.read_file.missing_path",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:35dd2b55fdc18bfd40287a2c8a4b9863dd3fd0f02415bf4a047973ee55712ae3",
+  "content_hash": "sha256:175d4a7c7d5577db35917fe2b14c498986361b5dc1c8282463f03e4b8101e7b8",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "请给我读一下那个日志文件。",

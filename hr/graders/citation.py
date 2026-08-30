@@ -1,4 +1,4 @@
-"""hr2.graders.citation — verify source claims + curated_sources coverage.
+"""Verify source claims and curated-source coverage.
 
 Spec §6.2: a `citation` payload has required_claims and a source_db. The
 grader checks:
@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from hr.graders.base import (
     GradeResult,
@@ -82,7 +82,7 @@ class CitationGrader:
         # Coverage: did each claim's string (or a normalized alias) appear
         # in the response text at all? This is deterministic and simple.
         addressed = 0
-        claim_breakdown: list[dict] = []
+        claim_breakdown: list[dict[str, Any]] = []
         for idx, claim in enumerate(required_claims, start=1):
             present = self._claim_addressed(claim, text, idx, cites)
             if present:

@@ -2,7 +2,7 @@
   "item_key": "tool_a.db_query.missing_sql",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:25aff55e173e58d6772182396952e886799c5fae8ba9e16de3560bc652888bad",
+  "content_hash": "sha256:a9d94ea980b207c876ab3674b0d4dbed8c699c0cc1b50a675ffb2a5da1672d34",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "执行一个数据库查询。",

@@ -2,7 +2,7 @@
   "item_key": "tool_b.failing_test_diagnose",
   "type": "tool_b",
   "tier": 5,
-  "content_hash": "sha256:7ab0816feee8ec06d1df3241a33ad4fd4758e63759cb44d1dc690f82f1fbf536",
+  "content_hash": "sha256:ca7661d0d16e8dc89853932bd9809f4dfa83d9bd7bb6417a7f521149b6fd9a66",
   "payload": {
     "scenario_id": "tb_failing_test_diagnose",
     "env": "opencode-sandbox",

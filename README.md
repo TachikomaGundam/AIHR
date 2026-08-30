@@ -1,20 +1,79 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. Single editable install. 13 CLI commands. Zero runtime API keys for the CLI itself.
+Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. One package, one database schema, and 13 CLI commands.
 
 The English version is canonical. The Chinese version (`README.zh-CN.md`) is a faithful mirror. When the two diverge, the English text governs.
+
+## What HR Decides
+
+HR is a decision-support plugin for assigning configured models to autonomous-agent seats. It does not claim that a model is universally "best". Its output is a bounded recommendation for a named seat or task, backed by a versioned item pool, the recorded model responses, health gates, and the policy in `configs/`.
+
+The decision pipeline is:
+
+1. `hr discover` derives the candidate fleet from the live OpenCode configuration.
+2. `hr seed` registers seats, batteries, and item metadata in PostgreSQL.
+3. `hr calibrate` validates anchor-model difficulty bands against the item pool.
+4. `hr bench` or the Stage 0/Stage 1 sweep records scored measurements.
+5. `hr health`, `hr verdict`, and `hr recommend` apply capability, reliability, and seat gates.
+6. `hr apply` exports the accepted seat assignment to a FastDraw preset; it never changes a model assignment by itself unless explicitly requested.
+
+## Decision Statuses
+
+Scores alone are not a safe decision contract. HR distinguishes these states:
+
+| Status | Meaning | Allowed to rank or assign? |
+|--------|---------|----------------------------|
+| `pass` | All required items were measured and the configured rule passed. | Yes, subject to seat gates. |
+| `fail` | All required items were measured and the configured rule failed. | No for that rule. |
+| `inconclusive` | Samples are incomplete or an adapter/infrastructure failure occurred. | No; rerun or resume safely. |
+| `invalid` | The configured item pool cannot support the requested rule. | No; repair the pool/configuration. |
+| `not_applicable` | The model cannot perform the requested modality or tool protocol. | No for that capability; never coerce it to a zero-score capability failure. |
+
+Calibration currently emits `pass`, `fail`, `inconclusive`, and `invalid`. Live benchmark and recommendation paths retain infrastructure incidents in the database and are being migrated to the same complete outcome contract. A token cap, a partial round, or a resumed run with missing measurements is evidence of uncertainty, not evidence that the model failed the task.
+
+## Methodology
+
+### Item pools and grading
+
+`itemrepo/` is versioned test material. Every item has an item key, type, tier, payload, and grading specification. Batteries group items by capability, for example reasoning, factuality/hallucination, vision, `tool_a`, and `tool_b`. Graders are deterministic where possible: exact-match, schema, constraint, citation, and sandboxed unit-test graders. LLM judging is kept explicit because it introduces a second model and a second source of uncertainty.
+
+Calibration uses anchor models and tier acceptance bands. Its purpose is not to select a production model. It detects a broken, missing, or difficulty-shifted item pool before that pool is used to decide seat assignments. A complete tier is required before a band can pass; malformed or missing evidence must not produce a vacuous pass.
+
+### Repeated measurement and separation
+
+Stage 0 cheaply narrows the fleet. Stage 1 evaluates finalists against the full item banks. Each measurement is indexed by model, battery, round, item, and repetition so that repeated calls can be audited and resumed. Pairwise separation compares matched model/item observations; the item is the primary independent unit, and repetitions estimate gateway and generation variability.
+
+Do not interpret a small point-score difference as a seat decision. A candidate should only displace another candidate when the relevant items are complete, the confidence/separation rule is met, and both candidates pass the seat's hard gates. The current implementation records pairwise bootstrap separation and sequential precision diagnostics. Planned hardening is documented in `docs/en/capability-prior.md`: per-model stopping, complete paired-round enforcement, and multiplicity-aware comparisons.
+
+### Health, constraints, and recommendation
+
+Health is independent evidence, not a cosmetic penalty. It includes answer completion, self-consistency, tool reliability, and observed failures. A seat can impose required capabilities, context limits, and a health gate. A model without a required modality or one with insufficient evidence must be unassigned or reported as indeterminate rather than promoted by a fallback average.
+
+Cost, latency, freshness, and uncertainty are part of the recommendation problem. `configs/models.yaml` supplies known price/capability facts; measurements supply observed behavior. Reference scores in `configs/knowledge.yaml` are priors, never replacements for a missing required live capability measurement.
+
+### Reproducibility and audit trail
+
+The database stores sweeps, runs, measurements, infra incidents, separations, and calibration events. Preserve the item-pool hash, configuration revision, endpoint/model identity, timeout/retry policy, grader version, and random seed with every externally shared conclusion. Reports without that provenance are operational hints, not reproducible experiments.
+
+## Safety Rules
+
+- The default `bash scripts/test.sh` and `--ci` modes explicitly remove inherited database credentials. They cannot silently use an ambient production DSN.
+- `bash scripts/test.sh --with-db` accepts only an `hr_test_*` scratch database. It rejects names such as `wiki`.
+- Generated artifacts resolve outside the repository by default. Tests seal `HOME`, OpenCode config, HR config, item repository, and output paths into temporary directories.
+- A test session compares `git status --porcelain` before and after execution. Unexpected writes in the repository fail the suite.
+- Production provider credentials belong in environment variables or local overlays, never in tracked YAML, `hr.toml`, test fixtures, or reports.
 
 ## Install
 
 ```bash
-pip install -e .
+pip install .
 ```
 
-Editable installs are the only supported mode. Wheel or binary installs break path-dependent config resolution. If an older `hr-cli` or `hr-bench` package is already installed, remove it first:
+Source, editable, and wheel installs are supported. Packaged configuration resolves from the installation's `share/hr-agent` directory. Executable-code benchmarks fail closed unless Bubblewrap (`bwrap`) is installed; on Debian/Ubuntu use `sudo apt-get install bubblewrap`. If an older `hr-cli` or `hr-bench` package is already installed, remove it first:
 
 ```bash
 pip uninstall hr-cli hr-bench -y
-pip install -e .
+pip install .
 ```
 
 ### Environment Variables
@@ -36,7 +95,7 @@ Generated artifacts (bench exports, calibration reports, sweep dumps, …) NEVER
 Copy the example `hr.toml` if you need the DB / Wiki.js knobs:
 
 ```bash
-cp configs/hr.toml.example hr/hr.toml
+cp configs/hr.toml.example hr.toml
 ```
 
 There is no single "source of truth" file — configuration is split by concern across `configs/`, plus the runtime opencode config:
@@ -63,7 +122,7 @@ The per-file split:
 
 - `configs/thresholds.yaml` — numeric sweep and gate thresholds (stage0 budgets, half-widths, acceptance bands).
 - `configs/models.yaml` — model pricing and the capability overlay (thinking/vision), keyed by bare model slug; unknown models get safe defaults.
-- `configs/knowledge.yaml` — curated reference scores and qualitative research findings, keyed by bare model slug (unknown models are skipped; seed with `hr reference --seed` / `hr research --seed`).
+- `configs/knowledge.yaml` — curated reference scores and qualitative research findings, keyed by bare model slug (unknown models are skipped).
 - `configs/fleet.yaml` — OPTIONAL overrides for the dynamic fleet: `wire_overrides`, `scope_excludes`, and `gateway_urls` (base URLs for registry-only providers).
 - `configs/seats.yaml` — seat definitions, per-seat `primary_capabilities`, and the stage-0 `calibration_anchors`.
 - `configs/deployable.yaml` — `extra_deployable`: models served outside the opencode config (the only hand-maintained model list).
@@ -73,48 +132,25 @@ The model fleet itself is not declared in this repo: it is derived at runtime fr
 
 ## CLI Map
 
-Twenty-three commands, each targeting a specific concern. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
+Thirteen commands, each targeting a specific concern. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
 
 | Command | Purpose |
 |---------|---------|
-| `hr discover` | Enumerate providers/models from `opencode.jsonc` into hr2 (scope + auth presence) |
-| `hr seed` | Seed the database with research findings and reference scores (v1 legacy path) |
-| `hr bench` | Run the 10 live capability benchmarks and record `hr2.measurement` rows |
+| `hr discover` | Enumerate providers/models from `opencode.jsonc` into `hr` (scope + auth presence) |
+| `hr seed` | Initialize the schema and seed canonical seat definitions |
+| `hr bench` | Run the live capability benchmarks and record `hr.measurement` rows |
 | `hr verdict` | Comprehensive verdict: capability averages + health + gates + assignment |
 | `hr health` | Full-pool behavioral-health markdown table (DB-only, zero API calls) |
 | `hr sweeps` | List sweeps from the DB with run/model/measurement counts |
 | `hr calibrate` | Stage-0 anchor calibration engine (dry-run planning + live API passes) |
-| `hr reference` | Curated published-benchmark scores per model (`--seed` upserts into `hr_reference`) |
-| `hr research` | Qualitative findings per model (`--seed` writes into `hr_research`) |
+| `hr reference` | Read curated published-benchmark scores from `configs/knowledge.yaml` |
+| `hr research` | Read qualitative findings from the same knowledge store |
 | `hr publish` | Publish reports to Wiki.js (optional target; skips with exit 0 when unconfigured) |
 | `hr recommend` | Seat recommendations from `configs/seats.yaml` + recent measurements |
 | `hr status` | DB status: sweeps + latest-sweep capability means (DB-only) |
 | `hr apply` | Bridge the latest verdict seating into a FastDraw preset |
-| `hr apply-preview` | Preview the seat-assignment preset before writing it (dry run) |
-| `hr apply-rollback` | Roll back the previously active FastDraw preset |
-| `hr apply-backups` | List the FastDraw preset backups kept for rollback |
-| `hr apply-prune` | Prune stale FastDraw preset backups |
-| `hr release-build` | Build a release candidate (manifest surface + configs + itemrepo) |
-| `hr release-verify` | Verify a candidate's hash chain (tamper-removes on failure) |
-| `hr release-activate` | Activate a release: atomic swap + backup + plugin registration (idempotent) |
-| `hr release-rollback` | Roll back to the previous release (symlink + config byte-for-byte) |
-| `hr release-list` | List release candidates with verification markers |
-| `hr release-prune` | Prune stale candidates per the retention policy |
 
 The CLI has no global `--config` flag: configuration is resolved from the environment (see the table above) and from `configs/` relative to HR_HOME. Run `hr --help` and `hr <command> --help` for the full per-command flag list.
-
-### Release lifecycle (+ Apply)
-
-`hr apply` and its `apply-*` helpers bridge the latest verdict seating into a
-FastDraw preset: preview first, then apply; `apply-rollback`/`apply-backups`/
-`apply-prune` manage the backup chain. The `release-*` commands operate the
-release lifecycle that ships this repository's artifact: `release-build`
-assembles a candidate under the releases root from the runtime import closure
-of the shipped CLI (the authoritative build list lives in
-`hr/release_manifest.py`), `release-verify` checks its hash chain and removes
-it on tamper, `release-activate` swaps the runtime symlink atomically and
-registers the release plugin (idempotent; the previous state is preserved for
-`release-rollback`), and `release-list`/`release-prune` manage candidates.
 
 ## FastDraw Seam
 
@@ -133,22 +169,27 @@ fastdraw/
 
 ### The `hr apply` Contract
 
-`hr apply` is the bridge between FastDraw presets and the opencode runtime. It works in three steps:
+`hr apply` is the bridge between verdict seating and FastDraw presets. It works in three steps:
 
-1. Reads a FastDraw preset from `~/.config/opencode/fastdraw/presets.json`
-2. Writes the model assignments into opencode's registered config files (see below)
-3. Prints a restart hint so opencode picks up the new assignments
+1. Computes the latest per-seat verdict assignments
+2. Writes a named preset to `<opencode-config-dir>/fastdraw-presets.json`
+3. With `--set-state`, also writes `.fastdraw.json` for boot-time activation
 
 ### Dual-File Registration
 
-Two opencode files must point FastDraw at the correct model catalog paths. The FastDraw server reads from these two locations:
+FastDraw has server and TUI components. Register the plugin in both opencode configuration files; registering only one silently omits the other component.
 
-| File | Key | Value |
-|------|-----|-------|
-| `.opencode/opencode.jsonc` | `models.catalog` | `../configs/models.yaml` |
-| `.opencode/tui.json` | `models.catalog` | `../configs/models.yaml` |
+```jsonc
+// ~/.config/opencode/opencode.jsonc
+{ "plugin": ["opencode-fastdraw"] }
+```
 
-Both entries resolve to the same `configs/models.yaml` in the hr tree. This dual registration is intentional and must stay consistent.
+```json
+// ~/.config/opencode/tui.json
+{ "plugin": ["opencode-fastdraw"] }
+```
+
+The first loads the `fastdraw_*` agent tools; the second loads `/fastdraw` and the `<leader>m` key binding.
 
 ## Layout
 
@@ -175,10 +216,33 @@ harness/hr/               # repo root (pip install -e .)
 ## Tests
 
 ```bash
-python -m pytest tests/ -q
+bash scripts/test.sh          # hermetic offline suite, coverage >= 80%
+bash scripts/test.sh --ci     # lint, type checks, offline tests, wheel build
+bash scripts/test.sh --with-db # explicit scratch-PostgreSQL integration suite
 ```
 
-All tests run offline against hermetic fixtures and a per-test staging workspace: `HOME`/`OPENCODE_CONFIG_DIR`/`HR_HOME`/`HR_ITEMREPO`/`HR_OUTPUT_DIR` are sealed into pytest tmp dirs by the shared `hr_sandbox` fixture (tests/conftest.py), and a session-level **cleanliness guard** snapshots `git status --porcelain` at session start and fails with the offending paths if any test leaves the repo dirty. The current suite is **577 passed, 9 skipped, 0 failed** (586 collected). Stage0 tests cover the capability-prior pipeline, tier-aware thresholds, and the verdict ranker. Bench tests cover the discovery loader, battery resolver, and the stage0 budget contract.
+The test suite is a release gate, not a collection of smoke tests.
+
+| Test area | Purpose |
+|-----------|---------|
+| `tests/adapters/` | Validate provider endpoint resolution, protocol shaping, capability overlays, and error boundaries without network calls. |
+| `tests/items/`, `tests/graders/` | Protect item parsing, content hashes, deterministic scoring, schema constraints, citations, and sandbox contracts. |
+| `tests/test_calibrate*` | Protect anchor calibration, complete-tier checks, resume accounting, persistence, token caps, and `inconclusive`/`invalid` reporting. |
+| `tests/test_stage0*`, `tests/test_stage1*`, `tests/test_bootstrap.py`, `tests/test_sequential.py` | Protect sweep planning, paired-score handling, resume keys, stopping rules, and finalist selection. |
+| `tests/bench/` | Validate offline benchmark runners, request construction, scorer behavior, storage shape, and explicitly gated PostgreSQL end-to-end flows. |
+| `tests/test_apply*`, `tests/test_cli*`, `tests/test_release_surface.py` | Protect user-facing CLI contracts, FastDraw export behavior, output locations, and package release surface. |
+| `fastdraw/test/` | Validate OpenCode preset persistence, restore plans, comment-preserving config edits, TUI/server split behavior, and portable path handling. |
+
+All offline tests run against hermetic fixtures and a per-test staging workspace: `HOME`, `OPENCODE_CONFIG_DIR`, `HR_HOME`, `HR_ITEMREPO`, and `HR_OUTPUT_DIR` are sealed into pytest temporary directories by `hr_sandbox` (`tests/conftest.py`). The session-level cleanliness guard snapshots `git status --porcelain` at session start and fails with the offending paths if a test writes into the repository. DB-marked tests require an explicit scratch database and are skipped by offline modes.
+
+The quality gates are:
+
+- `compileall`: import/syntax coverage for package, scripts, item builders, and tests.
+- `ruff check hr scripts itemrepo`: undefined-name and fatal static checks.
+- `basedpyright --level error hr scripts`: typed production-path validation.
+- `pytest --cov=hr --cov-fail-under=80`: branch-aware package coverage floor.
+- `scripts/check_universal.sh`: rejects machine-specific paths, prohibited model literals, and unsafe provider assumptions.
+- `pip wheel --no-deps`: verifies the published package can be built.
 
 Live API bench runs need real provider credentials from the opencode config:
 
@@ -191,14 +255,6 @@ hr bench --model gpt-4o --battery reasoning
 This codebase targets the general class of autonomous LLM coding agents, not a specific product. The seat taxonomy (tier 1 through tier 4), the benchmark item categories (factuality, reasoning, vision, tool_a, tool_b), and the verdict pipeline (discover, bench, assign, verdict) apply to any agent that consumes LLM output and produces code artifacts.
 
 Provider-specific hardcoding was removed during unification. The model fleet is derived at RUNTIME from opencode's live config (`opencode.jsonc` provider blocks: every `provider.*.models` entry becomes a fleet model, and the `npm` field derives the wire type); `configs/fleet.yaml` holds only OPTIONAL overrides (`wire_overrides` for registry-only providers, `scope_excludes`, `gateway_urls`), and `configs/deployable.yaml` `extra_deployable` is the only hand-maintained model list (models served outside the opencode config). Add a model to opencode's config and it flows into the sweep pools, discover and routing with zero file edits here. Knowledge data lives in `configs/models.yaml` (pricing/capabilities) and `configs/knowledge.yaml` (reference scores, findings), both with safe defaults for unknown models.
-
-## Security note
-
-Release integrity is protected by self-attesting SHA-256 records: each release's `metadata.json` hashes its own payloads, and verification recomputes the digests locally. There is **no cryptographic signature** on releases or backups — a local attacker who can modify the release tree can recompute every hash to match, and an attacker who controls a release can register its shipped plugin path into the opencode config, which executes on the next config load.
-
-The trust model is therefore *same-user local trust*: the operator is the same account the processes run under. The shipped boundaries confine every caller-supplied name and path — release names, backup names, manifest file keys, symlink targets from activation ledgers — to the releases directory and the config directory; escaped or foreign paths are refused with a clear error, never followed. Unprivileged remote users cannot reach these surfaces.
-
-A full supply-chain guarantee (signed releases, verified with a key outside the repository) is tracked as future work and is out of scope for this release.
 
 ## License
 

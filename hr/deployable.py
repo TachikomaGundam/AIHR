@@ -1,4 +1,4 @@
-"""hr2.deployable — the set of currently SERVED (deployable) models.
+"""The set of currently served models.
 
 "iron rule 5": a verdict must never assign a model that cannot actually be
 deployed. The deployable set is derived at runtime:
@@ -26,56 +26,12 @@ import yaml
 
 from hr import fleet
 from hr.config import config_path, load_yaml, opencode_config_dir
-
-
-def strip_jsonc_comments(text: str) -> str:
-    """Remove // and /* */ comments from JSONC text, preserving string values.
-
-    Scans char by char, tracking string state (with backslash escapes), so
-    comment markers inside string literals (e.g. a URL containing "//") are
-    left untouched.
-    """
-    out: list[str] = []
-    i, n = 0, len(text)
-    in_string = False
-    quote = ""
-    while i < n:
-        ch = text[i]
-        nxt = text[i + 1] if i + 1 < n else ""
-        if in_string:
-            out.append(ch)
-            if ch == "\\":
-                out.append(nxt)
-                i += 2
-                continue
-            if ch == quote:
-                in_string = False
-            i += 1
-            continue
-        if ch == '"' or ch == "'":
-            in_string = True
-            quote = ch
-            out.append(ch)
-            i += 1
-            continue
-        if ch == "/" and nxt == "/":
-            while i < n and text[i] != "\n":
-                i += 1
-            continue
-        if ch == "/" and nxt == "*":
-            i += 2
-            while i < n and not (text[i] == "*" and text[i + 1 : i + 2] == "/"):
-                i += 1
-            i += 2
-            continue
-        out.append(ch)
-        i += 1
-    return "".join(out)
+from hr.opencfg import parse_config_file, strip_jsonc_comments
 
 
 def _models_from_config(path: Path) -> set[str]:
     """Every ``provider/{slug}`` id declared by one opencode config file."""
-    data = fleet.parse_config_file(path)
+    data = parse_config_file(path)
     providers = data.get("provider") or {}
     return {
         f"{pid}/{slug}"

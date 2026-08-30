@@ -2,7 +2,7 @@
   "item_key": "tool_a.json_transform.missing_filter_path",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:f578d7fc14905958acdad2fecbdcf49a54d6f5de452e91e8acd1ffdfaa2d7213",
+  "content_hash": "sha256:4f0061147fe86466e8c44ed492186e6f9fc68e42c955c39b2ee04c07bb381f74",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "转换一个 JSON。",

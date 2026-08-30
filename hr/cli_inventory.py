@@ -14,11 +14,6 @@ from .cli_app import (
 )
 from .models import BenchmarkCategory
 
-# The committed discover upsert targets the legacy registry tables (hr2); the
-# unified-era upsert (hr.*) lands with the unification commit. The bind below
-# follows the T8 guarded-wiring precedent (hr/cli_apply.py): the shipped
-# command works against whichever discover surface is actually present.
-
 @app.command()
 def discover(
     all_models: bool = typer.Option(
@@ -46,14 +41,7 @@ def discover(
     Stage fleets still reach those models via configs/deployable.yaml
     ``extra_deployable:``.
     """
-    from .discover import enumerate_models, scope_providers
-
-    try:
-        from .discover import upsert_hr2 as upsert_registry
-        upsert_target = "hr"
-    except ImportError:
-        from .discover import upsert_models as upsert_registry
-        upsert_target = "hr"
+    from .discover import enumerate_models, scope_providers, upsert_models
 
     try:
         scope = scope_providers()
@@ -68,7 +56,7 @@ def discover(
     try:
         conn = _runtime_connect()
         try:
-            providers, rows = upsert_registry(conn, models)
+            providers, rows = upsert_models(conn, models)
         finally:
             conn.close()
     except Exception as exc:  # noqa: BLE001 — CLI boundary: report the error
@@ -84,7 +72,7 @@ def discover(
     console.print(
         f"[green]Discovered {len(models)} model(s); "
         f"upserted {providers} provider(s), {rows} model row(s) "
-        f"into {upsert_target}[/green]",
+        f"into hr[/green]",
     )
 
 

@@ -2,7 +2,7 @@
   "item_key": "tool_a.code_search.async_def_python",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:5286709566e318a518b5eef1a2ed01786a0e1591abcd8d2cb56e53d9e0fad588",
+  "content_hash": "sha256:afd6a91a7b46fd72f77b69d80594f58851bba439caa5042945adff3f0653d980",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "找 Python 代码里所有 'async def' 开头的函数定义。",

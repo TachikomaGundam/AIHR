@@ -11,8 +11,7 @@ v1 seeders consume. A model added to the opencode config (or to
 ``extra_deployable``) flows into every registry consumer with zero edits in
 this repo.
 
-Consumers: ``hr.reference.seed_reference``, ``hr.research.seed_research``
-(v1 ``harness/hr-archive-v1/v1-cli.py``, kept outside the tree, used the same entry point).
+Consumers use these profiles for discovery and presentation.
 """
 
 from __future__ import annotations

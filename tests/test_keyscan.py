@@ -1,4 +1,4 @@
-"""Tests for hr2.keyscan (spec §12.1)."""
+"""Tests for outbound secret scanning (spec §12.1)."""
 import pytest
 
 from hr.keyscan import SecretLeakError, redact, scan_outbound, patterns

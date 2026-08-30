@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_diff.commit_range_src",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:253873cd58d231e950b4c4c66ecbc206279af38f6d09beb1aecc5f6c5c9d428b",
+  "content_hash": "sha256:abcd2414a681e74f7653695a0010666a01cc22f749741bee870c61f8953acefa",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "比较 commit abc123 和 def456 之间 src/ 目录的差异。",

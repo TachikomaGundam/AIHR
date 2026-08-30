@@ -1,4 +1,4 @@
-"""hr2.scheduler.taxonomy — failure classification (spec §9.3).
+"""Failure classification (spec §9.3).
 
 Pure functions over structured failure descriptors. The sweep scheduler
 calls `classify_failure` to bucket every non-success response. Each failure

@@ -2,7 +2,7 @@
   "item_key": "tool_a.todo_write.record_todo_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:c57cf94f7d2f31c5dc9ad8905e49672327ef7f6f516f8fdbb1d55c9b3f54d53d",
+  "content_hash": "sha256:f104df12ad5a9bf6e1f897926a6ee0d0c4763f7ffca5957cedf1955f3e2d9786",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我记一下待办事项。",

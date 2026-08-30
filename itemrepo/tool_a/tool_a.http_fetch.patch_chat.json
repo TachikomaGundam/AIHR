@@ -2,7 +2,7 @@
   "item_key": "tool_a.http_fetch.patch_chat",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:7dd718ca0cd236be9c5b3204c676ec06c0efdddb40fd57534108f24e48e493ec",
+  "content_hash": "sha256:0086e8e93683a9707efc3a7437b7e9f13e0de1800172a0c355f4d08924ebb3ae",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "向 https://api.example.com/v1/chat 发 PATCH 请求，timeout 30000ms。",

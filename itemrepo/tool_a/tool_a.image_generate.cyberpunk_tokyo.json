@@ -2,7 +2,7 @@
   "item_key": "tool_a.image_generate.cyberpunk_tokyo",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:ddda019b8402e1bf5631486c21335cc987f3b1140f1d0442bee834f3c073718e",
+  "content_hash": "sha256:7188e93bf3d6ee65d8295593d665665ae77b24ea60c18d14e9178f6074865421",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "生成一个赛博朋克风格的东京街头夜景，256高度，512宽度，jpg 格式。",

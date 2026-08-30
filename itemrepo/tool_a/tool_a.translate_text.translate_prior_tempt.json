@@ -2,7 +2,7 @@
   "item_key": "tool_a.translate_text.translate_prior_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:dce508913124f133bdfea26e2e1efd5a11fc8a679f88384978b0930d82a657e6",
+  "content_hash": "sha256:4258b7260c00e409bf7c9aec581f0084741e778128b293f080537cf8c3fdde03",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我翻译一下刚才那段话。",

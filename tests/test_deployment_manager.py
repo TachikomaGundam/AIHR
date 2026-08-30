@@ -53,9 +53,15 @@ runner = CliRunner()
 
 # The release surface the tests build from: the T8 manifest plus the manifest
 # file itself (deployment_manager imports it at runtime, so it ships too).
+# INCLUDED_HR_MODULES now also carries the vision toolchain (itemrepo/vision
+# modules, landed with the hr-ship W1 commit); _make_workspace seeds them as
+# fake files exactly like every other surface member.
 SURFACE = sorted(
     set(INCLUDED_HR_MODULES) | set(RELEASE_ASSETS) | {"hr/release_manifest.py"}
 )
+# Metadata surface/hash deliberately exclude tracked itemrepo payloads
+# (deployment_manager._surface_paths -> manifest_surface filter): mirror that.
+MANIFEST_SURFACE = sorted(rel for rel in SURFACE if not rel.startswith("itemrepo/"))
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +90,7 @@ def _make_workspace(tmp_path: Path) -> Path:
     (ws / "itemrepo" / "reasoning" / "t3" / "reason.t3.contract.json").write_text(
         '{"slug": "reason.t3.contract"}\n'
     )
-    (ws / "itemrepo" / "vision").mkdir(parents=True)
+    (ws / "itemrepo" / "vision").mkdir(parents=True, exist_ok=True)
     (ws / "itemrepo" / "vision" / "vision.contract.json").write_text("{}")
     (ws / "itemrepo" / "reasoning" / "reasoning_registry.py").write_text(
         "# reasoning registry\n"
@@ -251,7 +257,7 @@ def test_build_metadata_records_payload_and_manifest_hashes(tmp_path: Path) -> N
     # When: metadata.json is inspected.
     # Then: it carries the surface list, the manifest digest, and one SHA-256
     # per payload that matches the candidate bytes.
-    assert sorted(metadata["surface"]) == SURFACE
+    assert sorted(metadata["surface"]) == MANIFEST_SURFACE
     assert len(metadata["manifest_hash"]) == 64
     assert len(metadata["manifest_source_sha256"]) == 64
     assert metadata["manifest_source_sha256"] == _sha256_file(

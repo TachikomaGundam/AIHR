@@ -1,4 +1,4 @@
-"""hr2.adapters — concrete Adapter implementations.
+"""Concrete adapter implementations.
 
 Two concrete adapters are wired behind a provider→adapter router that is
 DATA-driven: each provider's wire type (``openai-compat`` or
@@ -15,15 +15,21 @@ heuristics and no implicit default wire.
 Use :func:`adapter_for` to auto-route a model_id to the right adapter.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 from hr.adapters.base import (
     Adapter,
     AdapterError,
     Capabilities,
     ChatRequest,
 )
+from hr.graders.base import ModelResponse
 from hr.adapters.anthropic_compat import AnthropicCompatAdapter
 from hr.adapters.openai_compat import OpenAICompatAdapter
 from hr.adapters import fleet
+from hr.fleet import fleet_models
 
 __all__ = [
     "Adapter",
@@ -40,8 +46,8 @@ __all__ = [
 # Provider → Adapter router                                                    #
 # --------------------------------------------------------------------------- #
 
-_ANTHROPIC_ADAPTER: AnthropicCompatAdapter | None = None
-_OPENAI_ADAPTER: OpenAICompatAdapter | None = None
+_anthropic_adapter: AnthropicCompatAdapter | None = None
+_openai_adapter: OpenAICompatAdapter | None = None
 
 
 def adapter_for(model_id: str) -> Adapter:
@@ -56,7 +62,7 @@ def adapter_for(model_id: str) -> Adapter:
     - unknown provider or unknown type → :class:`ValueError` listing the
       valid types (``fleet.VALID_TYPES``).
     """
-    global _ANTHROPIC_ADAPTER, _OPENAI_ADAPTER
+    global _anthropic_adapter, _openai_adapter
     provider = model_id.split("/", 1)[0] if "/" in model_id else model_id
     wire = fleet.provider_type(provider)
     if wire is None:
@@ -67,13 +73,13 @@ def adapter_for(model_id: str) -> Adapter:
             f"add the provider to the opencode config with a known 'npm'"
         )
     if wire == "anthropic-compat":
-        if _ANTHROPIC_ADAPTER is None:
-            _ANTHROPIC_ADAPTER = AnthropicCompatAdapter()
-        return _ANTHROPIC_ADAPTER
+        if _anthropic_adapter is None:
+            _anthropic_adapter = AnthropicCompatAdapter()
+        return _anthropic_adapter
     if wire == "openai-compat":
-        if _OPENAI_ADAPTER is None:
-            _OPENAI_ADAPTER = OpenAICompatAdapter()
-        return _OPENAI_ADAPTER
+        if _openai_adapter is None:
+            _openai_adapter = OpenAICompatAdapter()
+        return _openai_adapter
     raise ValueError(
         f"unknown provider type {wire!r} for provider {provider!r} (from "
         f"model_id {model_id!r}); valid types: {', '.join(fleet.VALID_TYPES)}"
@@ -94,17 +100,28 @@ class RoutedAdapter(Adapter):
     """
 
     def list_models(self) -> list[str]:
-        models: set[str] = set()
-        for cls in (AnthropicCompatAdapter, OpenAICompatAdapter):
-            try:
-                models.update(cls().list_models())
-            except Exception:
-                # Best-effort introspection; skip providers whose config isn't readable.
-                continue
-        return sorted(models)
+        return list(fleet_models())
 
     def probe_capabilities(self, model_id: str) -> Capabilities:
         return adapter_for(model_id).probe_capabilities(model_id)
 
-    def chat(self, model_id: str, messages: list[dict], **kwargs: Any) -> ModelResponse:  # type: ignore[override]
-        return adapter_for(model_id).chat(model_id, messages, **kwargs)
+    def chat(
+        self,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        *,
+        images: list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        thinking_budget: int | None = None,
+        max_output: int = 16384,
+        timeout_s: int = 600,
+    ) -> ModelResponse:
+        return adapter_for(model_id).chat(
+            model_id,
+            messages,
+            images=images,
+            tools=tools,
+            thinking_budget=thinking_budget,
+            max_output=max_output,
+            timeout_s=timeout_s,
+        )

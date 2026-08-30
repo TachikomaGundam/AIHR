@@ -2,7 +2,7 @@
   "item_key": "tool_a.http_fetch.post_user",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:b50271f642fe549393acaf1cb76608f9b6e01ef0c48179d076050df569e91928",
+  "content_hash": "sha256:81d62bea2f5a17e237fa4d74f7aafba138f99567108e59580a24658ef34d8417",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "POST https://api.example.com/users，body 是 {\"name\":\"alice\"}，headers 包含 Content-Type: application/json。",

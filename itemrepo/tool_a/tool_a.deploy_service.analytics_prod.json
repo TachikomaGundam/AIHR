@@ -2,7 +2,7 @@
   "item_key": "tool_a.deploy_service.analytics_prod",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:99c547a23c764764fbd5d62fa7ceddd1d421d621934531b7f61d70a1050de830",
+  "content_hash": "sha256:aa8bbf2ea00be455f586f09ab4cc4e8c77598c9fd77b90b799863aaa64d7ddf9",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "部署 analytics-worker 到 production，镜像 analytics:v4.0.0，20 副本。",

@@ -1,4 +1,4 @@
-"""hr2.items.schema — pydantic v2 item envelope + per-type payload models.
+"""Pydantic v2 item envelope and per-type payload models.
 
 Spec v0.2 §5.1 (hard rules):
   1. item_key is immutable and never reused.
@@ -17,250 +17,57 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    TypeAdapter,
     field_validator,
     model_validator,
 )
+
+from hr.items.payloads import (
+    ITEM_TYPE_TO_PAYLOAD,
+    PayloadCitation,
+    PayloadFactualityQA,
+    PayloadLongCtx,
+    PayloadReasoning,
+    PayloadReplay,
+    PayloadToolA,
+    PayloadToolB,
+    PayloadType,
+    PayloadUnanswerable,
+    PayloadVision,
+    ItemType,
+    _PAYLOAD_ADAPTER,
+)
+
+__all__ = [
+    "GradingSpec",
+    "ITEM_TYPE_TO_PAYLOAD",
+    "ItemEnvelope",
+    "ItemMeta",
+    "ItemType",
+    "PayloadCitation",
+    "PayloadFactualityQA",
+    "PayloadLongCtx",
+    "PayloadReasoning",
+    "PayloadReplay",
+    "PayloadToolA",
+    "PayloadToolB",
+    "PayloadType",
+    "PayloadUnanswerable",
+    "PayloadVision",
+    "build_envelope",
+    "canonical_bytes",
+    "content_hash",
+]
 
 # ---------------------------------------------------------------------------
 # item_key format: dotted lowercase segments, e.g. "reasoning.syllog.001"
 # ---------------------------------------------------------------------------
 ITEM_KEY_RE = re.compile(r"^[a-z][a-z0-9_]*\.[a-zA-Z0-9_.\-]+$")
-
-
-# ---------------------------------------------------------------------------
-# Enumerations
-# ---------------------------------------------------------------------------
-class ItemType(str, Enum):
-    """The 9 item types from spec §5.3."""
-
-    REASONING = "reasoning"
-    FACTUALITY_QA = "factuality_qa"
-    UNANSWERABLE = "unanswerable"
-    CITATION = "citation"
-    TOOL_A = "tool_a"
-    TOOL_B = "tool_b"
-    LONGCTX = "longctx"
-    VISION = "vision"
-    REPLAY = "replay"
-
-
-# Payload classes -----------------------------------------------------------
-
-class _AnswerSchema(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    type: Literal["string", "number", "boolean", "object", "array"] = "string"
-    pattern: Optional[str] = None
-    enum: Optional[list[Any]] = None
-
-
-class _Checkpoint(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str
-    description: str = ""
-    required: bool = True
-    weight: float = 1.0
-
-
-class PayloadReasoning(BaseModel):
-    """reasoning: question + checkpoints (+ multi-step state)."""
-
-    model_config = ConfigDict(extra="forbid")
-    type: Literal["reasoning"] = "reasoning"
-    question: str
-    answer_schema: Optional[_AnswerSchema] = Field(
-        default=None, alias="answer_schema"
-    )
-    checkpoints: list[_Checkpoint] = Field(default_factory=list)
-    multi_step_state: Optional[dict[str, Any]] = Field(
-        default=None, alias="multi_step_state"
-    )
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-
-class PayloadFactualityQA(BaseModel):
-    """factuality_qa: a question with a verifiable answer + source of truth."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["factuality_qa"] = "factuality_qa"
-    question: str
-    verifiable_answer: str = Field(alias="verifiable_answer")
-    source_of_truth: dict[str, Any] = Field(alias="source_of_truth")
-    verification: str = "exact"
-
-
-class _Acceptable(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    kind: str
-    text: Optional[str] = None
-    reason: Optional[str] = None
-
-
-class PayloadUnanswerable(BaseModel):
-    """unanswerable: questions the model MUST decline."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["unanswerable"] = "unanswerable"
-    question: str
-    why_unanswerable: str = Field(alias="why_unanswerable")
-    acceptable: list[_Acceptable] = Field(default_factory=list)
-
-
-class PayloadCitation(BaseModel):
-    """citation: question + required_claims with curated_sources DB."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["citation"] = "citation"
-    question: str
-    required_claims: list[str] = Field(alias="required_claims")
-    source_db: str = Field(alias="source_db")
-
-
-class _ArgConstraint(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    arg_name: Optional[str] = Field(default=None, alias="arg_name")
-    required: bool = False
-    enum: Optional[list[Any]] = None
-    pattern: Optional[str] = None
-    min_value: Optional[float] = Field(default=None, alias="min_value")
-    max_value: Optional[float] = Field(default=None, alias="max_value")
-
-
-class _ToolCheck(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    name: str
-    kind: str  # e.g. "exit_code", "stdout_contains", "json_contains"
-    value: Any = None
-    path: Optional[str] = None
-
-
-class PayloadToolA(BaseModel):
-    """tool_a: single-turn tool-use, expected correct call."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["tool_a"] = "tool_a"
-    system: str = ""
-    user: str
-    tools: list[dict[str, Any]]
-    correct: dict[str, Any]
-    arg_constraints: dict[str, _ArgConstraint] = Field(
-        default_factory=dict, alias="arg_constraints"
-    )
-    checks: list[_ToolCheck] = Field(default_factory=list)
-
-
-class _Turn(BaseModel):
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    role: str
-    content: Optional[str] = None
-    tool_calls: Optional[list[dict[str, Any]]] = Field(
-        default=None, alias="tool_calls"
-    )
-    tool_call_id: Optional[str] = Field(default=None, alias="tool_call_id")
-
-
-class PayloadToolB(BaseModel):
-    """tool_b: multi-turn tool orchestration scenario."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["tool_b"] = "tool_b"
-    scenario_id: str = Field(alias="scenario_id")
-    env: dict[str, Any] = Field(default_factory=dict)
-    turns: list[_Turn] = Field(default_factory=list)
-    injections: list[dict[str, Any]] = Field(default_factory=list)
-    success_checks: list[_ToolCheck] = Field(
-        default_factory=list, alias="success_checks"
-    )
-
-
-class PayloadLongCtx(BaseModel):
-    """longctx: long-context needle/passage task."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["longctx"] = "longctx"
-    corpus_ref: str = Field(alias="corpus_ref")
-    size_class: str = Field(alias="size_class")
-    task: str
-    checkpoints: list[_Checkpoint] = Field(default_factory=list)
-    planted_contradictions: list[dict[str, Any]] = Field(
-        default_factory=list, alias="planted_contradictions"
-    )
-
-
-class PayloadVision(BaseModel):
-    """vision: image question with structured answer."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["vision"] = "vision"
-    image_ref: str = Field(alias="image_ref")
-    kind: str  # ui_read, chart_extract, schematic
-    question: str
-    answer: Any  # string or number
-
-
-class PayloadReplay(BaseModel):
-    """replay: replay a prior multi-turn session."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    type: Literal["replay"] = "replay"
-    session_ref: str = Field(alias="session_ref")
-    task_summary: str = Field(alias="task_summary")
-    success_criteria: list[str] = Field(alias="success_criteria")
-    deterministic_checks: list[_ToolCheck] = Field(
-        default_factory=list, alias="deterministic_checks"
-    )
-    judge_rubric_ref: Optional[str] = Field(
-        default=None, alias="judge_rubric_ref"
-    )
-
-
-PayloadType = Union[
-    PayloadReasoning,
-    PayloadFactualityQA,
-    PayloadUnanswerable,
-    PayloadCitation,
-    PayloadToolA,
-    PayloadToolB,
-    PayloadLongCtx,
-    PayloadVision,
-    PayloadReplay,
-]
-
-# Discriminated union adapter for parsing payload dicts by type.
-_PAYLOAD_ADAPTER = TypeAdapter(
-    Union[
-        PayloadReasoning,
-        PayloadFactualityQA,
-        PayloadUnanswerable,
-        PayloadCitation,
-        PayloadToolA,
-        PayloadToolB,
-        PayloadLongCtx,
-        PayloadVision,
-        PayloadReplay,
-    ]
-)
-
-ITEM_TYPE_TO_PAYLOAD: dict[ItemType, type] = {
-    ItemType.REASONING: PayloadReasoning,
-    ItemType.FACTUALITY_QA: PayloadFactualityQA,
-    ItemType.UNANSWERABLE: PayloadUnanswerable,
-    ItemType.CITATION: PayloadCitation,
-    ItemType.TOOL_A: PayloadToolA,
-    ItemType.TOOL_B: PayloadToolB,
-    ItemType.LONGCTX: PayloadLongCtx,
-    ItemType.VISION: PayloadVision,
-    ItemType.REPLAY: PayloadReplay,
-}
 
 
 # ---------------------------------------------------------------------------

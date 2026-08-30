@@ -2,7 +2,7 @@
   "item_key": "tool_a.browser_open.fill_email_screenshot",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:39c3d4b250e55c3ddab6c515c70179e3c770885e5130e88542a00a4c571bab5e",
+  "content_hash": "sha256:b4125dbaa22068165e19d7b99b33bf08313a8080024c9c4190f9b6207d5175ac",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "在 https://app.example.com 的 'input[name=email]' 里填入 test@example.com，然后截图。",

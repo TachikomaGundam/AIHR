@@ -2,7 +2,7 @@
   "item_key": "tool_a.read_file.etc_hosts",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:594cd3da2e4fa39c3085d4f14afe722c7d1e587deabef04f3cdc2af97d140d48",
+  "content_hash": "sha256:223747fe932cd264044361f3f63d3eb437662083e5df79b591768adaab1f1ec5",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "请帮我读一下 /etc/hosts 文件的内容。",

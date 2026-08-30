@@ -2,7 +2,7 @@
   "item_key": "tool_a.browser_open.open_example",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:87ea88fd005385fe5711fa052faf39aa5b38de36d5d1f29cf009b29c2ded3aa3",
+  "content_hash": "sha256:b514b7dd10e5b84de857d61a77b24b0b39fa352f657411dc067fb7ebacad87b5",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "用浏览器打开 https://example.com。",

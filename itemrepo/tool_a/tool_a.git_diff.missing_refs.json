@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_diff.missing_refs",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:35f203a89b76bb8ec0ecc7f2dc5991336279ba0930dc31bd8f3d703485ca0ae9",
+  "content_hash": "sha256:d77245bfc3a0ade007e3ca8c8f653cd8a26ce9b5e5197df757a10fa8bc63b00f",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "比较两个东西。",

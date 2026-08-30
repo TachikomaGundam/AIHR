@@ -2,7 +2,7 @@
   "item_key": "tool_a.todo_write.mark_in_progress",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:6f2657398bc92e9a9075d75268f0f94950c308d8d79f73373fe6ff7ce959ec15",
+  "content_hash": "sha256:bfff7eb6ff1e4c0a568685c1ff875f9b6e866f5ec0b491b3d1f8065e9c384375",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把任务 t3 改为 in_progress 状态。已有任务：t1(pending)、t2(completed)、t3(pending)。保留其他任务不变。",

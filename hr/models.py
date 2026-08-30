@@ -2,28 +2,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
-
-
-class RoleType(StrEnum):
-    oracle = "oracle"
-    explore = "explore"
-    librarian = "librarian"
-    ultrabrain = "ultrabrain"
-    deep = "deep"
-    quick = "quick"
-    writing = "writing"
-    artistry = "artistry"
-    visual_engineering = "visual_engineering"
-    metis = "metis"
-    momus = "momus"
-    sisyphus_junior = "sisyphus_junior"
-    multimodal_looker = "multimodal_looker"
-    atlas = "atlas"
-    hephaestus = "hephaestus"
-    prometheus = "prometheus"
-    unspecified_low = "unspecified_low"
-    unspecified_high = "unspecified_high"
+from pydantic import BaseModel, ConfigDict
 
 
 class BenchmarkCategory(StrEnum):
@@ -51,46 +30,3 @@ class ModelProfile(BaseModel):
     supports_thinking: bool = False
     api_base_url: str = ""
     notes: str = ""
-
-
-class BenchmarkResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    model_fk: int
-    benchmark_name: BenchmarkCategory
-    score: float
-    latency_ms: int | None = None
-    tokens_per_sec: float | None = None
-    raw_output: str = ""
-    passed: bool = False
-
-
-class ResearchFinding(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    model_fk: int
-    source_url: str = ""
-    finding: str
-    category: str = ""
-    confidence: float | None = None
-
-
-class RoleAssignment(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    model_fk: int
-    role: RoleType
-    fit_score: float | None = None
-    rationale: str = ""
-    is_active: bool = False
-
-
-class EvaluationReport(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    model_fk: int
-    overall_score: float | None = None
-    pros: list[str] = Field(default_factory=list)
-    cons: list[str] = Field(default_factory=list)
-    recommended_roles: list[RoleType] = Field(default_factory=list)
-    summary: str = ""

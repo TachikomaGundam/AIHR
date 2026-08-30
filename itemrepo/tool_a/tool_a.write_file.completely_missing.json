@@ -2,7 +2,7 @@
   "item_key": "tool_a.write_file.completely_missing",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:7e88f19f8dea08f8cc2c1b9b467dd3ecbf3a87fffc0051cac084f1aa5f7e9001",
+  "content_hash": "sha256:1c375c232977164df2bc4bedda09cc349d3f1e5eb859d2ae14d7c14dfa83270c",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "创建一个新文件。",

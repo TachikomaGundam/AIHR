@@ -2,7 +2,7 @@
   "item_key": "tool_a.calculator.simple_mult",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:5b2997acc503cbbeb256836e458cd97a6600770f8cef92476cdb6011f0ecb3bf",
+  "content_hash": "sha256:b62ab2b144269d5663343fc3b7e66bd2a2daf5903da8c1736f2c8a0913de32f6",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "123 乘以 456 是多少？",

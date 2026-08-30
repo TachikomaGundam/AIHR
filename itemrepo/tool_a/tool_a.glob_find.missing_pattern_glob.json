@@ -2,7 +2,7 @@
   "item_key": "tool_a.glob_find.missing_pattern_glob",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:d7fdd52db97f83eba3cc0a9adca676f7ea77f059b46ca3fa6bc9077c269259bf",
+  "content_hash": "sha256:3ea7177b8eead123e605a7651f508e84d911140cc8fd0869254e01d9baff285e",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "搜索一下项目里的某些文件。",

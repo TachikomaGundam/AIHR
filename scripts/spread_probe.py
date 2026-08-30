@@ -26,14 +26,14 @@ BENCHES = [
 
 
 def main() -> None:
-    with BenchmarkEngine() as engine:
-        rows: list[tuple[str, str, float, bool, str]] = []
-        for model in MODELS:
-            for name, fn in BENCHES:
-                print(f"  → {model} / {name} ...", end=" ", flush=True)
-                outcome = fn(engine, model)
-                print(f"score={outcome.score}, passed={outcome.passed}, raw={outcome.raw_output!r}")
-                rows.append((model, name, outcome.score, outcome.passed, outcome.raw_output))
+    engine = LivebenchEngine()
+    rows: list[tuple[str, str, float, bool, str]] = []
+    for model in MODELS:
+        for battery in BENCHES:
+            print(f"  → {model} / {battery.value} ...", end=" ", flush=True)
+            outcome = engine.run_battery(model, battery)
+            print(f"score={outcome.score}, passed={outcome.passed}, raw={outcome.raw_output!r}")
+            rows.append((model, battery.value, outcome.score, outcome.passed, outcome.raw_output))
 
     print("\n=== results table ===")
     print(f"{'model':<20}{'benchmark':<18}{'score':>8}{'passed':>8}")

@@ -6,6 +6,7 @@ Metadata-only: no raw content, no tool arguments, no file paths, no task text.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -35,7 +36,6 @@ SEAT_CODES: tuple[str, ...] = (
 # Keys lowercased with hyphens replaced by underscores. Values in SEAT_CODES.
 AGENT_TO_SEAT: dict[str, str] = {
     # Sisyphus-Junior (primary worker)
-    "sisyphus_junior": "sisyphus_junior",
     "sisyphus_junior": "sisyphus_junior",
     # Sisyphus - ultraworker (legacy alias for spec seat 'ultrabrain')
     "sisyphus_ultraworker": "ultrabrain",
@@ -122,7 +122,7 @@ class SeatProfile(BaseModel):
 # Values are normalized so they sum to 1.0.
 
 
-def _norm(weights: dict[str, float]) -> dict[str, float]:
+def _norm(weights: Mapping[str, float]) -> dict[str, float]:
     total = sum(weights.values()) or 1.0
     return {k: round(v / total, 3) for k, v in weights.items()}
 

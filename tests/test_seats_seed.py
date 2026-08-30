@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-import hr.config as config
 from hr.seats.seed import (
     _MANAGED_COLUMNS,
     _build_upsert_sql,
@@ -77,7 +76,7 @@ EXPECTED_QUICK = (
 
 
 class _SeedStore:
-    """In-memory hr.seat: seat_code -> row tuple (8 columns)."""
+    """In-memory seat table keyed by seat code."""
 
     def __init__(self) -> None:
         self.rows: dict[str, tuple] = {}
@@ -128,11 +127,11 @@ class _SeedConn:
 
 @pytest.fixture
 def configs_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect load_yaml -> a tmp configs/ dir with the fixture seats.yaml."""
-    configs = tmp_path / "configs"
-    configs.mkdir()
+    hr_home = tmp_path / "hr"
+    configs = hr_home / "configs"
+    configs.mkdir(parents=True)
     (configs / "seats.yaml").write_text(SEATS_YAML, encoding="utf-8")
-    monkeypatch.setattr(config, "config_path", lambda name: configs / name)
+    monkeypatch.setenv("HR_HOME", str(hr_home))
     return configs
 
 

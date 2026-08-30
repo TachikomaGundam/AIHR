@@ -2,7 +2,7 @@
   "item_key": "tool_a.calculator.factorial_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:4b9f7dca89a0be34c9a0ab7c06f63b7047b81b2a745a70dc093c00e3d373d61e",
+  "content_hash": "sha256:76fb41738d08579bd555de0166920f2085241e9a1fabb960852cc302c21fd569",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我算一下 100 的阶乘。",

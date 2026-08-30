@@ -2,7 +2,7 @@
   "item_key": "tool_b.log_error_hunt",
   "type": "tool_b",
   "tier": 4,
-  "content_hash": "sha256:a9e38aea6ce11eb3f1a0971a838cf1001bfc45a39c358edd3fecb60416508ed5",
+  "content_hash": "sha256:0a7681030a907d9a48e62411ac624ffc6ff3c68689e482dab57f3ff2e2c08de3",
   "payload": {
     "scenario_id": "tb_log_error_hunt",
     "env": "opencode-sandbox",

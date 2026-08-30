@@ -2,7 +2,7 @@
   "item_key": "tool_a.json_transform.extract_fields_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:d6fa7fffcf59164e45d901b4111712b9638e3304f39c01d4cd75694a00926a66",
+  "content_hash": "sha256:a5d10770864e49de60709596f30f77d6d91155d5877a5e3f831bc96f3ee58461",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我从 JSON 文件里取出一些字段。",

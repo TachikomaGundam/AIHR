@@ -6,10 +6,16 @@ removed and every link of the fallback chain is covered here.
 """
 
 import json
+import inspect
 
 import pytest
 
-from hr.adapters.openai_compat import _resolve_endpoint
+from hr.adapters.openai_compat import (
+    OpenAICompatAdapter,
+    _resolve_endpoint,
+    _thinking_budget_to_effort,
+    _to_oai_messages,
+)
 
 
 def _write_auth(root, provider: str, key: str = "sk-test-openai-0000") -> str:
@@ -41,6 +47,58 @@ def _write_open_code(root, provider: str, base_url: str) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def test_standard_thinking_budget_remains_bounded() -> None:
+    # Given / When / Then
+    assert _thinking_budget_to_effort(16_384) == "high"
+
+
+def test_chat_defaults_match_adapter_protocol() -> None:
+    # Given: the concrete OpenAI-compatible chat signature.
+    parameters = inspect.signature(OpenAICompatAdapter.chat).parameters
+
+    # When / Then: direct callers receive the shared adapter defaults.
+    assert parameters["max_output"].default == 16_384
+    assert parameters["timeout_s"].default == 600
+
+
+def test_images_are_attached_to_the_last_user_message() -> None:
+    # Given
+    messages = [
+        {"role": "user", "content": "first"},
+        {"role": "assistant", "content": "ack"},
+        {"role": "user", "content": "inspect"},
+    ]
+    images = [{"data": "aGVsbG8=", "media_type": "image/png"}]
+
+    # When
+    translated = _to_oai_messages(messages, images)
+
+    # Then
+    assert translated[-1]["content"] == [
+        {"type": "text", "text": "inspect"},
+        {
+            "type": "image_url",
+            "image_url": {"url": "data:image/png;base64,aGVsbG8="},
+        },
+    ]
+    assert translated[0]["content"] == "first"
+
+
+def test_list_models_supports_flat_provider_cache(tmp_path) -> None:
+    # Given
+    cache = tmp_path / "models.json"
+    cache.write_text(
+        json.dumps({"acme": {"models": {"fast": {}, "smart": {}}}}),
+        encoding="utf-8",
+    )
+
+    # When
+    models = OpenAICompatAdapter(opencode_config_path=str(cache)).list_models()
+
+    # Then
+    assert models == ["acme/fast", "acme/smart"]
 
 
 # ---------------------------------------------------------------------------

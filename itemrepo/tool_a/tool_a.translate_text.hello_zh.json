@@ -2,7 +2,7 @@
   "item_key": "tool_a.translate_text.hello_zh",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:b518b2954754a10e74e332bdcb2312cd3853d8d20392ae33990f831e796a9cdb",
+  "content_hash": "sha256:f6483982633b123f4fa59b6bc69b97b7cc614b91c014d9bbf8c16ec058208217",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把 'Hello, world!' 从英文翻译成中文。",

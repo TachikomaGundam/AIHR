@@ -2,7 +2,7 @@
   "item_key": "tool_a.db_query.users_limit_10",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:0721df5ef3831a02e2ee862b343e73c2869247ecb1156996f66edeeb33203bc5",
+  "content_hash": "sha256:f390fb5271cd7e4e87affdba384c37c2891461aef898c36f019c4d7b23a11bef",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "从 users 表查询所有记录，限制 10 条。",

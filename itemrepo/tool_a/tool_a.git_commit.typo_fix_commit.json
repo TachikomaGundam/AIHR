@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_commit.typo_fix_commit",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:3f768b11de4992aa9df2113494b4b6713b3278dd450ff46740a66cc298a6c277",
+  "content_hash": "sha256:b65368996fdddb4e69aa240fc0890d0ee35cb33cd4e7a427dab32022873578e9",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把当前所有改动提交一下，message 是 'fix: typo in README'。",

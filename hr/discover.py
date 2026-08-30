@@ -158,10 +158,10 @@ def enumerate_models(scope: frozenset[str]) -> list[DiscoveredModel]:
     return discovered
 
 
-def upsert_hr2(conn, models: list[DiscoveredModel]) -> tuple[int, int]:
-    """Idempotently upsert provider+model rows into the unified hr registry (ON CONFLICT DO NOTHING).
+def upsert_models(conn, models: list[DiscoveredModel]) -> tuple[int, int]:
+    """Idempotently upsert provider and model rows (ON CONFLICT DO NOTHING).
 
-    hr.model rows use the composite ``provider/model_id`` as their primary
+    ``hr.model`` rows use the composite ``provider/model_id`` as their primary
     id, mirroring stage0's ``_ensure_provider_model_records`` convention.
     Provider display names come from the opencode config's ``name`` field.
     Returns ``(provider_rows, model_rows)`` — honest rowcounts, so a rerun

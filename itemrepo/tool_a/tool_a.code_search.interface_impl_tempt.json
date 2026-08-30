@@ -2,7 +2,7 @@
   "item_key": "tool_a.code_search.interface_impl_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:411af27c931a3584f675336fb906548344d3f66129c39bdcd116b696607720cd",
+  "content_hash": "sha256:9e21a2683e2afd56595cdb1f3ae5f476c21d8452c211f5782bf0f28326343096",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "找一下谁实现了某个接口。",

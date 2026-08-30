@@ -2,7 +2,7 @@
   "item_key": "tool_a.http_fetch.health_check",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:93853d811cb7fbc41ebb2fc26d49a752150803e434b754b5520968f7f340f010",
+  "content_hash": "sha256:cc058234bb447d593b24c014a89246a54f960aa082d3d7991029908c1296b7f8",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "GET https://api.example.com/health。",

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seed ``hr2.seat`` from ``configs/seats.yaml`` (hard-gate plumbing).
+"""Seed ``hr.seat`` from ``configs/seats.yaml``.
 
 Equivalent invocation of the same entry point: ``python3 -m hr.seats.seed``.
 Full semantics live in ``hr/seats/seed.py``: idempotent upserts keyed by

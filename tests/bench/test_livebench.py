@@ -101,13 +101,13 @@ def test_long_horizon_truths_lazy_at_import() -> None:
     def _boom() -> dict:
         raise AssertionError("long-horizon truths computed eagerly!")
     truths_mod._compute_long_horizon_truths = _boom
-    truths_mod._LONG_HORIZON_CACHE = None
+    truths_mod._long_horizon_cache = None
     try:
         with pytest.raises(AssertionError, match="eagerly"):
             truths_mod.long_horizon_truths()  # first call -> lazy compute
     finally:
         truths_mod._compute_long_horizon_truths = original
-        truths_mod._LONG_HORIZON_CACHE = None
+        truths_mod._long_horizon_cache = None
 
 
 def test_long_horizon_truths_compute_on_first_call() -> None:

@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
 """Build B4 vision-lite items: render PNGs and write envelope JSONs."""
 from __future__ import annotations
-import hashlib
 import json
 import os
 import sys
 
 import generators as G
+from hr.items.schema import ItemEnvelope, content_hash
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 IMG_DIR = os.path.join(HERE, "img")
 os.makedirs(IMG_DIR, exist_ok=True)
-
-
-def canonical_json(obj) -> bytes:
-    return json.dumps(obj, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-
-
-def content_hash(payload: dict) -> str:
-    return "sha256:" + hashlib.sha256(canonical_json(payload)).hexdigest()
 
 
 def render_and_write(item) -> dict:
@@ -51,11 +43,11 @@ def render_and_write(item) -> dict:
         "grading": grading,
         "meta": {
             "source": "generated",
-            "generated_by": "hr2-itemgen-b4@0.1",
+        "generated_by": "hr-itemgen-b4@0.1",
             "seats": item["seats"],
         },
     }
-    envelope["content_hash"] = content_hash(payload)
+    envelope["content_hash"] = content_hash(ItemEnvelope.model_validate(envelope))
 
     json_path = os.path.join(HERE, f"{item['item_key']}.json")
     with open(json_path, "w", encoding="utf-8") as f:

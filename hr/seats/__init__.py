@@ -1,4 +1,4 @@
-"""HR2 seats subpackage: role-spec schema (seat profiler archived).
+"""Role-spec schema and seat metadata.
 
 Zero model/API calls. Metadata-only role specifications.
 """

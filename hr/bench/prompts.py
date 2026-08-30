@@ -8,11 +8,11 @@ and zero wire-specific code (prompts are pure data; the engine in
 
 from __future__ import annotations
 
-import base64
 import random
 import string
 import uuid
-import zlib
+
+from hr.bench.prompt_image import build_test_image_png
 
 # ---------------------------------------------------------------------------
 # Prompts (HARSH frontier-limit v4)
@@ -292,57 +292,6 @@ def build_attention_probe(rng: random.Random) -> tuple[str, dict[str, str]]:
         f"8) what is the number of the archive box labeled {tag}?\n"
     )
     return text + "\n\n" + follow_up, expected
-
-
-# ---------------------------------------------------------------------------
-# Tiny PNG builder (2x2 grid of 4 colored squares)
-# ---------------------------------------------------------------------------
-
-
-def _png_chunk(tag: bytes, data: bytes) -> bytes:
-    import zlib as _zlib  # local alias keeps module imports minimal
-
-    crc = _zlib.crc32(tag + data) & 0xFFFFFFFF
-    return len(data).to_bytes(4, "big") + tag + data + crc.to_bytes(4, "big")
-
-
-def build_test_image_png() -> str:
-    """Base64-encoded 180x180 RGB PNG with four solid 40x40 colored squares:
-    RED top-left, BLUE top-right, GREEN bottom-left, YELLOW bottom-right.
-    """
-    width = height = 180
-    # Four 40x40 squares with a 20px inset; 20px white gaps between them.
-    squares = (
-        (20, 60, 20, 60, b"\xff\x00\x00"),     # red top-left
-        (120, 160, 20, 60, b"\x00\x00\xff"),   # blue top-right
-        (20, 60, 120, 160, b"\x00\x80\x00"),   # green bottom-left
-        (120, 160, 120, 160, b"\xff\xff\x00"),  # yellow bottom-right
-    )
-    rows_list: list[bytes] = []
-    for y in range(height):
-        row = bytearray()
-        for x in range(width):
-            color = None
-            for (x0, x1, y0, y1, rgb) in squares:
-                if x0 <= x < x1 and y0 <= y < y1:
-                    color = rgb
-                    break
-            row.extend(color if color is not None else b"\xff\xff\xff")
-        rows_list.append(b"\x00" + bytes(row))
-    raw = b"".join(rows_list)
-    ihdr_data = (
-        width.to_bytes(4, "big")
-        + height.to_bytes(4, "big")
-        + b"\x08\x02\x00\x00\x00"
-    )
-    idat_data = zlib.compress(raw, 6)
-    png = (
-        b"\x89PNG\r\n\x1a\n"
-        + _png_chunk(b"IHDR", ihdr_data)
-        + _png_chunk(b"IDAT", idat_data)
-        + _png_chunk(b"IEND", b"")
-    )
-    return base64.b64encode(png).decode("ascii")
 
 
 __all__ = [name for name in globals() if name.isupper()] + [

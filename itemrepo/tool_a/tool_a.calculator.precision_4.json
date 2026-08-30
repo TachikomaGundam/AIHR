@@ -2,7 +2,7 @@
   "item_key": "tool_a.calculator.precision_4",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:02305e84c7b2008210242057db0d5c9be66cd9716ff5f967d2ca2f7695fa6801",
+  "content_hash": "sha256:edbb42dbe4d6413930d075f26b29cb97b6d139ee9aff6495c9846df19892ddd2",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "算 (1.5 + 2.7) / 0.3，精度 4 位。",

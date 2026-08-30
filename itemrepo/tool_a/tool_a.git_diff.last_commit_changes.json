@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_diff.last_commit_changes",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:343b20fd58ab5000e9e976d396d68f3358101a6a1ef921b97680f285a228b8b9",
+  "content_hash": "sha256:1278564a0fe830f87beaff0a82eb75c83cfa054df6d865fbbb8e76b21a5cede4",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "我想知道上次 commit 之后我改了啥。",

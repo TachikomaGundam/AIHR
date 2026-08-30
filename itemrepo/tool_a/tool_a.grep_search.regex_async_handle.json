@@ -2,7 +2,7 @@
   "item_key": "tool_a.grep_search.regex_async_handle",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:a200a640a88a2379ea80a7ada8a9bb6c37e4d4fced176fa5e2ec12770319716d",
+  "content_hash": "sha256:032586f24f3fca86c0aa5777831f6ab8a6f3a15ad63e45c8e119d7387d90f254",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "正则搜索：找所有以 'async def' 开头，后面跟 handle 的函数定义，输出模式为 files_with_matches。",

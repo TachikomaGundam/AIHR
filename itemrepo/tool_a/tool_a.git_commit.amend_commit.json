@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_commit.amend_commit",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:67b1bb2230e28383194698d28b8cb03b209d735925d3e6cf3f7d7956349852c0",
+  "content_hash": "sha256:76b768a993c7e14730777ca784c5c8d419d4385c9b9e52a320d32b75c36fc144",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "修改（amend）上一次 commit 的 message 为 'fix: adjust timeout (closes #42)'。",

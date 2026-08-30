@@ -1,4 +1,4 @@
-"""hr2.keyscan — outbound-text secret detector (spec §12.1).
+"""Outbound-text secret detector (spec §12.1).
 
 Detects the following classes of leaked secrets:
   - sk-sp-*        : dashscope-style keys (aliyun / bailian)

@@ -21,16 +21,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-import hr.config as config
 from hr.adapters.fleet import resolve_capabilities
 
 
 @pytest.fixture
 def configs_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Point hr.config.config_path at a tmp configs/ dir we control."""
-    configs = tmp_path / "configs"
-    configs.mkdir()
-    monkeypatch.setattr(config, "config_path", lambda name: configs / name)
+    hr_home = tmp_path / "hr"
+    configs = hr_home / "configs"
+    configs.mkdir(parents=True)
+    monkeypatch.setenv("HR_HOME", str(hr_home))
     return configs
 
 

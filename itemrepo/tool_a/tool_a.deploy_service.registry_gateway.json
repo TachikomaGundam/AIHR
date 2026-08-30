@@ -2,7 +2,7 @@
   "item_key": "tool_a.deploy_service.registry_gateway",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:3c2b741ddf0b9272066c472201c6edfac4c4e7ec7a27ac4ff5dd78e8ea25fc23",
+  "content_hash": "sha256:6467147e837bc832bc788841bf4f83be5b179b1ded763726ce0631b5c6cfc474",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "用 registry.internal/team/app:latest 部署 gateway 到 staging。",

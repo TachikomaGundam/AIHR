@@ -1,4 +1,4 @@
-"""hr2.items — item schema, envelope, and loader."""
+"""Item schema, envelope, and loader."""
 
 from hr.items.schema import (
     GradingSpec,

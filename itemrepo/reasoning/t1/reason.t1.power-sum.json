@@ -46,7 +46,7 @@
   },
   "meta": {
     "source": "handcrafted",
-    "generated_by": "hr2-itemgen-b1@0.1",
+    "generated_by": "hr-itemgen-b1@0.1",
     "contamination_guard": "no-model-derived-truth-handcrafted-only",
     "seats": [
       "deep",

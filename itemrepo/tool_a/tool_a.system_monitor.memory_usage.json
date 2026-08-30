@@ -2,7 +2,7 @@
   "item_key": "tool_a.system_monitor.memory_usage",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:2559491e00df0341f05166fb9d8393d7ac66652b2ad76f9ba1688963759e5908",
+  "content_hash": "sha256:8abbb9aa130f605a2a50f8fa0307b660bfda60b1dd6d5fa839f93415ba70ef75",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "查看当前内存使用情况。",

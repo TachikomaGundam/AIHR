@@ -2,7 +2,7 @@
   "item_key": "tool_a.browser_open.peek_page_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:5fa932af39c834e36cebdbe5b4430def135e43d672125964720f2a85354ab698",
+  "content_hash": "sha256:da1db11d69b4b75b3ee88c859a5c1c574f887e14a691044c6f5f27761bb81089",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我看一下那个网页长得什么样。",

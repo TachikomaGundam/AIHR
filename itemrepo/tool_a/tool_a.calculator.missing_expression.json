@@ -2,7 +2,7 @@
   "item_key": "tool_a.calculator.missing_expression",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:37da5f32ccdb3fab1e3540e0087882e07346b26d35baf7126ee0aff8ebce87a8",
+  "content_hash": "sha256:0ff7b7e92551f6355179c80e69a37b2d3997e274703ee22a5a358b2f3fb7361d",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我做个数学计算。",

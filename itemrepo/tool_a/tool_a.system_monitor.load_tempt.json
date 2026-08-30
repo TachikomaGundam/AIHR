@@ -2,7 +2,7 @@
   "item_key": "tool_a.system_monitor.load_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:90d8529243e971a4c8fa84db46f69ab26990c6ae9235206d26037a6be4bc36b0",
+  "content_hash": "sha256:eb222cf7ea4e832f53033a1de6a3e332162dfd98c78d32d0dc631fadc4684e72",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "机器负载怎么样？",

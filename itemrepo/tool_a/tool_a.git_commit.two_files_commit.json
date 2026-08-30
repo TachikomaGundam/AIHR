@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_commit.two_files_commit",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:abca8e25d7fb4d8e9ae93696e885658780aa0f6485bc82709415a02e98b0e2b8",
+  "content_hash": "sha256:0ae623e151bf19cdb17d776e3954793872490262bf1c6f997f9c39f177cdbf18",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "只提交 src/utils.ts 和 src/types.ts 这两个文件的修改，message 是 'refactor: extract utils'。",

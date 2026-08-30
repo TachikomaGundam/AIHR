@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_diff.main_vs_head",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:5ad26e993831278aeef934bd184e8c98792cd96a23051553b6bddee4ad44ffe5",
+  "content_hash": "sha256:fd581d50e19847a4c306c2eaef643ef12e576dddc2b7517574629d0aaf5ee9dc",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "看一下 main 分支和当前 HEAD 之间的差异。",

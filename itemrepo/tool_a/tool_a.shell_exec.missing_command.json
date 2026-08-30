@@ -2,7 +2,7 @@
   "item_key": "tool_a.shell_exec.missing_command",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:5aacb14f12cb2489ed2d3ee048763ee65b22bdd95e25328610e42233be4871c7",
+  "content_hash": "sha256:707df8777f886252117737a7ad0e35f5f5537446aae9027e9705d7e3f8172a0f",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "在某个地方跑一下测试。",

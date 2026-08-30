@@ -2,7 +2,7 @@
   "item_key": "tool_a.deploy_service.deploy_recent_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:050845509cd7e02cd6e8c7f653c073a1606a5ac5319e38c516fd952d6ef2b43a",
+  "content_hash": "sha256:7716edb6d467a30ced6a83da7932d7257eacae57f75446f52229a76af05cc583",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把刚才改好的服务部署上去。",

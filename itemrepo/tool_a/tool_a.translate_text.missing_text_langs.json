@@ -2,7 +2,7 @@
   "item_key": "tool_a.translate_text.missing_text_langs",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:db26b25e81353059d114f8c08bd0ae164e967d8b2302daf384cdf4017219c93d",
+  "content_hash": "sha256:cb235b3e9ed5b94fe8f9ddfe020821fb673d2eef93fc123636da8bf0933cf2cc",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "做一下翻译。",

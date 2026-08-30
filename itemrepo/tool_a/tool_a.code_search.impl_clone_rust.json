@@ -2,7 +2,7 @@
   "item_key": "tool_a.code_search.impl_clone_rust",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:c59f869f05d2c5123f3b6b00e11a26c295ad5530f54f2a4b8ded7bd5d63b0d99",
+  "content_hash": "sha256:ae2dcb1ce604350b5e3d7a9184533ebd89e4e1804a8d5a19ca2d7a3f21e116c7",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "在项目里搜索 Rust 的 'impl Clone' trait 实现，路径限制在 src/ 目录。",

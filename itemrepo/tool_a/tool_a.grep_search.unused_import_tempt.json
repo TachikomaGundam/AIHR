@@ -2,7 +2,7 @@
   "item_key": "tool_a.grep_search.unused_import_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:f84e65a29bceaebfca6ca6c3870e3571ed5b74b72186c99e6c11a029470c648a",
+  "content_hash": "sha256:30cf397f466ddb7b6c2904f22d5a81eabdd6f39aa1c4806525aa85979af4d282",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "找找代码库里有没有未使用的 import 语句。",

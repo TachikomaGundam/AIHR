@@ -2,7 +2,7 @@
   "item_key": "tool_a.csv_analyze.missing_csv_path",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:808e22e10a6739627d761d2030a355c9a72339d3983b4e802e4ed1d9850438a9",
+  "content_hash": "sha256:c0eb72fd03aee6af813d3eb7f32da1b03f5c6838ae64a422b284b7afd9d8239d",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "分析一下这个数据文件。",

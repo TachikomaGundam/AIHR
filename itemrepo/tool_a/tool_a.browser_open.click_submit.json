@@ -2,7 +2,7 @@
   "item_key": "tool_a.browser_open.click_submit",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:0092a426a490afe7fdb3e2d7565d1a2c4f86a34fbc75d538fd52a3b36604df8f",
+  "content_hash": "sha256:89afd6ca56b1b6b333b0eee59d4dc3c39d9bcc179d1ae30d5349fcf612704e3d",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "打开 https://app.example.com 并点击按钮 '#submit-btn'。",

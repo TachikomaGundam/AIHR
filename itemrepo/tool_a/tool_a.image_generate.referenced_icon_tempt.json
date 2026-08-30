@@ -2,7 +2,7 @@
   "item_key": "tool_a.image_generate.referenced_icon_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:048fd59c26795fdf9010491736bb7fc9d46eed4c1176775ca416429d13534760",
+  "content_hash": "sha256:b186bb46a9b5fbb0a48bd9f8706d9e3c5c5568740cbcacb63a400fd997886b33",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我把刚才说的图标画出来。",

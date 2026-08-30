@@ -1,4 +1,4 @@
-"""hr2.graders.llm_judge — LLM judge STUB per spec §6.3.
+"""LLM judge stub (spec §6.3).
 
 Spec rules (STUB only — no live calls in this build):
   1. Pool-external, fixed, versioned model.
