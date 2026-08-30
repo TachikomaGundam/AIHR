@@ -1,4 +1,4 @@
-"""hr2.health — behavioral-health analyzer (loop_score + friends).
+"""hr.health — behavioral-health analyzer (loop_score + friends).
 
 Computes per-model metrics from measurement rows for a sweep:
   - loop_score (0..1, text-based)
@@ -199,8 +199,8 @@ def _fetch_rows(conn, sweep_id: str, model_id: str) -> list[dict]:
     sql = """
         SELECT m.item_id, m.score, m.tokens_out, m.response_text,
                m.requested_max_output
-          FROM hr2.measurement m
-          JOIN hr2.run        r ON r.run_id = m.run_id
+          FROM hr.measurement m
+          JOIN hr.run        r ON r.run_id = m.run_id
          WHERE r.sweep_id = %s AND r.model_id = %s
     """
     with conn.cursor() as cur:
@@ -252,9 +252,9 @@ def _fetch_battery_breakdown(conn, sweep_id: str) -> list[dict]:
                COUNT(DISTINCT m.item_id)::int AS n_items,
                COUNT(m.measurement_id)::int   AS n_measurements,
                AVG(m.score)::float8           AS mean_score
-          FROM hr2.measurement m
-          JOIN hr2.run        r ON r.run_id = m.run_id
-          JOIN hr2.battery    b ON b.battery_id = r.battery_id
+          FROM hr.measurement m
+          JOIN hr.run        r ON r.run_id = m.run_id
+          JOIN hr.battery    b ON b.battery_id = r.battery_id
          WHERE r.sweep_id = %s
          GROUP BY b.battery_code
          ORDER BY b.battery_code
@@ -284,7 +284,7 @@ def sweep_health(
     """
     sql = """
         SELECT DISTINCT r.model_id
-          FROM hr2.run r
+          FROM hr.run r
          WHERE r.sweep_id = %s
          ORDER BY r.model_id
     """
