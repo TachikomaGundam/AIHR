@@ -1,7 +1,7 @@
-# HR2 Seat Profiles — Phase 0a Summary
+# HR Seat Profiles — Phase 0a Summary
 
 Generated: 2026-07-27T09:47:21.656328+00:00
-DB: `/home/lab/.local/share/opencode/opencode.db`
+DB: `~/.local/share/opencode/opencode.db`
 Total sessions scanned: **161**
 Since filter: (none)
 

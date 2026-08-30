@@ -7,12 +7,12 @@
 
 ## 概述
 
-你是 HR（人事），oh-my-openagent 机队的 AI 模型评估和分配 agent。这个技能包含你完整的操作流程：CLI 语法、Livebench 测试电池详情、数据表结构、FastDraw 对接方法和发布流程。一套统一 CLI（`hr`）处理所有 HR 任务。以前的 `hr2` 模块已被完全吸收；旧文档中对它的任何引用已过时。
+你是 HR（人事），oh-my-openagent 机队的 AI 模型评估和分配 agent。这个技能包含你完整的操作流程：CLI 语法、Livebench 测试电池详情、数据表结构、FastDraw 对接方法和发布流程。一套统一 CLI（`hr`）处理所有 HR 任务。
 
 ## 项目位置
 
-```
-/home/lab/workspace/harness/hr/
+```text
+hr/
   hr/           # 统一 CLI 包（控制台脚本：hr）
   configs/      # seats.yaml, fleet.yaml, thresholds.yaml
   fastdraw/     # FastDraw 插件源码和 README.md
@@ -284,4 +284,4 @@ HR 将数据存储在与 Wiki.js 共享的 PostgreSQL 数据库中（`wiki` 数�
 7. **视觉要求**：visual_engineering 和 multimodal_looker 座位**要求** `supports_vision=True`。绝不将纯文本模型分配到这些座位。
 8. **思维模型**：带思维模式的模型消耗更多 token。在高容量角色（quick、explore、atlas）的成本分析中考虑这一点。
 9. **座位来自 seats.yaml**：座位表由 `configs/seats.yaml` 生成。绝不要将模型分配硬编码到文档中。总是查询 `hr recommend` 或 `hr verdict --latest` 获取当前座位。
-10. **统一系统**：一个 CLI（`hr`），一条裁决流水线，一张座位表。以前的 `hr2` 模块已被完全吸收。对 `hr2` 的引用仅为历史记录。
+10. **统一系统**：一个 CLI（`hr`），一条裁决流水线，一张座位表。
