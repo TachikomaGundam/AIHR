@@ -1,4 +1,23 @@
-DDL = r"""
+r"""
+Canonical HR schema DDL, split into two idempotent phases (W4-fix contract):
+
+* ``DDL_SCHEMA`` — namespace + ``CREATE TABLE IF NOT EXISTS`` statements with
+  their inline constraints. Safe on any database: fresh ones get every table
+  with the full column set, legacy ones are no-ops.
+* ``DDL_INDEXES`` — every ``CREATE INDEX`` statement, executed LAST.
+
+The ordering contract for ``hr.db.init_schema`` is CREATE TABLES → column-add
+migrations → CREATE INDEXES. Indexes must never be created before the columns
+they reference exist on a pre-existing (pre-migration) table; the shipped
+``migrate_add_calibration_measurement_columns`` adds pool_hash/anchor to a
+legacy ``hr.calibration_event``, and ``calibration_anchor_measurement_idx``
+depends on those columns. Fresh databases carry the columns in the CREATE
+TABLE, so they only ever hit the ordering issue during an in-place upgrade.
+``DDL`` keeps the legacy full-string export (tables + indexes) so callers
+that treat it as the complete schema specification keep working.
+"""
+
+DDL_SCHEMA = r"""
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'hr') THEN
@@ -22,8 +41,6 @@ CREATE TABLE IF NOT EXISTS hr.model (
     default_cost_1k_out NUMERIC(12, 6),
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS model_provider_idx ON hr.model (provider_fk);
-
 CREATE TABLE IF NOT EXISTS hr.control_model (
     provider_fk  TEXT PRIMARY KEY REFERENCES hr.provider(provider_id),
     model_id     TEXT NOT NULL REFERENCES hr.model(model_id),
@@ -51,8 +68,6 @@ CREATE TABLE IF NOT EXISTS hr.item_pool (
     json_meta  JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS item_pool_domain_idx ON hr.item_pool (domain);
-
 CREATE TABLE IF NOT EXISTS hr.item (
     item_id            TEXT PRIMARY KEY REFERENCES hr.item_pool(item_id),
     model_id           TEXT NOT NULL REFERENCES hr.model(model_id),
@@ -61,8 +76,6 @@ CREATE TABLE IF NOT EXISTS hr.item (
     calibrated_se      NUMERIC(10, 6),
     created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS item_model_idx ON hr.item (model_id);
-
 CREATE TABLE IF NOT EXISTS hr.battery (
     battery_id   TEXT PRIMARY KEY,
     battery_code TEXT NOT NULL UNIQUE,
@@ -93,8 +106,6 @@ CREATE TABLE IF NOT EXISTS hr.sweep (
     purpose     TEXT NOT NULL DEFAULT 'primary',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS sweep_seat_idx ON hr.sweep (seat_code);
-
 CREATE TABLE IF NOT EXISTS hr.experiment_manifest (
     sweep_id      TEXT PRIMARY KEY REFERENCES hr.sweep(sweep_id),
     manifest_json JSONB NOT NULL,
@@ -116,9 +127,6 @@ CREATE TABLE IF NOT EXISTS hr.run (
     status         TEXT NOT NULL DEFAULT 'scored',
     failure_reason TEXT
 );
-CREATE INDEX IF NOT EXISTS run_sweep_idx  ON hr.run (sweep_id);
-CREATE INDEX IF NOT EXISTS run_model_idx  ON hr.run (model_id);
-
 CREATE TABLE IF NOT EXISTS hr.measurement (
     measurement_id TEXT PRIMARY KEY,
     run_id         TEXT NOT NULL REFERENCES hr.run(run_id),
@@ -133,9 +141,6 @@ CREATE TABLE IF NOT EXISTS hr.measurement (
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (run_id, item_id, repetition)
 );
-CREATE INDEX IF NOT EXISTS measurement_run_idx ON hr.measurement (run_id);
-CREATE INDEX IF NOT EXISTS measurement_item_score ON hr.measurement (item_id, score);
-
 CREATE TABLE IF NOT EXISTS hr.infra_incident (
     incident_id TEXT PRIMARY KEY,
     run_id      TEXT NOT NULL REFERENCES hr.run(run_id),
@@ -143,8 +148,6 @@ CREATE TABLE IF NOT EXISTS hr.infra_incident (
     details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS incident_run_idx ON hr.infra_incident (run_id);
-
 CREATE TABLE IF NOT EXISTS hr.control_reading (
     reading_id      TEXT PRIMARY KEY,
     control_model_fk TEXT NOT NULL REFERENCES hr.model(model_id),
@@ -167,8 +170,6 @@ CREATE TABLE IF NOT EXISTS hr.separation (
     estimated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (model_a <> model_b)
 );
-CREATE INDEX IF NOT EXISTS separation_sweep_idx ON hr.separation (sweep_id);
-
 CREATE TABLE IF NOT EXISTS hr.assignment (
     assignment_id TEXT PRIMARY KEY,
     seat_code     TEXT NOT NULL REFERENCES hr.seat(seat_code),
@@ -179,8 +180,6 @@ CREATE TABLE IF NOT EXISTS hr.assignment (
     reason_json   JSONB NOT NULL DEFAULT '{}'::jsonb,
     assigned_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS assignment_seat_idx ON hr.assignment (seat_code);
-
 CREATE TABLE IF NOT EXISTS hr.policy_override (
     override_id TEXT PRIMARY KEY,
     seat_code   TEXT NOT NULL REFERENCES hr.seat(seat_code),
@@ -211,10 +210,6 @@ CREATE TABLE IF NOT EXISTS hr.calibration_event (
     infra_failure TEXT,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS calibration_item_idx ON hr.calibration_event (item_id);
-CREATE UNIQUE INDEX IF NOT EXISTS calibration_anchor_measurement_idx
-    ON hr.calibration_event (pool_hash, anchor, item_id)
-    WHERE kind = 'anchor_measurement';
 
 CREATE TABLE IF NOT EXISTS hr.judge_verdict (
     verdict_id     TEXT PRIMARY KEY,
@@ -225,7 +220,30 @@ CREATE TABLE IF NOT EXISTS hr.judge_verdict (
     judgement_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     UNIQUE (sweep_id, item_id, model_id, round)
 );
+"""
+
+DDL_INDEXES = r"""
+CREATE INDEX IF NOT EXISTS model_provider_idx ON hr.model (provider_fk);
+CREATE INDEX IF NOT EXISTS item_pool_domain_idx ON hr.item_pool (domain);
+CREATE INDEX IF NOT EXISTS item_model_idx ON hr.item (model_id);
+CREATE INDEX IF NOT EXISTS sweep_seat_idx ON hr.sweep (seat_code);
+CREATE INDEX IF NOT EXISTS run_sweep_idx  ON hr.run (sweep_id);
+CREATE INDEX IF NOT EXISTS run_model_idx  ON hr.run (model_id);
+CREATE INDEX IF NOT EXISTS measurement_run_idx ON hr.measurement (run_id);
+CREATE INDEX IF NOT EXISTS measurement_item_score ON hr.measurement (item_id, score);
+CREATE INDEX IF NOT EXISTS incident_run_idx ON hr.infra_incident (run_id);
+CREATE INDEX IF NOT EXISTS separation_sweep_idx ON hr.separation (sweep_id);
+CREATE INDEX IF NOT EXISTS assignment_seat_idx ON hr.assignment (seat_code);
+CREATE INDEX IF NOT EXISTS calibration_item_idx ON hr.calibration_event (item_id);
+CREATE UNIQUE INDEX IF NOT EXISTS calibration_anchor_measurement_idx
+    ON hr.calibration_event (pool_hash, anchor, item_id)
+    WHERE kind = 'anchor_measurement';
 CREATE INDEX IF NOT EXISTS judge_sweep_idx ON hr.judge_verdict (sweep_id);
 """
 
-__all__ = ["DDL"]
+# Legacy full-string export (tables + indexes) for callers that treat the
+# DDL as one complete specification; init_schema executes the two phases
+# separately with the migrations in between.
+DDL = DDL_SCHEMA + DDL_INDEXES
+
+__all__ = ["DDL", "DDL_INDEXES", "DDL_SCHEMA"]
