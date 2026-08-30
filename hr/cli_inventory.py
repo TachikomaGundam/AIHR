@@ -50,7 +50,7 @@ def discover(
 
     try:
         from .discover import upsert_hr2 as upsert_registry
-        upsert_target = "hr2"
+        upsert_target = "hr"
     except ImportError:
         from .discover import upsert_models as upsert_registry
         upsert_target = "hr"

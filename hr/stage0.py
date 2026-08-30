@@ -529,7 +529,7 @@ def _connect():
 def _upsert_provider(conn, provider_id: str, name: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.provider (provider_id, name) VALUES (%s, %s) "
+            "INSERT INTO hr.provider (provider_id, name) VALUES (%s, %s) "
             "ON CONFLICT (provider_id) DO NOTHING",
             (provider_id, name),
         )
@@ -539,7 +539,7 @@ def _upsert_provider(conn, provider_id: str, name: str) -> None:
 def _upsert_model(conn, model_id: str, provider_id: str, model_name: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.model (model_id, provider_fk, model_name) VALUES (%s, %s, %s) "
+            "INSERT INTO hr.model (model_id, provider_fk, model_name) VALUES (%s, %s, %s) "
             "ON CONFLICT (model_id) DO NOTHING",
             (model_id, provider_id, model_name),
         )
@@ -550,7 +550,7 @@ def _upsert_battery(conn, battery_code: str, description: str) -> str:
     battery_id = f"battery-{battery_code}"
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.battery (battery_id, battery_code, version, description) "
+            "INSERT INTO hr.battery (battery_id, battery_code, version, description) "
             "VALUES (%s, %s, %s, %s) ON CONFLICT (battery_id) DO NOTHING",
             (battery_id, battery_code, "v1", description),
         )
@@ -577,7 +577,7 @@ def _upsert_item_pool(conn, env: ItemEnvelope) -> None:
     domain = env.item_key.split(".")[0] if "." in env.item_key else "general"
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.item_pool (item_id, item_code, version, domain, kind, json_meta) "
+            "INSERT INTO hr.item_pool (item_id, item_code, version, domain, kind, json_meta) "
             "VALUES (%s, %s, %s, %s, %s, %s::jsonb) ON CONFLICT (item_id) DO NOTHING",
             (
                 env.item_key,
@@ -594,7 +594,7 @@ def _upsert_item_pool(conn, env: ItemEnvelope) -> None:
 def _upsert_battery_item(conn, battery_id: str, item_id: str, position: int) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.battery_item (battery_id, item_id, weight, position) "
+            "INSERT INTO hr.battery_item (battery_id, item_id, weight, position) "
             "VALUES (%s, %s, 1.0, %s) ON CONFLICT DO NOTHING",
             (battery_id, item_id, position),
         )
@@ -606,7 +606,7 @@ def _upsert_seat_battery(
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.seat_battery (seat_code, battery_id, n_initial, n_max) "
+            "INSERT INTO hr.seat_battery (seat_code, battery_id, n_initial, n_max) "
             "VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (seat_code, battery_id, n_initial, n_max),
         )
@@ -616,7 +616,7 @@ def _upsert_seat_battery(
 def _insert_sweep(conn, sweep_id: str, seat_code: str, purpose: str) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.sweep (sweep_id, seat_code, purpose, created_at) "
+            "INSERT INTO hr.sweep (sweep_id, seat_code, purpose, created_at) "
             "VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (sweep_id, seat_code, purpose, datetime.now(timezone.utc)),
         )
@@ -637,7 +637,7 @@ def _insert_run(
     now = datetime.now(timezone.utc)
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.run (run_id, sweep_id, model_id, battery_id, round, "
+            "INSERT INTO hr.run (run_id, sweep_id, model_id, battery_id, round, "
             "started_at, finished_at, total_tokens, total_cost_cny, infra_ok) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (
@@ -696,7 +696,7 @@ def _insert_measurement(
     thinking_text = _sanitize_db_text(thinking_text)
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.measurement (measurement_id, run_id, item_id, repetition, "
+            "INSERT INTO hr.measurement (measurement_id, run_id, item_id, repetition, "
             "score, tokens_in, tokens_out, latency_ms, created_at, "
             "response_text, thinking_text, requested_max_output) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
@@ -722,7 +722,7 @@ def _insert_measurement(
 def _insert_infra_incident(conn, run_id: str, kind: str, details: dict[str, Any]) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.infra_incident (incident_id, run_id, kind, details_json, recorded_at) "
+            "INSERT INTO hr.infra_incident (incident_id, run_id, kind, details_json, recorded_at) "
             "VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (
                 f"inc-{uuid.uuid4()}",
@@ -748,7 +748,7 @@ def _insert_separation(
 ) -> None:
     with conn.cursor() as cur:
         cur.execute(
-            "INSERT INTO hr2.separation (separation_id, sweep_id, battery_id, model_a, model_b, "
+            "INSERT INTO hr.separation (separation_id, sweep_id, battery_id, model_a, model_b, "
             "p_separated, p_weak, p_tie, estimated_at) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING",
             (
@@ -905,7 +905,7 @@ def print_separation_matrix(state: SweepState | None = None, sweep_id: str | Non
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT battery_id, model_a, model_b, p_separated, p_weak, p_tie "
-                    "FROM hr2.separation WHERE sweep_id = %s ORDER BY battery_id, model_a, model_b",
+                    "FROM hr.separation WHERE sweep_id = %s ORDER BY battery_id, model_a, model_b",
                     (sweep_id,),
                 )
                 rows = cur.fetchall()
@@ -1209,7 +1209,7 @@ def _run_sweep_loop(
                 if record_to_db and conn is not None:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE hr2.run SET finished_at = %s, total_tokens = %s, "
+                            "UPDATE hr.run SET finished_at = %s, total_tokens = %s, "
                             "infra_ok = %s WHERE run_id = %s",
                             (datetime.now(timezone.utc), round_total_tokens, round_infra_ok, round_id),
                         )
@@ -1231,7 +1231,7 @@ def read_separation_from_db(sweep_id: str) -> dict[str, list[dict]]:
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT battery_id, model_a, model_b, p_separated, p_weak, p_tie "
-                "FROM hr2.separation WHERE sweep_id = %s ORDER BY battery_id, model_a, model_b",
+                "FROM hr.separation WHERE sweep_id = %s ORDER BY battery_id, model_a, model_b",
                 (sweep_id,),
             )
             rows = cur.fetchall()
@@ -1258,7 +1258,7 @@ def list_sweeps() -> list[tuple[str, str, str]]:
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT sweep_id, purpose, created_at FROM hr2.sweep "
+                "SELECT sweep_id, purpose, created_at FROM hr.sweep "
                 "WHERE seat_code = %s ORDER BY created_at DESC",
                 (STAGE0_SEAT_CODE,),
             )
