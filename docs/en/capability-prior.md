@@ -45,8 +45,8 @@ the system.
 
 ## Seam: the unified verdict fitness
 
-The unified verdict/ranker (hr2 spine, `hr/cli.py::verdict`) computes seat
-fitness from **livebench measurements** (`hr2.measurement`) through the
+The unified verdict/ranker (`hr/cli.py::verdict`) computes seat
+fitness from **livebench measurements** (`hr.measurement`) through the
 knob→battery mapping (`_KNOB_TO_BATTERY`), and owns all assignment writes.
 It does **not** consume the v1 capability prior — no code was added to the
 ranker to import it (deliberate; wiring it into fitness would require new
