@@ -8,6 +8,8 @@ import psycopg2.extensions
 
 from hr.config import compose_db_password, db_dsn
 from hr.db_schema import DDL as _DDL
+from hr.db_schema import DDL_INDEXES as _DDL_INDEXES
+from hr.db_schema import DDL_SCHEMA as _DDL_SCHEMA
 from hr.schema_migration import (
     migrate_measurement_scorer_columns,
     migrate_run_status_columns,
@@ -146,15 +148,29 @@ def init_schema(
     conn: psycopg2.extensions.connection | None = None,
     own_connection: bool = True,
 ) -> None:
+    """Create or upgrade the HR schema in place (idempotent pipeline).
+
+    Phase order is load-bearing (W4-fix): CREATE TABLE IF NOT EXISTS first
+    (no-ops on a legacy pre-migration database), then the column-add
+    migrations (ALTER TABLE ... ADD COLUMN IF NOT EXISTS — no-ops on a
+    fresh database), then the CREATE INDEX statements last. Legacy tables
+    predate some index columns (pool_hash/anchor on calibration_event
+    arrive via ``migrate_add_calibration_measurement_columns``), so indexes
+    must never be created before their table's column-add migrations run;
+    on a fresh database the CREATE TABLE already carries every column.
+    """
     close_after = conn is None
     if conn is None:
         conn = connect()
     try:
         migrate_schema_namespace(conn)
         with conn.cursor() as cur:
-            cur.execute(_DDL)
+            cur.execute(_DDL_SCHEMA)
         conn.commit()
         _run_migrations(conn)
+        with conn.cursor() as cur:
+            cur.execute(_DDL_INDEXES)
+        conn.commit()
     finally:
         if own_connection and close_after:
             conn.close()
