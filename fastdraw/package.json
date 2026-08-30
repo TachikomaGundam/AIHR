@@ -7,6 +7,13 @@
     "./server": "./server.ts",
     "./tui": "./tui.ts"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TachikomaGundam/AIHR.git",
+    "directory": "fastdraw"
+  },
+  "homepage": "https://github.com/TachikomaGundam/AIHR",
+  "author": "TachikomaGundam",
   "files": [
     "server.ts",
     "tui.ts",
