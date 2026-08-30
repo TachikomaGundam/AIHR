@@ -1,0 +1,144 @@
+# PUSH — Perform the release (user executes)
+
+Everything below is **executed by you** — the agent has no credentials and
+deliberately never touches publish channels. All prior preparation (history
+rewrite, secrets sweep, artifacts, tags, remote) is already done; these are
+the only remaining steps. Run from this repo on **this machine** unless a
+section says otherwise.
+
+## Artifact locations (built at the final rewritten HEAD — see W3 report)
+
+| Artifact | Path on this machine |
+|----------|----------------------|
+| Python wheel | `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0-*.whl` |
+| Python sdist | `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0.tar.gz` |
+| npm pack (opencode-hr-agent) | `/tmp/opencode/hr-ship-artifacts/opencode-hr-agent-0.2.0.tgz` |
+| npm pack (opencode-fastdraw) | `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz` |
+
+Repo: `~/workspace/harness/hr` (git root), branch `main`, tag `v0.2.0` set.
+Origin is already configured as `git@github.com:TachikomaGundam/AIHR.git`.
+
+---
+
+## 0. Preflight (30 s)
+
+```bash
+cd ~/workspace/harness/hr
+git status --porcelain            # expect: empty
+git log --all --format='%ae' | sort -u   # expect: only TachikomaGundam@users.noreply.github.com
+git tag -n                         # expect: v0.2.0 annotated
+sha256sum /tmp/opencode/hr-ship-artifacts/*
+```
+
+## 1. Create the GitHub repository
+
+Option A — web: open https://github.com/new → owner **TachikomaGundam**,
+name **AIHR**, description *"HR Agent (人事) — model evaluation and role
+assignment for oh-my-openagent"*, **Public** (default), *do NOT* initialize
+with README/.gitignore/LICENSE (all exist in the repo already).
+Create.
+
+Option B — CLI (if `gh` is installed and authed):
+
+```bash
+gh repo create TachikomaGundam/AIHR --public --description "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
+```
+
+## 2. Push (the remote is already added)
+
+```bash
+cd ~/workspace/harness/hr
+git remote -v          # confirm origin -> git@github.com:TachikomaGundam/AIHR.git
+git push -u origin main --follow-tags
+```
+
+SSH key required for `git@github.com`. If you prefer HTTPS+PAT:
+`git remote set-url origin https://github.com/TachikomaGundam/AIHR.git`
+and use a PAT as the password when prompted.
+
+## 3. GitHub Release v0.2.0 (web)
+
+1. Open https://github.com/TachikomaGundam/AIHR/releases/new
+2. Tag: `v0.2.0` (exists) · Target: `main` · Title: `HR Agent 0.2.0 — unified evaluator`
+3. Notes (suggested):
+
+   > Unified `hr` CLI (23 commands): discover/bench/verdict/health/sweeps/
+   > calibrate/reference/research/publish/recommend/status/apply.
+   > 8 livebench batteries, 52 items; half-width capability thresholds;
+   > health gates; 18 seats; FastDraw verdict seam. PyPI distribution
+   > renamed `hr-agent` → `aihr` (import `hr`, console script `hr`).
+   > Full history authored as TachikomaGundam.
+
+4. Attach binaries (drag & drop):
+   - `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0-py3-none-any.whl`
+   - `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0.tar.gz`
+   - `/tmp/opencode/hr-ship-artifacts/opencode-hr-agent-0.2.0.tgz`
+   - `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz`
+5. Publish release.
+
+## 4. PyPI upload
+
+```bash
+# one-time tool install (home dir, not the project venv)
+python3 -m pip install --user twine
+# or: pipx install twine
+
+cd /tmp/opencode/hr-ship-artifacts
+twine upload aihr-0.2.0-py3-none-any.whl aihr-0.2.0.tar.gz
+# prompts: username -> __token__   (literally the underscore token)
+#          password -> your PyPI API token (project: aihr)
+```
+
+Non-interactive alternative (token still never stored in the repo):
+
+```bash
+TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode/hr-ship-artifacts/aihr-0.2.0-*
+```
+
+## 5. npm publish (two packages)
+
+```bash
+cd ~/workspace/harness/hr
+
+# --- opencode-hr-agent 0.2.0 (unscoped) ---
+cd opencode_plugin
+npm login                 # add NPM_OTP=... to env if you use a TOTP app
+npm publish --access public --otp "$NPM_OTP"
+cd ..
+
+# --- opencode-fastdraw 1.0.0 (unscoped) ---
+cd fastdraw
+npm login
+npm publish --access public --otp "$NPM_OTP"
+cd ..
+```
+
+Both names are unscoped — confirm you own them in npm. The `files` lists in
+`package.json` restrict what ships (no `.build/`, no secrets, no absolute
+paths — verified at pack time). If you use a hardware key instead of TOTP,
+omit `--otp` and answer the interactive prompt.
+
+## 6. Verify from the second machine
+
+```bash
+pip index versions aihr                 # expect 0.2.0 (PyPI)
+pip install aihr                         # import hr; console script hr
+hr --help                                # expect all 23 commands
+npm view opencode-hr-agent               # expect 0.2.0
+npm view opencode-fastdraw               # expect 1.0.0
+npm install -g opencode-hr-agent opencode-fastdraw   # or per-project
+git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGundam
+```
+
+---
+
+## What must NOT happen
+
+- Do not reuse the scratch `wikijs` DSN from this machine on the second box —
+  the CLI takes `HR_TEST_PG_DSN`/per-provider keys from `hr.toml` / env that
+  you configure locally (template: `configs/hr.toml.example`).
+- Do not re-upload if a publish partially fails without checking
+  https://pypi.org/p/aihr / https://www.npmjs.com/package/... first —
+  `twine upload`/`npm publish` of the same version are rejects, not re-runs.
+- PyPI test index (TestPyPI) needs a different token/scoped project; this
+  guide targets production PyPI directly.
