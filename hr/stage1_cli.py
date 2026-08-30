@@ -126,20 +126,23 @@ def _cli_main(argv: list[str] | None = None) -> int:
 
     # --dry-run: just print the plan.
     if args.dry_run:
-        try:
-            selection = select_finalists_from_stage0(
-                deciding_batteries=STAGE1_DECIDING_BATTERIES,
-                allow_db_missing=(finalists_override is not None),
-            )
-        except RuntimeError as e:
-            print(f"Cannot select finalists: {e}", file=sys.stderr)
-            return 1
         if finalists_override is not None:
+            # Override is authoritative — no Stage-0 DB read and no fleet
+            # discovery needed (the override replaces the selection anyway).
             selection = FinalistSelection(
                 per_battery={},
                 finalists=list(finalists_override),
                 rationale=f"User-provided finalist list: {finalists_override}",
             )
+        else:
+            try:
+                selection = select_finalists_from_stage0(
+                    deciding_batteries=STAGE1_DECIDING_BATTERIES,
+                    allow_db_missing=False,
+                )
+            except RuntimeError as e:
+                print(f"Cannot select finalists: {e}", file=sys.stderr)
+                return 1
         full_banks = load_full_banks(item_repo, batteries=STAGE1_DECIDING_BATTERIES)
         if thresholds_path.exists():
             seq_config = SequentialConfig.from_yaml(str(thresholds_path))
