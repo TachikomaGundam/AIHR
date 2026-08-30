@@ -1,4 +1,4 @@
-"""Entry point: ``python -m hr`` behaves like the ``hr``/``hr2`` console scripts."""
+"""Entry point for ``python -m hr``."""
 
 from .cli import app
 

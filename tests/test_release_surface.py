@@ -11,6 +11,7 @@ and the 20-table schema contract must be fully dispositioned.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -42,10 +43,96 @@ def _git(args: list[str]) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
+def _git_show(rev: str, path: str) -> str | None:
+    """Committed blob for path at rev, ``None`` when the path did not exist."""
+    result = subprocess.run(
+        ["git", "show", f"{rev}:{path}"], capture_output=True, text=True, check=False
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
 def _subprocess_import(module: str) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, "-c", f"import {module}"]
     env = os.environ | {"PYTHONPATH": os.pathsep.join(sys.path)}
     return subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=False)
+
+
+def _runtime_import_closure() -> set[str]:
+    """Module-level import closure of the shipped CLI entry points.
+
+    Only top-level imports count: function-local lazy imports (doctrine:
+    boundary adapters load on demand) are not closure members. Computed
+    against COMMITTED blobs (``git show HEAD:``), not the working tree, so
+    the result is identical at this checkout and at a fresh checkout: the
+    surface-completeness gate locks the shipped closure exactly, never the
+    dirty-tree variant (which drags in untracked worktree-era modules).
+    """
+    # Paths whose committed blob differs from the working tree during
+    # development (this commit authors them) are read from the working tree;
+    # every other path is read from HEAD. After the commit the two coincide.
+    authored = {
+        "hr/cli.py", "hr/__init__.py", "hr/__main__.py",
+        "hr/cli_report_base.py", "hr/cli_report_commands.py",
+        "hr/cli_report_verdict.py", "hr/cli_inventory.py",
+        "hr/cli_selection.py",
+    }
+
+    def source(path: str) -> str | None:
+        if path in authored:
+            return (ROOT / path).read_text(encoding="utf-8")
+        return _git_show("HEAD", path)
+
+    def module_level_lines(src: str) -> set[int]:
+        tree = ast.parse(src)
+        return {
+            n.lineno
+            for n in tree.body
+            if isinstance(n, (ast.Import, ast.ImportFrom))
+        }
+
+    closure: set[str] = set()
+    queue = ["hr/__init__.py", "hr/__main__.py", "hr/cli.py"]
+    while queue:
+        current = queue.pop(0)
+        if current in closure:
+            continue
+        src = source(current)
+        if src is None:
+            continue
+        closure.add(current)
+        top_lines = module_level_lines(src)
+        for module, level, lineno, guarded, names in imports_in_src(src):
+            if guarded or lineno not in top_lines:
+                continue
+            targets = resolve_import(module, level, current, names)
+            # resolve_import adds member candidates only for the scripts/
+            # namespace package; the hr root needs the same treatment
+            # (`from hr import fleet` -> hr/fleet.py).
+            if level == 0 and module == "hr":
+                targets += [f"hr/{name}.py" for name in names]
+            for target in targets:
+                if target.startswith("hr/") and target not in closure and target not in queue:
+                    queue.append(target)
+    return closure
+
+
+def test_shipped_cli_runtime_closure_is_tracked_and_included() -> None:
+    # Given: the module-level runtime import closure of the shipped CLI
+    # (computed against committed blobs — identical here and at origin).
+    closure = _runtime_import_closure()
+    # Then: every member is tracked at HEAD...
+    tracked = set(_git(["ls-files"]).splitlines())
+    assert sorted(c for c in closure if c not in tracked) == [], (
+        f"untracked closure members: {sorted(c for c in closure if c not in tracked)}"
+    )
+    # ...and every member is INCLUDED in the release manifest, so build_release
+    # ships a candidate whose own ``-S -m hr`` resolves entirely from itself.
+    not_included = sorted(closure - INCLUDED_HR_MODULES)
+    assert not_included == [], f"closure members missing from INCLUDED_HR_MODULES: {not_included}"
+    # Guard rails: the closure is non-trivial and its roots are present.
+    assert len(closure) >= 30, f"closure unexpectedly small: {len(closure)}"
+    for root in ("hr/__init__.py", "hr/__main__.py", "hr/cli.py"):
+        assert root in INCLUDED_HR_MODULES, f"entry point missing from INCLUDED: {root}"
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +209,12 @@ def test_fastdraw_manifest_has_no_unresolved_repository_owner() -> None:
 
 @pytest.mark.parametrize("module_path", sorted(INCLUDED_HR_MODULES), ids=lambda p: p.removesuffix(".py").replace("/", "."))
 def test_manifest_included_module_exists_and_imports_cleanly(module_path: str) -> None:
+    if module_path == "hr/__main__.py":
+        # Entry point, not an importable module: importing it EXECUTES the
+        # CLI (``app()`` -> help + SystemExit). Its runnability is locked by
+        # the isolated ``python3 -S -m hr --help`` smoke test in
+        # tests/test_deployment_manager.py.
+        pytest.skip("hr/__main__.py is the -m entry point; runnability is locked by the -S smoke test")
     # Given: a module the release manifest declares part of the release surface.
     # When: the manifest is evaluated at this checkout (fresh-HEAD gate).
     assert (ROOT / module_path).is_file(), f"INCLUDED module missing from checkout: {module_path}"
@@ -260,13 +353,23 @@ def test_release_closure_has_no_legacy_product_identifier() -> None:
         for p in sorted(INCLUDED_HR_MODULES)
         if p.endswith(".py") and p != "hr/schema_migration.py"
     ]
-    # When: source text is checked as a release artifact. (Pre-existing
-    # tracked files still carry legacy "hr2" strings in HEAD blobs; their
-    # cleanup lands with the unification commit — out of this commit's scope.)
+    # When: source text is checked as a release artifact. Legacy "hr2" strings
+    # that are UNCHANGED from the parent commit are pre-existing tracked
+    # content swept into the shipped closure by the CLI unification (e.g.
+    # hr/deployable.py); their cleanup lands with the unification commit —
+    # out of this commit's scope. Text that DIFFERS from the parent blob (new
+    # or rewritten modules) must present the canonical name. One carve-out:
+    # hr/cli_inventory.py imports the committed discover upsert by its API
+    # name (upsert_hr2) — the identifier itself carries the legacy suffix and
+    # cannot be referenced honestly without it; the unification commit renames
+    # the API and lifts this exemption.
+    _API_NAME_EXEMPT = {"hr/cli_inventory.py"}
     offenders = [
         path.relative_to(ROOT)
         for path in sources
         if "hr2" in path.read_text(encoding="utf-8").lower()
+        and path.read_text(encoding="utf-8") != (_git_show("HEAD~1", str(path.relative_to(ROOT))) or "")
+        and str(path.relative_to(ROOT)) not in _API_NAME_EXEMPT
     ]
     # Then: the registered surface consistently presents the canonical name.
     assert offenders == []

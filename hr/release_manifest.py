@@ -7,11 +7,14 @@ todo F4 traces every released artifact back to a plan todo.
 
 Design rules
 ------------
-* ``INCLUDED_HR_MODULES`` — the modules this commit adds to the tracked tree
-  because a module that is already tracked at HEAD imports them (runtime
-  closure, computed against HEAD blobs, not the dirty working tree). At a
-  fresh checkout of this commit every one of them must exist and import
-  cleanly.
+* ``INCLUDED_HR_MODULES`` — the modules shipped in a release build: the
+  runtime import closure of the shipped CLI entry points (``hr/__init__.py``,
+  ``hr/__main__.py``, ``hr/cli.py`` — the 23-command unified facade), plus
+  modules this commit tracks for other consumers (stage facades, committed
+  tests). Computed against committed blobs (HEAD), not the dirty working
+  tree. At a fresh checkout of this commit every one of them must exist and
+  import cleanly; ``test_shipped_cli_runtime_closure_is_tracked_and_included``
+  locks the closure-completeness invariant.
 * ``EXCLUDED_HR_MODULES`` — every OTHER ``hr/`` python module that exists in
   the working tree. Each has a documented disposition. Nothing is deleted;
   the exclusions are intentional registrations of in-flight work.
@@ -39,15 +42,47 @@ import ast
 from typing import Dict, List, Set, Tuple
 
 # ---------------------------------------------------------------------------
-# Included: modules tracked by this commit (HEAD-import closure)
+# Included: modules shipped in a release build (shipped-CLI runtime closure)
 # ---------------------------------------------------------------------------
 
 INCLUDED_HR_MODULES: frozenset[str] = frozenset({
+    # Shipped CLI entry points (C2: `python3 -m hr` must work from a release
+    # candidate alone — no editable-install leakage).
+    "hr/__init__.py",                      # package marker; ships in the built candidate
+    "hr/__main__.py",                      # ``python -m hr`` entry: from .cli import app; app()
+    "hr/cli.py",                           # 23-command unified CLI facade: imports every cluster + register_release_commands
+    # CLI command cluster (self-registering onto hr/cli_app.py's shared app)
+    "hr/cli_app.py",                       # the shared typer app (no_args_is_help, retirement epilog); imported by every cluster
+    "hr/cli_apply.py",                     # apply/status + apply-preview/rollback/backups/prune family
+    "hr/cli_knowledge.py",                 # publish/recommend/reference/research commands
+    "hr/cli_report_base.py",               # shared report helpers (_fetch/_tag/_verdict_gates/_verdict_seats + health/sweeps builders)
+    "hr/cli_report_commands.py",           # verdict/health/sweeps/calibrate commands
+    "hr/cli_report_verdict.py",            # build_status_report/build_verdict_report
+    "hr/cli_inventory.py",                 # bench/discover/seed commands
+    "hr/cli_selection.py",                 # interactive model picker / selection indices
+    # Runtime import closure of the entry points above (top-level imports)
+    "hr/db.py",                            # connect/init_schema etc.; imported unguarded by the facade and cli_app
+    "hr/decision.py",                      # latest_sweep_id/seat_assignments/battery_codes/capability_means/model_capabilities/seat_rows
+    "hr/deployable.py",                    # load_deployable (facade + apply.py)
+    "hr/config.py",                        # config resolution (cli_app/deployment_manager/apply.py)
+    "hr/fleet.py",                         # imported by hr.deployable at module level
+    "hr/health.py",                        # HealthReport + sweep_health (cli_app, apply.py, ranker)
+    "hr/models.py",                        # pydantic model/view dataclasses (cli_inventory)
+    "hr/opencfg.py",                       # opencode config parsing (deployment_manager)
+    "hr/plugin_safety.py",                 # backup/rollback primitives (deployment_manager)
+    "hr/assign/ranker.py",                 # imported by hr.decision
+    "hr/seats/health_gates.py",            # imported by ranker
+    "hr/seats/health_policy.py",           # imported by ranker
+    "hr/seats/rolespec.py",                # imported by ranker
+    "hr/stats/__init__.py",                # imported by ranker (from ..stats import bootstrap)
+    "hr/stats/bootstrap.py",               # statistical engine
+    "hr/stats/empirical_bernstein.py",     # imported by stats/bootstrap
+    "hr/stats/sequential.py",              # imported by stats/bootstrap
+    # Tracked with the manifest/closure for other consumers
     "hr/adapters/openai_protocol.py",      # imported by tracked tests/adapters/test_openai_protocol.py
     "hr/bench/engine_results.py",          # imported by tracked hr/bench/engine_storage.py
     "hr/bench/scorer_shared.py",           # imported by included hr/bench/engine_results.py
     "hr/calibration_items.py",             # imported by tracked hr/calibration_runner.py, hr/stage0_storage.py
-    "hr/cli_app.py",                       # worktree typer application; imported unguarded by tracked hr/cli_knowledge.py, hr/cli_apply.py (HEAD) — 1-module closure repairs the fresh-HEAD break
     "hr/schema_migration.py",              # imported by tracked tests/test_db.py, tests/test_db_contracts.py
     "hr/stage0_call.py",                   # imported by tracked hr/stage0_loop.py
     "hr/stage0_cli.py",                    # release-surface helper: stage0 CLI facade (tracked with tests)
@@ -57,25 +92,18 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/stage1_cli.py",                    # release-surface helper: stage1 CLI facade (tracked with tests)
     "hr/stage1_plan.py",                   # imported by included hr/stage1_cli.py
     "hr/stage1_selection.py",              # imported by tracked tests/test_sequential_validity.py
-"hr/db_schema.py",                  # unified-era 20-table hr-schema DDL; imported unguarded by tracked hr/db.py (tracked by this commit; HEAD's hr/db.py carried its own legacy schema DDL)
-    "hr/deployment_manager.py",         # todo 9 release lifecycle core module (took over the untracked EXCLUDED disposition); tracked together with tests/test_deployment_manager.py
-    "hr/release_manifest.py",              # the manifest file itself: tracked by T8; ships in every release because deployment_manager imports it at runtime
+    "hr/db_schema.py",                     # unified-era 20-table hr-schema DDL; imported unguarded by tracked hr/db.py
+    "hr/deployment_manager.py",            # todo 9 release lifecycle core module; ships because the facade imports register_release_commands
+    "hr/release_manifest.py",              # the manifest file itself: ships in every release because deployment_manager imports it at runtime
 })
 
 # ---------------------------------------------------------------------------
 # Excluded: every other hr/*.py present in the working tree, with disposition
 # ---------------------------------------------------------------------------
 
-# Worktree-era split CLI subsystem: module-level cluster with no tracked
-# importer (cli_app is tracked by this commit — see INCLUDED_HR_MODULES; the
-# rest are consumed only by uncommitted cli.py revisions).
-_WORKTREE_CLI: Dict[str, str] = {
-    "hr/cli_report_base.py": "worktree CLI report helpers; cluster sibling of hr/cli_app.py; no tracked importer",
-    "hr/cli_report_commands.py": "worktree CLI report commands; cluster sibling of hr/cli_app.py; no tracked importer",
-    "hr/cli_report_verdict.py": "worktree CLI status/verdict reports; function-local lazy import from tracked hr/cli_apply.py status() (fails only when invoked at a fresh checkout); lands with the unification commit",
-    "hr/cli_inventory.py": "worktree CLI inventory commands; cluster sibling of hr/cli_app.py; no tracked importer",
-    "hr/cli_selection.py": "worktree CLI interactive picker; cluster sibling of hr/cli_app.py; no tracked importer",
-}
+# The worktree-era split CLI cluster (cli_report_*/cli_inventory/cli_selection)
+# graduated to INCLUDED_HR_MODULES with the unification commit — they are the
+# shipped CLI's command surface now, not exclusions.
 
 # Modules imported ONLY by uncommitted revisions of tracked files (or by no
 # one). They are the in-flight unification-era codebase; their commits are
@@ -127,7 +155,6 @@ _LEGACY_TRACKED: Dict[str, str] = {
 }
 
 EXCLUDED_HR_MODULES: Dict[str, str] = {
-    **_WORKTREE_CLI,
     **_WORKTREE_ERA,
     **_VISION_TOOLCHAIN,
     **_LEGACY_TRACKED,
@@ -137,13 +164,6 @@ EXCLUDED_HR_MODULES: Dict[str, str] = {
 # imported module is excluded. Every entry is a real reference from the
 # tracked tree to the excluded surface — importing code degrades gracefully.
 GUARDED_IMPORTS: List[Tuple[str, str]] = [
-    # function-local lazy import inside status(); only `apply ... status`
-    # at a fresh checkout is affected (ImportError at call time).
-    ("hr/cli_apply.py", "hr/cli_report_verdict.py"),
-    # function-local lazy import inside _ensure_schema() ("v1 legacy path");
-    # the unified hr/db.ddl() path replaces it (tracked); only the legacy
-    # `hr ... --ensure-schema` fallback would be affected at a fresh checkout.
-    ("hr/cli.py", "hr/database.py"),
     # HEAD blobs importing the legacy database layer while hr/database.py is
     # still tracked. These imports RESOLVE at a fresh checkout of this commit
     # (the file exists there); the deletion and the rewire to hr.db land with

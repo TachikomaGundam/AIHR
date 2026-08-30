@@ -73,7 +73,7 @@ The model fleet itself is not declared in this repo: it is derived at runtime fr
 
 ## CLI Map
 
-Thirteen commands, each targeting a specific concern. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
+Twenty-three commands, each targeting a specific concern. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
 
 | Command | Purpose |
 |---------|---------|
@@ -90,8 +90,31 @@ Thirteen commands, each targeting a specific concern. Legacy v1 commands (`evalu
 | `hr recommend` | Seat recommendations from `configs/seats.yaml` + recent measurements |
 | `hr status` | DB status: sweeps + latest-sweep capability means (DB-only) |
 | `hr apply` | Bridge the latest verdict seating into a FastDraw preset |
+| `hr apply-preview` | Preview the seat-assignment preset before writing it (dry run) |
+| `hr apply-rollback` | Roll back the previously active FastDraw preset |
+| `hr apply-backups` | List the FastDraw preset backups kept for rollback |
+| `hr apply-prune` | Prune stale FastDraw preset backups |
+| `hr release-build` | Build a release candidate (manifest surface + configs + itemrepo) |
+| `hr release-verify` | Verify a candidate's hash chain (tamper-removes on failure) |
+| `hr release-activate` | Activate a release: atomic swap + backup + plugin registration (idempotent) |
+| `hr release-rollback` | Roll back to the previous release (symlink + config byte-for-byte) |
+| `hr release-list` | List release candidates with verification markers |
+| `hr release-prune` | Prune stale candidates per the retention policy |
 
 The CLI has no global `--config` flag: configuration is resolved from the environment (see the table above) and from `configs/` relative to HR_HOME. Run `hr --help` and `hr <command> --help` for the full per-command flag list.
+
+### Release lifecycle (+ Apply)
+
+`hr apply` and its `apply-*` helpers bridge the latest verdict seating into a
+FastDraw preset: preview first, then apply; `apply-rollback`/`apply-backups`/
+`apply-prune` manage the backup chain. The `release-*` commands operate the
+release lifecycle that ships this repository's artifact: `release-build`
+assembles a candidate under the releases root from the runtime import closure
+of the shipped CLI (the authoritative build list lives in
+`hr/release_manifest.py`), `release-verify` checks its hash chain and removes
+it on tamper, `release-activate` swaps the runtime symlink atomically and
+registers the release plugin (idempotent; the previous state is preserved for
+`release-rollback`), and `release-list`/`release-prune` manage candidates.
 
 ## FastDraw Seam
 

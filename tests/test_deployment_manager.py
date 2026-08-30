@@ -24,6 +24,7 @@ not even contain the real path strings.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import os
 import subprocess
@@ -171,7 +172,7 @@ def test_build_creates_complete_surface(tmp_path: Path) -> None:
     result = build_release(ws, releases_root, "complete")
     # Then: every manifest payload + manifest file + tracked itemrepo file is
     # present in the candidate (the T8 manifest is the authoritative surface;
-    # the released hr/ tree is a PEP 420 namespace package without __init__).
+    # the released hr/ package now ships with its own __init__.py).
     assert result["success"] is True
     candidate = releases_root / "complete"
     assert (candidate / "configs" / "seats.yaml").exists()
@@ -1067,6 +1068,91 @@ def test_release_cli_end_to_end(
     listed = runner.invoke(app, ["release-list"])
     assert listed.exit_code == 0, listed.output
     assert "cli-r1" in listed.output
+
+
+# ---------------------------------------------------------------------------
+# The built artifact must be runnable in isolation (C2: -S probe)
+# ---------------------------------------------------------------------------
+
+# The probe uses ``python3 -S``, which skips site processing: neither system
+# nor user site-packages are on sys.path, so no editable hr-agent install can
+# leak into the probe. The candidate's own third-party dependencies (typer,
+# rich, numpy, yaml, pydantic, psycopg2) live across BOTH site trees, so
+# their exact directories are gathered from the parent interpreter and
+# re-added explicitly via PYTHONPATH. ``hr`` itself must resolve from the
+# candidate directory: cwd (sys.path[0]) precedes every PYTHONPATH entry, so
+# the candidate dir wins and the probe is decisive.
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _dependency_dirs() -> list[str]:
+    dirs: list[str] = []
+    for name in ("typer", "rich", "numpy", "yaml", "pydantic", "psycopg2"):
+        spec = importlib.util.find_spec(name)
+        if spec is None or spec.origin is None:
+            continue
+        origin = Path(spec.origin).resolve()
+        # For a regular package the origin is <site>/<pkg>/__init__.py: the
+        # enclosing dir is the site dir itself, one level up. The package dir
+        # must never be added wholesale — pydantic ships a top-level types.py
+        # whose presence on sys.path would shadow stdlib `types`.
+        dep_dir = origin.parent.parent if origin.name == "__init__.py" else origin.parent
+        if str(dep_dir) not in dirs:
+            dirs.append(str(dep_dir))
+    return dirs
+
+
+def test_built_candidate_runs_python_S_m_hr_help(tmp_path: Path) -> None:
+    # Given: a pristine workspace = the committed tree at HEAD, plus a git
+    # index so the build can enumerate the tracked itemrepo (git archive
+    # ships no .git directory).
+    ws = tmp_path / "pristine"
+    ws.mkdir()
+    archive = tmp_path / "head.tar"
+    with archive.open("wb") as fh:
+        subprocess.run(
+            ["git", "archive", "--format=tar", "HEAD"],
+            cwd=_REPO_ROOT,
+            check=True,
+            stdout=fh,
+        )
+    subprocess.run(["tar", "-xf", str(archive), "-C", str(ws)], check=True)
+    subprocess.run(["git", "init", "-q"], cwd=ws, check=True)
+    subprocess.run(["git", "add", "itemrepo"], cwd=ws, check=True)
+    releases_root = tmp_path / "releases"
+    assert build_release(ws, releases_root, "smoke-r2")["success"]
+    assert verify_release("smoke-r2", releases_root)["valid"]
+    candidate = releases_root / "smoke-r2"
+    # When: the candidate answers python3 -S -m hr --help from its own
+    # directory, with the dependency directories re-added for third-party
+    # packages only (never any repo directory).
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join([str(candidate), *_dependency_dirs()])
+    probe = subprocess.run(
+        ["python3", "-S", "-m", "hr", "--help"],
+        cwd=candidate,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    # Then: the help exits 0 and lists the release lifecycle commands...
+    assert probe.returncode == 0, probe.stderr or probe.stdout
+    assert "release-build" in probe.stdout
+    assert "release-verify" in probe.stdout
+    assert "apply-preview" in probe.stdout
+    # ...and hr itself resolves from the candidate, never an editable install.
+    where = subprocess.run(
+        ["python3", "-S", "-c", "import hr; print(hr.__file__)"],
+        cwd=candidate,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert where.returncode == 0, where.stderr
+    assert where.stdout.strip().startswith(str(candidate))
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ Fixture-based; no live DB. The acceptance test rotates the longctx knob
 verdict primary flips — i.e. livebench_long_context scores influence the
 fitness ordering again after the mapping restore.
 
-Seat weights are monkeypatched on ``hr.cli.DEFAULT_BATTERY_BY_SEAT`` (the
+Seat weights are monkeypatched on ``hr.decision.DEFAULT_BATTERY_BY_SEAT`` (the
 rolespec ``_DEFAULT_RAW`` numbers themselves are untouched by the fix).
 """
 
@@ -15,7 +15,7 @@ import logging
 
 import pytest
 
-from hr import cli as cli_mod
+from hr import decision as cli_mod
 
 # Oracle's own raw knob weights (rolespec._DEFAULT_RAW, unchanged by the fix)
 # — top_tool_fraction 30 / longctx 90 / reasoning 85 / speed_cost 40 /
@@ -76,7 +76,7 @@ def _oracle_primary(
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr(cli_mod, "DEFAULT_BATTERY_BY_SEAT", seats)
     try:
-        rows = cli_mod._verdict_seats(
+        rows = cli_mod.seat_assignments(
             pool=set(means),
             means=means,
             reports={},
@@ -88,9 +88,9 @@ def _oracle_primary(
         )
     finally:
         monkeypatch.undo()
-    oracle_row = next(r for r in rows if r[0] == "oracle")
-    assert len(oracle_row) > 2, f"oracle row has no primary: {oracle_row}"
-    return oracle_row[2]
+    oracle_row = next(r for r in rows if r["seat_code"] == "oracle")
+    assert oracle_row["primary"] is not None
+    return str(oracle_row["primary"])
 
 
 def test_longctx_knob_rotation_changes_verdict_ordering():
@@ -112,7 +112,7 @@ def test_missing_livebench_data_warns_and_contributes_zero(monkeypatch, caplog):
     available = {"reasoning", "tool_a", "hallucination"}
     monkeypatch.setattr(cli_mod, "DEFAULT_BATTERY_BY_SEAT", _seats_with_oracle(90))
     cli_mod._WARNED_MISSING_BATTERY.clear()
-    with caplog.at_level(logging.WARNING, logger="hr.cli"):
+    with caplog.at_level(logging.WARNING, logger="hr.decision"):
         weights = cli_mod._fit_weights("oracle", available)
     assert "livebench_long_context" not in weights  # knob contributes 0
     assert "livebench_speed" not in weights
