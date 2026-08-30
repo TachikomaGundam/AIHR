@@ -14,6 +14,7 @@ ACTUAL requested_max_output sent on the wire).
 
 from __future__ import annotations
 
+import os
 import random
 import time
 import uuid
@@ -25,6 +26,7 @@ from hr.adapters import adapter_for
 from hr.adapters.base import Adapter, AdapterError, Capabilities, ChatRequest
 from hr.bench import prompts
 from hr.bench import stress_prompts
+from hr.bench.manifest import ExperimentManifest
 from hr.bench.livebench import (
     LIVEBENCH_BATTERIES,
     battery_code,
@@ -127,11 +129,47 @@ class LivebenchEngine:
     def __init__(
         self,
         *,
+        seed: int = 42,
         adapter_factory: Callable[[str], Adapter] | None = None,
         timeout_s: int = 600,
     ) -> None:
+        self._seed = seed
         self._adapter_factory = adapter_factory or adapter_for
         self._timeout_s = timeout_s
+
+    def manifest(
+        self, model_ids: list[str], batteries: list[BenchmarkCategory]
+    ) -> ExperimentManifest:
+        """Build the experiment manifest describing this sweep (schema v2)."""
+        import sys
+
+        from hr.graders.base import GRADER_VERSION
+
+        runtime_info = {
+            "python": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        }
+        try:
+            import importlib.metadata
+
+            runtime_info["hr_agent"] = importlib.metadata.version("hr-agent")
+        except Exception:
+            pass
+
+        return ExperimentManifest.create(
+            seed=self._seed,
+            model_ids=model_ids,
+            batteries=batteries,
+            code_revision=os.environ.get("HR_CODE_REVISION", "unknown"),
+            grader_version=GRADER_VERSION,
+            runtime_info=runtime_info,
+        )
+
+    @staticmethod
+    def store_manifest(conn, sweep_id: str, manifest: ExperimentManifest) -> None:
+        """Persist a manifest; delegation keeps one implementation (engine_storage)."""
+        from hr.bench.engine_storage import EngineStorageMixin
+
+        EngineStorageMixin.store_manifest(conn, sweep_id, manifest)
 
     # ------------------------------------------------------------------
     # Config guard: every battery needs a thresholds.yaml entry (mirrors
