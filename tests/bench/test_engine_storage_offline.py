@@ -17,6 +17,7 @@ import pytest
 from hr.bench.engine_results import BenchOutcome, ItemResult
 from hr.bench.engine_storage import SEAT_CODE, EngineStorageMixin
 from hr.bench.livebench import LIVEBENCH_BATTERIES, battery_code, battery_item_labels
+from hr.graders.base import GRADER_VERSION
 
 
 class FakeCursor:
@@ -137,6 +138,23 @@ def test_store_writes_run_and_measurements_per_item() -> None:
     assert meas_params[0][9] == "ok"
     assert meas_params[0][10] == "think"
     assert meas_params[0][11] == 2048
+    assert meas_params[0][12] == f"livebench:{battery_code(LIVEBENCH_BATTERIES[0])}"
+    assert meas_params[0][13] == GRADER_VERSION
     assert meas_params[1][2] == "tool_a.item.2"
     assert meas_params[1][4] == 100.0
     assert conn.commits == 6
+
+
+@pytest.mark.parametrize("status", ["inconclusive", "not_applicable"])
+def test_store_does_not_persist_unscored_measurements(status: str) -> None:
+    conn = FakeConn()
+    outcome = _outcome(n_items=2)
+    outcome.status = status
+
+    EngineStorageMixin().store(
+        conn, "sweep-1", "acme/m1", LIVEBENCH_BATTERIES[0], outcome
+    )
+
+    sqls = [sql for sql, _ in conn.executed]
+    assert sum("INSERT INTO hr.run" in sql for sql in sqls) == 1
+    assert sum("INSERT INTO hr.measurement" in sql for sql in sqls) == 0

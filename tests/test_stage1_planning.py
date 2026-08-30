@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tests.test_stage1 import fleet_env
+import hr.stage1 as stage1
+
 from tests.test_stage1 import (
     Any,
     FakeAdapter,
@@ -11,11 +12,11 @@ from tests.test_stage1 import (
     _FakeConn,
     _has_live_db_credentials,
     build_finals_plan,
+    fleet_env,  # noqa: F401 (pytest fixture re-export; resolved by parameter name)
     fleet_models,
     load_full_banks,
     pytest,
     select_finalists_from_stage0,
-    stage1
 )
 
 def test_cli_no_db_disables_initialization_and_recording(
@@ -73,7 +74,6 @@ def test_finalist_selection_real_query(monkeypatch):
     monkeypatch.setattr("hr.stage1._connect", lambda: _FakeConn(fake_rows))
     # stage1.select_finalists_from_stage0 uses hr.db.connect via `from hr.db import connect`.
     # Patch that import instead.
-    import hr.stage1 as s1
 
     def fake_connect():
         return _FakeConn(fake_rows)
@@ -95,9 +95,8 @@ def test_finalist_selection_real_query(monkeypatch):
     assert "reasoning" in sel.rationale
     assert "tool_a" in sel.rationale
 
-def test_finalist_selection_db_missing_fallback(monkeypatch, fleet_env):
+def test_finalist_selection_db_missing_fallback(monkeypatch, fleet_env):  # noqa: F811 (fixture param shadows re-export)
     """Empty DB + allow_db_missing=True returns full pool as fallback."""
-    import hr.stage1 as s1
     import hr.db as db_mod
 
     def fake_connect():

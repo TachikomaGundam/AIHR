@@ -1102,6 +1102,7 @@ def _cli_main(argv: list[str] | None = None) -> int:
 def main() -> int:
     return _cli_main()
 
+from hr.stage1_cli import _cli_main, main
 
 if __name__ == "__main__":
     raise SystemExit(main())

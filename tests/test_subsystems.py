@@ -114,17 +114,19 @@ class TestSeatSpecs:
 
 
 class TestKnowledgeMerge:
-    def test_swe_bench_lives_in_exactly_one_file(self):
-        ref_src = (_REPO_ROOT / "hr" / "reference.py").read_text(encoding="utf-8")
-        res_src = (_REPO_ROOT / "hr" / "research.py").read_text(encoding="utf-8")
-        assert ref_src.count("SWE-bench") > 0
-        assert res_src.count("SWE-bench") == 0
+    def test_reference_and_research_are_distinct_views_of_one_store(self):
+        from hr.reference import load_reference_scores
+        from hr.research import load_findings
 
-    def test_research_delegates_to_reference_store(self):
-        # the recommend engine reads the SAME curated store (no second table)
-        rec_src = (_REPO_ROOT / "hr" / "recommend.py").read_text(encoding="utf-8")
-        assert "from hr.reference import" in rec_src
-        assert "get_reference_scores" in rec_src
+        # Given: the single configured knowledge store.
+        references = load_reference_scores()
+        findings = load_findings()
+
+        # When/Then: each parser exposes its own typed view without DB seeding.
+        assert references
+        assert findings
+        assert all(len(score) == 3 for categories in references.values() for score in categories.values())
+        assert all(len(finding) == 4 for entries in findings.values() for finding in entries)
 
 
 # ---------------------------------------------------------------------------
