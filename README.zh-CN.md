@@ -60,7 +60,7 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 pip install .
 ```
 
-源码、可编辑和 Wheel 安装均受支持；打包配置从安装目录的 `share/hr-agent` 解析。可执行代码基准在缺少 Bubblewrap（`bwrap`）时会安全拒绝运行；Debian/Ubuntu 可执行 `sudo apt-get install bubblewrap`。如果旧的 `hr-cli` 或 `hr-bench` 包已安装，请先卸载：
+源码、可编辑和 Wheel 安装均受支持；打包配置从安装目录的 `share/aihr` 解析。可执行代码基准在缺少 Bubblewrap（`bwrap`）时会安全拒绝运行；Debian/Ubuntu 可执行 `sudo apt-get install bubblewrap`。如果旧的 `hr-cli` 或 `hr-bench` 包已安装，请先卸载：
 
 ```bash
 pip uninstall hr-cli hr-bench -y

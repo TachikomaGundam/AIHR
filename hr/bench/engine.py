@@ -59,7 +59,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
         }
         try:
             import importlib.metadata
-            runtime_info["hr_agent"] = importlib.metadata.version("hr-agent")
+            runtime_info["hr_agent"] = importlib.metadata.version("aihr")
         except Exception:
             pass
 

@@ -3,6 +3,52 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "aihr"
+version = "0.2.0"
+source = { editable = "." }
+dependencies = [
+    { name = "httpx" },
+    { name = "numpy" },
+    { name = "psycopg2-binary" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "typer" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "basedpyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-timeout" },
+    { name = "ruff" },
+]
+vision = [
+    { name = "pillow" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "basedpyright", marker = "extra == 'test'", specifier = "~=1.39" },
+    { name = "httpx", specifier = "~=0.28" },
+    { name = "numpy", specifier = "~=2.5" },
+    { name = "pillow", marker = "extra == 'vision'", specifier = "~=12.1" },
+    { name = "psycopg2-binary", specifier = "~=2.9" },
+    { name = "pydantic", specifier = "~=2.13" },
+    { name = "pytest", marker = "extra == 'test'", specifier = "~=9.1" },
+    { name = "pytest-cov", marker = "extra == 'test'", specifier = "~=7.1" },
+    { name = "pytest-timeout", marker = "extra == 'test'", specifier = "~=2.4" },
+    { name = "pyyaml", specifier = "~=6.0" },
+    { name = "requests", specifier = "~=2.32" },
+    { name = "rich", specifier = "~=13.9" },
+    { name = "ruff", marker = "extra == 'test'", specifier = "~=0.16" },
+    { name = "typer", specifier = "~=0.27" },
+]
+provides-extras = ["test", "vision"]
+
+[[package]]
 name = "annotated-doc"
 version = "0.0.5"
 source = { registry = "https://pypi.org/simple" }
@@ -301,52 +347,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/01/ee/02a2c011bdab74c6f
 wheels = [
     { url = "https://files.pythonhosted.org/packages/04/4b/29cac41a4d98d144bf5f6d33995617b185d14b22401f75ca86f384e87ff1/h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86", size = 37515, upload-time = "2025-04-24T03:35:24.344Z" },
 ]
-
-[[package]]
-name = "hr-agent"
-version = "0.2.0"
-source = { editable = "." }
-dependencies = [
-    { name = "httpx" },
-    { name = "numpy" },
-    { name = "psycopg2-binary" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "rich" },
-    { name = "typer" },
-]
-
-[package.optional-dependencies]
-test = [
-    { name = "basedpyright" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-timeout" },
-    { name = "ruff" },
-]
-vision = [
-    { name = "pillow" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "basedpyright", marker = "extra == 'test'", specifier = "~=1.39" },
-    { name = "httpx", specifier = "~=0.28" },
-    { name = "numpy", specifier = "~=2.5" },
-    { name = "pillow", marker = "extra == 'vision'", specifier = "~=12.1" },
-    { name = "psycopg2-binary", specifier = "~=2.9" },
-    { name = "pydantic", specifier = "~=2.13" },
-    { name = "pytest", marker = "extra == 'test'", specifier = "~=9.1" },
-    { name = "pytest-cov", marker = "extra == 'test'", specifier = "~=7.1" },
-    { name = "pytest-timeout", marker = "extra == 'test'", specifier = "~=2.4" },
-    { name = "pyyaml", specifier = "~=6.0" },
-    { name = "requests", specifier = "~=2.32" },
-    { name = "rich", specifier = "~=13.9" },
-    { name = "ruff", marker = "extra == 'test'", specifier = "~=0.16" },
-    { name = "typer", specifier = "~=0.27" },
-]
-provides-extras = ["test", "vision"]
 
 [[package]]
 name = "httpcore"

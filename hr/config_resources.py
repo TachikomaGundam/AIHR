@@ -17,10 +17,10 @@ def hr_home() -> Path:
     source_root = Path(__file__).resolve().parent.parent
     if (source_root / "configs").is_dir():
         return source_root
-    target_root = source_root / "share" / "hr-agent"
+    target_root = source_root / "share" / "aihr"
     if (target_root / "configs").is_dir():
         return target_root
-    installed_root = Path(sys.prefix).resolve() / "share" / "hr-agent"
+    installed_root = Path(sys.prefix).resolve() / "share" / "aihr"
     if (installed_root / "configs").is_dir():
         return installed_root
     return source_root
