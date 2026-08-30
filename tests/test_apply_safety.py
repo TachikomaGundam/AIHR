@@ -239,3 +239,49 @@ class TestApplyCliFileCommands:
         assert result.exit_code == 0
         assert "Pruned 2" in result.output
         assert "kept 10" in result.output
+
+    def test_apply_rollback_via_cli_refuses_escaping_backup_name(
+        self, tmp_path, monkeypatch
+    ):
+        """The LLM-reachable apply-rollback surface (opencode plugin tool) must
+        refuse escaping backup names with a one-line error + exit 1 — never a
+        traceback, never a restore from outside the config dir."""
+        import hashlib
+
+        from hr.plugin_safety import MANIFEST_FILENAME
+
+        monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(tmp_path))
+        (tmp_path / PRESETS_FILENAME).write_text('{"presets": {"orig": {}}}', encoding="utf-8")
+        # an attacker-controlled backup OUTSIDE the config dir, valid per the
+        # manifest contract so pre-fix the CLI would restore FROM it
+        outside = tmp_path.parent / "evilb"
+        outside.mkdir(exist_ok=True)
+        (outside / PRESETS_FILENAME).write_text("EVIL-BYTES", encoding="utf-8")
+        (outside / MANIFEST_FILENAME).write_text(
+            json.dumps(
+                {
+                    "snapshot_id": "forged",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "files": {
+                        PRESETS_FILENAME: {
+                            "existed_before": True,
+                            "sha256": hashlib.sha256(b"EVIL-BYTES").hexdigest(),
+                        }
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        cli_runner = CliRunner()
+        result = cli_runner.invoke(
+            _standalone_cli(), ["apply-rollback", "../../evilb"]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "unsafe backup name" in result.output
+        assert "Traceback" not in result.output
+        # the local config was NOT overwritten from the outside backup
+        assert (tmp_path / PRESETS_FILENAME).read_text(encoding="utf-8") == (
+            '{"presets": {"orig": {}}}'
+        )

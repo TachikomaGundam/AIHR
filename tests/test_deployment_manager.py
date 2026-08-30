@@ -27,6 +27,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -1022,7 +1023,7 @@ def test_register_release_commands_attaches_six_commands() -> None:
     # Then: the six lifecycle commands are attached.
     # NOTE: `import typer.main` is module-level (typer_main) — a function-local
     # `import typer.main` would shadow `typer` and raise UnboundLocalError.
-    commands = set(typer_main.get_command(app).commands)
+    commands = set(getattr(typer_main.get_command(app), "commands", {}))
     assert commands == {
         "release-build",
         "release-verify",
@@ -1172,3 +1173,226 @@ def test_tests_never_reference_real_deployment_paths() -> None:
     # tmp_path locations.
     for needle in (real_symlink, real_releases, real_config):
         assert needle not in source, f"test file references real deployment path {needle!r}"
+
+# ---------------------------------------------------------------------------
+# R3/C3-C5: release-name confinement, ledger trust, plugin-path confinement
+# ---------------------------------------------------------------------------
+
+
+def _tree_inventory(root: Path) -> dict[str, tuple[str, int]]:
+    """sha256 + mtime_ns per file under root, for before/after comparisons."""
+    return {
+        str(f.relative_to(root)): (_sha256_file(f), f.stat().st_mtime_ns)
+        for f in sorted(root.rglob("*"))
+        if f.is_file()
+    }
+
+
+class TestPathTraversalConfinement:
+    """Attack primitives A (release-name escape) and D (ledger/plugin trust).
+    Every refusal must leave zero partial state behind."""
+
+    @pytest.mark.parametrize(
+        "name",
+        ["../../victim", "a/b", "/abs/path", "..", "."],
+    )
+    def test_verify_refuses_escaping_names_leaving_victim_untouched(
+        self, tmp_path: Path, name: str
+    ) -> None:
+        # Given: a victim directory OUTSIDE the releases root with real files.
+        victim = tmp_path / "victim"
+        victim.mkdir()
+        (victim / "secrets.md").write_text("SECRET-DATA")
+        inventory_before = _tree_inventory(victim)
+        # releases root nested so that ../../victim resolves onto the victim.
+        releases_root = tmp_path / "a" / "b"
+        # When: verification is asked to verify the escaping name.
+        result = verify_release(name, releases_root)
+        # Then: it refuses with a clean error and the victim is UNTOUCHED
+        # (same bytes, same mtime, still present).
+        assert result["valid"] is False
+        assert "unsafe release name" in result.get("error", "")
+        assert "Traceback" not in str(result)
+        assert _tree_inventory(victim) == inventory_before
+
+    @pytest.mark.parametrize(
+        "name",
+        ["../../evilb", "a/b", "/abs/path", ""],
+    )
+    def test_build_refuses_escaping_names_creating_nothing(
+        self, tmp_path: Path, name: str
+    ) -> None:
+        # Given: a full workspace and a releases root that does not exist yet.
+        ws = _make_workspace(tmp_path)
+        releases_root = tmp_path / "releases"
+        # When: a release is built under the escaping name.
+        result = build_release(ws, releases_root, name)
+        # Then: the build refuses and created NOTHING (not even the root).
+        assert result["success"] is False
+        assert "unsafe release name" in result.get("error", "")
+        assert not releases_root.exists()
+        assert not (tmp_path / "evilb").exists()
+
+    @pytest.mark.parametrize("name", ["../../victim", "a/b", "/abs/path"])
+    def test_activate_refuses_escaping_names_with_zero_writes(
+        self, tmp_path: Path, name: str
+    ) -> None:
+        # Given: a VERIFIED release living OUTSIDE the releases root (the
+        # escape candidate) and a clean state with a live symlink + config.
+        ws = _make_workspace(tmp_path)
+        out_root = tmp_path
+        assert build_release(ws, out_root, "victim")["success"]
+        assert verify_release("victim", out_root)["valid"]
+        releases_root = tmp_path / "a" / "b"
+        hr_link = tmp_path / "hr"
+        hr_link.symlink_to(out_root / "other" / "hr")
+        config_dir = tmp_path / "config"
+        _write_config(config_dir, ["@existing"])
+        # When: activation is attempted with the escaping name.
+        result = activate_release(
+            name,
+            releases_root=releases_root,
+            hr_symlink=hr_link,
+            config_dir=config_dir,
+        )
+        # Then: it refuses with zero side effects — no symlink swap, no
+        # plugin registration, no backup directory, config untouched.
+        assert result["success"] is False
+        assert "unsafe release name" in result.get("error", "")
+        assert hr_link.resolve() == (out_root / "other" / "hr").resolve()
+        assert _plugin_entries(config_dir) == ["@existing"]
+        assert not _backup_dir(config_dir).exists()
+
+    def test_rollback_refuses_ledger_with_untrusted_symlink_target(
+        self, tmp_path: Path
+    ) -> None:
+        # Given: an activation whose ledger was tampered with a RELATIVE
+        # previous_symlink_target (never produced by this tool).
+        ws = _make_workspace(tmp_path)
+        releases_root = tmp_path / "releases"
+        _build_and_verify(ws, releases_root, "r1")
+        _build_and_verify(ws, releases_root, "r2")
+        hr_link = tmp_path / "hr"
+        hr_link.symlink_to(releases_root / "r2" / "hr")
+        config_dir = tmp_path / "config"
+        _write_config(config_dir, ["@original"])
+        activated = activate_release(
+            "r1",
+            releases_root=releases_root,
+            hr_symlink=hr_link,
+            config_dir=config_dir,
+        )
+        ledger_path = _backup_dir(config_dir) / activated["backup"] / "release-activation.json"
+        ledger = json.loads(ledger_path.read_text())
+        ledger["previous_symlink_target"] = "../attacker"
+        ledger["previous_symlink_existed"] = True
+        ledger_path.write_text(json.dumps(ledger))
+        # When: rollback is attempted.
+        result = rollback_release(
+            activated["backup"], hr_symlink=hr_link, config_dir=config_dir
+        )
+        # Then: it refuses BEFORE any restore — the symlink still points at
+        # the activated release and the config keeps the activation entry.
+        assert result["success"] is False
+        assert "previous_symlink_target" in result.get("error", "")
+        assert hr_link.resolve() == (releases_root / "r1" / "hr").resolve()
+        assert _plugin_entries(config_dir) == [
+            "@original",
+            f"{releases_root / 'r1' / 'opencode_plugin'}",
+        ]
+
+    def test_activate_refuses_plugin_path_outside_releases_root(
+        self, tmp_path: Path
+    ) -> None:
+        # Given: a verified release whose opencode_plugin directory is a
+        # symlink to an attacker directory OUTSIDE the releases root (blob
+        # bytes preserved so verification still passes).
+        ws = _make_workspace(tmp_path)
+        releases_root = tmp_path / "releases"
+        candidate = _build_and_verify(ws, releases_root, "r1")
+        attacker = tmp_path / "attacker-plugin"
+        attacker.mkdir()
+        shutil.copy2(candidate / "opencode_plugin" / "server.ts", attacker / "server.ts")
+        shutil.rmtree(candidate / "opencode_plugin")
+        (candidate / "opencode_plugin").symlink_to(attacker)
+        hr_link = tmp_path / "hr"
+        hr_link.symlink_to(releases_root / "r2" / "hr")
+        config_dir = tmp_path / "config"
+        config_before = _write_config(config_dir, [])
+        # When: activation is attempted.
+        result = activate_release(
+            "r1",
+            releases_root=releases_root,
+            hr_symlink=hr_link,
+            config_dir=config_dir,
+        )
+        # Then: registration of the outside path is refused with zero side
+        # effects — no symlink swap, no backup, config byte-identical.
+        assert result["success"] is False
+        assert "outside" in result.get("error", "").lower()
+        assert hr_link.resolve() == (releases_root / "r2" / "hr").resolve()
+        assert not _backup_dir(config_dir).exists()
+        assert config_before.read_bytes() == (config_dir / "opencode.jsonc").read_bytes()
+
+    def test_list_and_prune_skip_foreign_dirs_instead_of_touching_them(
+        self, tmp_path: Path
+    ) -> None:
+        # Given: one real release and a foreign directory planted via a
+        # symlink from inside the releases root to an outside directory.
+        ws = _make_workspace(tmp_path)
+        releases_root = tmp_path / "releases"
+        _build_many(ws, releases_root, 1)
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "metadata.json").write_text('{"name": "evil"}')
+        (releases_root / "evil").symlink_to(outside, target_is_directory=True)
+        archive_dir = tmp_path / "archive"
+        # When: releases are listed and retention is enforced.
+        listed = list_releases(releases_root)
+        result = enforce_retention_policy(releases_root, archive_dir)
+        # Then: the foreign entry is skipped AND flagged, never archived or
+        # removed; the outside directory is untouched.
+        assert [r["name"] for r in listed] == ["r-001"]
+        assert result["releases"]["foreign"] == ["evil"]
+        assert (outside / "metadata.json").exists()
+        assert (releases_root / "r-001").exists()
+        assert not (archive_dir / "hr-release-evil.tar.gz").exists()
+
+
+class TestReleaseCliConfinement:
+    """CLI surface: escaping arguments exit 1 with one clean line (no
+    traceback), matching the T7-FIX error-hygiene contract."""
+
+    @pytest.mark.parametrize(
+        "command, arg",
+        [
+            (["release-verify"], ["../../victim"]),
+            (["release-rollback"], ["../../evilb"]),
+        ],
+    )
+    def test_cli_refuses_escaping_names_with_clean_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        command: list[str],
+        arg: list[str],
+    ) -> None:
+        # Given: an env-routed hermetic environment.
+        victim = tmp_path / "victim"
+        victim.mkdir()
+        (victim / "secrets.md").write_text("SECRET-DATA")
+        inventory_before = _tree_inventory(victim)
+        releases_root = tmp_path / "a" / "b"
+        config_dir = tmp_path / "config"
+        monkeypatch.setenv("HR_RELEASES_DIR", str(releases_root))
+        monkeypatch.setenv("HR_HR_SYMLINK", str(tmp_path / "hr"))
+        monkeypatch.setenv("OPENCODE_CONFIG_DIR", str(config_dir))
+        app = typer.Typer(name="hr-test")
+        register_release_commands(app)
+        # When: the escaping argument is passed to the CLI command.
+        result = runner.invoke(app, command + arg)
+        # Then: exit 1, a single-line error, no traceback, nothing touched.
+        assert result.exit_code == 1, result.output
+        assert "unsafe" in result.output.lower()
+        assert "Traceback" not in result.output
+        assert _tree_inventory(victim) == inventory_before
