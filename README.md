@@ -69,7 +69,7 @@ The database stores sweeps, runs, measurements, infra incidents, separations, an
 pip install .
 ```
 
-Source, editable, and wheel installs are supported. Packaged configuration resolves from the installation's `share/hr-agent` directory. Executable-code benchmarks fail closed unless Bubblewrap (`bwrap`) is installed; on Debian/Ubuntu use `sudo apt-get install bubblewrap`. If an older `hr-cli` or `hr-bench` package is already installed, remove it first:
+Source, editable, and wheel installs are supported. Packaged configuration resolves from the installation's `share/aihr` directory. Executable-code benchmarks fail closed unless Bubblewrap (`bwrap`) is installed; on Debian/Ubuntu use `sudo apt-get install bubblewrap`. If an older `hr-cli` or `hr-bench` package is already installed, remove it first:
 
 ```bash
 pip uninstall hr-cli hr-bench -y

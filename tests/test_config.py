@@ -38,7 +38,7 @@ def test_hr_home_uses_installed_share_when_source_configs_are_absent(
 ):
     # Given: a wheel-style install with configs under the interpreter prefix.
     package_file = tmp_path / "site-packages" / "hr" / "config.py"
-    installed_home = tmp_path / "share" / "hr-agent"
+    installed_home = tmp_path / "share" / "aihr"
     (installed_home / "configs").mkdir(parents=True)
     monkeypatch.delenv("HR_HOME", raising=False)
     monkeypatch.setattr(config_resources, "__file__", str(package_file))
