@@ -1,7 +1,7 @@
 """Offline fixture tests for ``hr discover`` (static opencode.jsonc enumeration).
 
 None of these touch the live database: a fake connection simulates the
-``ON CONFLICT DO NOTHING`` semantics of the hr2 upserts (rowcount 0 for
+``ON CONFLICT DO NOTHING`` semantics of the hr upserts (rowcount 0 for
 rows that already exist), so idempotency is asserted on real insert counts.
 Config isolation: ``OPENCODE_CONFIG_DIR`` redirects the global config,
 ``HOME`` redirects the auth files, ``HR_HOME`` redirects configs/fleet.yaml.
@@ -27,7 +27,7 @@ runner = CliRunner()
 
 
 class _Store:
-    """Simulated hr2.provider/hr2.model rows (key -> payload)."""
+    """Simulated hr.provider/hr.model rows (key -> payload)."""
 
     def __init__(self) -> None:
         self.providers: dict[str, str] = {}
@@ -42,12 +42,12 @@ class _DiscoverCursor:
     def execute(self, sql: str, params=None) -> None:
         self.rowcount = 0
         values = tuple(params or ())
-        if "INSERT INTO hr2.provider" in sql:
+        if "INSERT INTO hr.provider" in sql:
             provider_id, name = values
             if provider_id not in self.store.providers:
                 self.store.providers[provider_id] = name
                 self.rowcount = 1
-        elif "INSERT INTO hr2.model" in sql:
+        elif "INSERT INTO hr.model" in sql:
             model_id, provider_fk, model_name = values
             if model_id not in self.store.models:
                 self.store.models[model_id] = model_name
@@ -176,12 +176,12 @@ class TestDiscoverFixture:
         monkeypatch.setattr("hr.cli.connect", lambda: _DiscoverConn(store))
         first = runner.invoke(app, ["discover"])
         assert first.exit_code == 0, first.output
-        assert "upserted 2 provider(s), 3 model row(s) into hr2" in first.output
+        assert "upserted 2 provider(s), 3 model row(s) into hr" in first.output
         second = runner.invoke(app, ["discover"])
         assert second.exit_code == 0, second.output
         # same rows, zero new inserts — store unchanged
         assert len(store.providers) == 2 and len(store.models) == 3
-        assert "upserted 0 provider(s), 0 model row(s) into hr2" in second.output
+        assert "upserted 0 provider(s), 0 model row(s) into hr" in second.output
         assert "Discovered 3 model(s)" in second.output
 
     def test_all_includes_out_of_scope_provider_marked(self, tmp_path, monkeypatch):
