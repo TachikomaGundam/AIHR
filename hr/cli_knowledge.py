@@ -133,14 +133,14 @@ def recommend(
     try:
         if task:
             result = engine.recommend(task)
-            if not (result.eligible or result.excluded or result.indeterminate):
-                console.print("[yellow](no recommendations returned)[/yellow]")
-            else:
+            if as_json or (result.eligible or result.excluded or result.indeterminate):
                 console.print(
                     format_recommendation_result(
                         result, fmt="json" if as_json else "table"
                     )
                 )
+            else:
+                console.print("[yellow](no recommendations returned)[/yellow]")
         else:
             console.print(engine.seat_recommendations(seats))
     except Exception as exc:
