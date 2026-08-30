@@ -44,32 +44,6 @@ Then add to `plugin` in **both** files:
 { "plugin": ["opencode-fastdraw"] }
 ```
 
-### 2. GitHub
-
-```jsonc
-// both opencode.jsonc and tui.json
-{ "plugin": ["github:YOUR-GITHUB-USER/opencode-fastdraw"] }
-```
-
-### 3. curl
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/YOUR-GITHUB-USER/opencode-fastdraw/main/install.sh | bash
-```
-
-Downloads the plugin into `~/.config/opencode/plugins/fastdraw/` and registers the path in both config files (idempotent — safe to re-run for upgrades).
-
-### 4. Local path (development)
-
-```bash
-git clone https://github.com/YOUR-GITHUB-USER/opencode-fastdraw ~/.config/opencode/plugins/fastdraw
-```
-
-```jsonc
-// both opencode.jsonc and tui.json
-{ "plugin": ["~/.config/opencode/plugins/fastdraw"] }
-```
-
 **Restart opencode after installing.** The `/fastdraw` command and `<leader>m` binding appear in the TUI; the `fastdraw_*` tools become available to agents.
 
 ## Usage
@@ -156,7 +130,7 @@ opencode resolves plugins through the package's `exports` map: `"./server"` for 
 ```bash
 npm install
 npm test        # esbuild-transpiles server.ts, runs preset round-trip tests
-npm publish     # after updating version + repository fields
+npm publish     # after updating the version
 ```
 
 ## License
