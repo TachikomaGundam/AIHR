@@ -312,7 +312,7 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
 
     # -- battery rows ----------------------------------------------------
     codes = sorted(
-        r[0] for r in _sql(scratch_conn, "SELECT battery_code FROM hr2.battery")
+        r[0] for r in _sql(scratch_conn, "SELECT battery_code FROM hr.battery")
     )
     expected_codes = sorted(battery_code(b) for b in LIVEBENCH_BATTERIES)
     assert codes == expected_codes
@@ -322,8 +322,8 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         scratch_conn,
         """
         SELECT b.battery_code, COUNT(bi.item_id)::int
-          FROM hr2.battery b
-          LEFT JOIN hr2.battery_item bi ON bi.battery_id = b.battery_id
+          FROM hr.battery b
+          LEFT JOIN hr.battery_item bi ON bi.battery_id = b.battery_id
          WHERE b.battery_code LIKE 'livebench_%%'
          GROUP BY b.battery_code
         """,
@@ -337,8 +337,8 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         scratch_conn,
         """
         SELECT b.battery_code, sb.n_initial, sb.n_max
-          FROM hr2.seat_battery sb
-          JOIN hr2.battery b ON b.battery_id = sb.battery_id
+          FROM hr.seat_battery sb
+          JOIN hr.battery b ON b.battery_id = sb.battery_id
          WHERE b.battery_code LIKE 'livebench_%%'
          ORDER BY b.battery_code
         """,
@@ -350,26 +350,26 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
 
     # -- item_pool --------------------------------------------------------
     n_pool = _sql(
-        scratch_conn, "SELECT COUNT(*) FROM hr2.item_pool WHERE kind = 'livebench'"
+        scratch_conn, "SELECT COUNT(*) FROM hr.item_pool WHERE kind = 'livebench'"
     )[0][0]
     assert n_pool == 64
 
     # -- sweep / runs / measurements --------------------------------------
     assert _sql(
-        scratch_conn, "SELECT COUNT(*) FROM hr2.sweep WHERE sweep_id = %s", (sweep_id,)
+        scratch_conn, "SELECT COUNT(*) FROM hr.sweep WHERE sweep_id = %s", (sweep_id,)
     )[0][0] == 1
     runs = _sql(
         scratch_conn,
         """
         SELECT COUNT(*), COUNT(DISTINCT battery_id)
-          FROM hr2.run WHERE sweep_id = %s
+          FROM hr.run WHERE sweep_id = %s
         """,
         (sweep_id,),
     )[0]
     assert runs == (10, 10)
     n_meas = _sql(
         scratch_conn,
-        "SELECT COUNT(*) FROM hr2.measurement m JOIN hr2.run r ON r.run_id = m.run_id "
+        "SELECT COUNT(*) FROM hr.measurement m JOIN hr.run r ON r.run_id = m.run_id "
         "WHERE r.sweep_id = %s",
         (sweep_id,),
     )[0][0]
@@ -383,9 +383,9 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         scratch_conn,
         """
         SELECT b.battery_code, AVG(m.score)::float8
-          FROM hr2.measurement m
-          JOIN hr2.run r ON r.run_id = m.run_id
-          JOIN hr2.battery b ON b.battery_id = r.battery_id
+          FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
+          JOIN hr.battery b ON b.battery_id = r.battery_id
          WHERE r.sweep_id = %s
          GROUP BY b.battery_code
         """,
@@ -398,9 +398,9 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         scratch_conn,
         """
         SELECT DISTINCT b.battery_code, m.requested_max_output
-          FROM hr2.measurement m
-          JOIN hr2.run r ON r.run_id = m.run_id
-          JOIN hr2.battery b ON b.battery_id = r.battery_id
+          FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
+          JOIN hr.battery b ON b.battery_id = r.battery_id
          WHERE r.sweep_id = %s AND m.requested_max_output IS NOT NULL
          ORDER BY b.battery_code
         """,
@@ -419,8 +419,8 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
     with_text = _sql(
         scratch_conn,
         """
-        SELECT COUNT(*) FROM hr2.measurement m
-          JOIN hr2.run r ON r.run_id = m.run_id
+        SELECT COUNT(*) FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
          WHERE r.sweep_id = %s AND m.response_text IS NOT NULL
         """,
         (sweep_id,),
@@ -431,9 +431,9 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
 def test_e2e_idempotent_registration(scratch_conn) -> None:
     engine = LivebenchEngine()
     engine.ensure_registered(scratch_conn)
-    first = _sql(scratch_conn, "SELECT COUNT(*) FROM hr2.battery")[0][0]
+    first = _sql(scratch_conn, "SELECT COUNT(*) FROM hr.battery")[0][0]
     engine.ensure_registered(scratch_conn)
-    second = _sql(scratch_conn, "SELECT COUNT(*) FROM hr2.battery")[0][0]
+    second = _sql(scratch_conn, "SELECT COUNT(*) FROM hr.battery")[0][0]
     assert first == second == 10
 
 
@@ -451,9 +451,9 @@ def test_e2e_garbage_adapter_records_failed_run_not_crash(
         scratch_conn,
         """
         SELECT b.battery_code, COUNT(m.measurement_id)::int, AVG(m.score)::float8
-          FROM hr2.measurement m
-          JOIN hr2.run r ON r.run_id = m.run_id
-          JOIN hr2.battery b ON b.battery_id = r.battery_id
+          FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
+          JOIN hr.battery b ON b.battery_id = r.battery_id
          WHERE r.sweep_id = %s
          GROUP BY b.battery_code
         """,
@@ -477,8 +477,8 @@ def test_store_writes_expected_response_text(engine: LivebenchEngine, scratch_co
         scratch_conn,
         """
         SELECT m.response_text, m.thinking_text
-          FROM hr2.measurement m
-          JOIN hr2.run r ON r.run_id = m.run_id
+          FROM hr.measurement m
+          JOIN hr.run r ON r.run_id = m.run_id
          WHERE r.sweep_id = %s
         """,
         (sweep_id,),

@@ -1,6 +1,6 @@
 """Seats seeding idempotency tests (hr-unification todo 26).
 
-``hr.seats.seed`` mirrors ``configs/seats.yaml`` into ``hr2.seat`` with
+``hr.seats.seed`` mirrors ``configs/seats.yaml`` into ``hr.seat`` with
 ``INSERT ... ON CONFLICT (seat_code) DO UPDATE`` over the managed columns —
 re-running the seed heals drifted rows back to the yaml and never changes
 the row count. These tests run that contract against an in-memory fake
@@ -77,7 +77,7 @@ EXPECTED_QUICK = (
 
 
 class _SeedStore:
-    """In-memory hr2.seat: seat_code -> row tuple (8 columns)."""
+    """In-memory hr.seat: seat_code -> row tuple (8 columns)."""
 
     def __init__(self) -> None:
         self.rows: dict[str, tuple] = {}
@@ -92,7 +92,7 @@ class _SeedCursor:
     def execute(self, sql: str, params=None) -> None:
         self.store.statements.append(sql)
         self.rowcount = 0
-        if "INSERT INTO hr2.seat" not in sql:
+        if "INSERT INTO hr.seat" not in sql:
             return
         values = tuple(params or ())
         seat_code = str(values[0])
@@ -285,7 +285,7 @@ def test_build_upsert_sql_update_covers_all_managed_columns() -> None:
     sql = _build_upsert_sql(update=True)
     for col in _MANAGED_COLUMNS:
         assert col in sql, f"managed column {col} missing from the upsert"
-    assert "INSERT INTO hr2.seat (seat_code, " in sql
+    assert "INSERT INTO hr.seat (seat_code, " in sql
     assert "ON CONFLICT (seat_code) DO UPDATE SET" in sql
     assert "EXCLUDED." in sql  # healing requires EXCLUDED.<col> assignments
     assert "DO NOTHING" not in sql

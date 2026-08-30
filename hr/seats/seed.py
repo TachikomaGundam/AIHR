@@ -1,17 +1,17 @@
-"""Seed ``hr2.seat`` from ``configs/seats.yaml`` — the hard-gate plumbing.
+"""Seed ``hr.seat`` from ``configs/seats.yaml``.
 
 Single source of truth
 ----------------------
 The 18 real seats are authored in :file:`configs/seats.yaml`; ``seed_seats()``
-makes ``hr2.seat`` mirror that file exactly. Every managed column of every
+makes ``hr.seat`` mirror that file exactly. Every managed column of every
 yaml seat is overwritten on ``seat_code`` conflict (``INSERT ... ON CONFLICT
 (seat_code) DO UPDATE``), so re-running the seed is idempotent: any drift in
 the seat rows is healed back to the yaml values and the row count stays 18.
 
-YAML → column mapping (verified against the ``hr2.seat`` DDL in ``hr/db.py``):
+YAML → column mapping (verified against the ``hr.seat`` DDL in ``hr/db.py``):
 
 =======================  =============================
-seats.yaml field         hr2.seat column
+seats.yaml field         hr.seat column
 =======================  =============================
 seat_code                seat_code (TEXT PK)
 seat_name                seat_name
@@ -37,7 +37,7 @@ Gate state as of the TODO-9 commit (data state, not code)
 
 Scope rails
 -----------
-* Only ``hr2.seat`` is written. The 18 legacy ``public.hr_assignments`` rows
+* Only ``hr.seat`` is written. Legacy ``public.hr_assignments`` rows
   are NOT modified; no data migration of any kind happens here.
 * Sweep pseudo-seats (``_stage0_sweep`` / ``_stage1_finals``) are not in the
   yaml — ``upsert_seat()`` keeps a minimal generic fallback for them so the
@@ -57,7 +57,7 @@ import psycopg2
 
 from hr.config import db_dsn, load_yaml
 
-# Managed columns, in EXACT hr2.seat DDL order (mirrors hr/db.py DDL block).
+# Managed columns, in exact ``hr.seat`` DDL order.
 _MANAGED_COLUMNS = (
     "seat_name",
     "domain",
@@ -86,7 +86,7 @@ def load_seats() -> list[dict[str, Any]]:
 
 
 def seed_seats(conn) -> int:
-    """Idempotent full upsert of every yaml seat into ``hr2.seat``.
+    """Idempotent full upsert of every YAML seat into ``hr.seat``.
 
     Returns the number of yaml seats upserted (18 today). Rows tracked in the
     DB but absent from the yaml are left in place (no deletes — the sweep
@@ -135,7 +135,7 @@ def _seat_by_code() -> dict[str, dict[str, Any]]:
 
 
 def _row_from_seat(seat: dict[str, Any]) -> tuple:
-    """Map one yaml seat record onto the hr2.seat column tuple."""
+    """Map one YAML seat record onto the ``hr.seat`` column tuple."""
     capabilities = json.dumps(seat.get("required_capabilities") or [])
     ctx = seat.get("ctx_p95")
     return (
@@ -161,14 +161,14 @@ def _build_upsert_sql(update: bool) -> str:
         else "DO NOTHING"
     )
     return (
-        f"INSERT INTO hr2.seat (seat_code, {cols}) "
+        f"INSERT INTO hr.seat (seat_code, {cols}) "
         f"VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s) "
         f"ON CONFLICT (seat_code) {conflict}"
     )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """CLI entry: seed ``hr2.seat`` from ``configs/seats.yaml``.
+    """CLI entry: seed ``hr.seat`` from ``configs/seats.yaml``.
 
     Usage: ``python3 scripts/seed_seats.py`` or ``python3 -m hr.seats.seed``.
     Exit 0 on success; 1 with ``error: …`` on stderr when the DSN cannot be
@@ -186,7 +186,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
     finally:
         conn.close()
-    print(f"seeded {n} seats into hr2.seat from configs/seats.yaml")
+    print(f"seeded {n} seats into hr.seat from configs/seats.yaml")
     return 0
 
 

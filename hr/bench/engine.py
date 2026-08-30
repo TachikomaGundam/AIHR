@@ -181,7 +181,7 @@ class LivebenchEngine:
     def _upsert_livebench_item(conn, item_id: str, kind: str) -> None:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO hr2.item_pool (item_id, item_code, version, domain, "
+                "INSERT INTO hr.item_pool (item_id, item_code, version, domain, "
                 "kind, json_meta) VALUES (%s, %s, %s, %s, %s, %s::jsonb) "
                 "ON CONFLICT (item_id) DO NOTHING",
                 (item_id, item_id, "v1", kind, "livebench",
