@@ -70,7 +70,7 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 
 ## CLI Map
 
-十三条命令，每条针对一项具体职责。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
+二十三条命令，每条针对一项具体职责。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
 
 | 命令 | 用途 |
 |------|------|
@@ -87,8 +87,29 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 | `hr recommend` | 基于 `configs/seats.yaml` + 近期测量的席位推荐 |
 | `hr status` | DB 状态：扫描 + 最新扫描能力均值（纯 DB） |
 | `hr apply` | 将最新判定结果桥接为 FastDraw 预设 |
+| `hr apply-preview` | 写入前预览席位分配预设（dry run） |
+| `hr apply-rollback` | 回滚上一个生效的 FastDraw 预设 |
+| `hr apply-backups` | 列出为回滚保留的 FastDraw 预设备份 |
+| `hr apply-prune` | 清理过期的 FastDraw 预设备份 |
+| `hr release-build` | 构建发布候选（清单表面 + configs + itemrepo） |
+| `hr release-verify` | 校验候选的哈希链（篡改即删除） |
+| `hr release-activate` | 激活发布：原子切换 + 备份 + 插件注册（幂等） |
+| `hr release-rollback` | 回滚到上一个发布（符号链接与配置逐字节还原） |
+| `hr release-list` | 列出发布候选及校验标记 |
+| `hr release-prune` | 按保留策略清理过期候选 |
 
 CLI 没有全局 `--config` 选项：配置从环境变量（见上表）以及相对 HR_HOME 的 `configs/` 解析。运行 `hr --help` 与 `hr <命令> --help` 查看各命令的完整参数列表。
+
+### 发布生命周期（+ Apply）
+
+`hr apply` 及其 `apply-*` 辅助命令将最新判定结果桥接为 FastDraw 预设：
+先 `apply-preview` 预览再应用；`apply-rollback`/`apply-backups`/`apply-prune`
+管理备份链。`release-*` 命令运行发布生命周期，交付本仓库的制品：
+`release-build` 依据已发布 CLI 的运行时导入闭包在 releases 根下组装候选
+（权威构建清单见 `hr/release_manifest.py`），`release-verify` 校验候选的
+哈希链并在篡改时将其移除，`release-activate` 原子切换运行时符号链接并注册
+发布插件（幂等；上一状态被保留以供 `release-rollback` 还原），
+`release-list`/`release-prune` 管理候选。
 
 ## FastDraw Seam
 

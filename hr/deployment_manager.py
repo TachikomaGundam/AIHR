@@ -1068,8 +1068,8 @@ def release_prune(
 
 def register_release_commands(tp: typer.Typer) -> None:
     """Attach the release-lifecycle commands to a typer app (mirrors
-    hr.cli_apply.register_apply_commands; wired into the worktree app by
-    hr/cli.py)."""
+    hr.cli_apply.register_apply_commands; wired into the shipped app by
+    hr/cli.py, the unified CLI facade)."""
     tp.command(name="release-build")(release_build)
     tp.command(name="release-verify")(release_verify)
     tp.command(name="release-activate")(release_activate)

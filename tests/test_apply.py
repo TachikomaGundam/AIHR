@@ -42,9 +42,9 @@ _DISTINCT_MODEL_SQL_KEY = "SELECT DISTINCT r.model_id"
 _COUNT_SQL_KEY = "SELECT COUNT(m.measurement_id)::int"
 _AVG_SQL_KEY = "AVG(m.score)"
 _BREAKDOWN_SQL_KEY = "AS mean_score"  # battery-breakdown SQL also contains "AVG(m.score)"
-_SEAT_SQL_KEY = "FROM hr2.seat"
-_MODEL_SQL_KEY = "FROM hr2.model"
-_BATTERY_SQL_KEY = "battery_code FROM hr2.battery"
+_SEAT_SQL_KEY = "FROM hr.seat"
+_MODEL_SQL_KEY = "FROM hr.model"
+_BATTERY_SQL_KEY = "battery_code FROM hr.battery"
 _LATEST_SQL_KEY = "SELECT s.sweep_id\n"
 
 _BATTERIES = [
