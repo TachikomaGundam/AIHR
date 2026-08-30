@@ -6,6 +6,26 @@
   "exports": {
     "./server": "./server.ts"
   },
+  "files": [
+    "server.ts"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TachikomaGundam/AIHR.git",
+    "directory": "opencode_plugin"
+  },
+  "homepage": "https://github.com/TachikomaGundam/AIHR",
+  "author": "TachikomaGundam",
+  "license": "MIT",
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "hr",
+    "hr-agent",
+    "model-evaluation",
+    "benchmark",
+    "agents"
+  ],
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
   }
