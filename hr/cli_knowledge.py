@@ -146,4 +146,4 @@ def recommend(
     except Exception as exc:
         _fail(f"error: {exc}")
     finally:
-        engine._conn.close()
+        engine.close()

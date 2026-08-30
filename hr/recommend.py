@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
+import numpy as np
 import yaml
 
 from hr.config import config_path, load_yaml
@@ -195,8 +196,12 @@ def _policy_summary(constraints: RecommendationConstraints) -> dict[str, object]
 
 
 def _heuristic_interval(score: float, separation_prob: float) -> tuple[float, float]:
+    """Heuristic +/-0.05*(1-p) band around ``score``, clamped to the score's
+    natural scale: [0, 1] for normalized scores, [0, 100] for 0-100 scores.
+    The band never leaves the domain and lo <= score <= hi always holds."""
     half_width = 0.05 * (1.0 - separation_prob)
-    return (max(0.0, score - half_width), score + half_width)
+    scale_max = 100.0 if score > 1.0 else 1.0
+    return (max(0.0, score - half_width), min(scale_max, score + half_width))
 
 
 def _sweep_age_days(sweep_created_at: datetime | None) -> float | None:
@@ -329,6 +334,19 @@ class RecommendationEngine:
             self._means = capability_means(self._conn, self._sweep_id)
             self._health = sweep_health(self._conn, self._sweep_id)
 
+    def close(self) -> None:
+        """Release the underlying DB connection. Idempotent — a second call
+        (or a call after __exit__) is a no-op."""
+        conn, self._conn = self._conn, None
+        if conn is not None:
+            conn.close()
+
+    def __enter__(self) -> "RecommendationEngine":
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self.close()
+
     def recommend_for_task(self, task_description: str) -> list[tuple[str, float]]:
         text = task_description.lower()
         batteries = {
@@ -427,10 +445,8 @@ class RecommendationEngine:
 
         covered: list[tuple[str, float]] = []
         for model_id, means in self._means.items():
-            if any(battery in means for battery in batteries):
-                capability = sum(
-                    means.get(battery, 0.0) * weight for battery in batteries
-                )
+            if set(batteries).issubset(means):
+                capability = sum(means[battery] * weight for battery in batteries)
                 report = self._health.get(model_id)
                 penalty = health_rank_score(report) if report is not None else 0.0
                 covered.append((model_id, capability - penalty))
@@ -451,8 +467,8 @@ class RecommendationEngine:
 
         for model_id, means in self._means.items():
             estimated_cost = _estimate_cost(model_id, task_tokens, pricing)
-            task_battery_keys = [b for b in batteries if b in means]
-            if not task_battery_keys:
+            missing = [b for b in batteries if b not in means]
+            if missing:
                 indeterminate.append(
                     RecommendationItem(
                         model_id=model_id,
@@ -461,16 +477,13 @@ class RecommendationEngine:
                         interval=None,
                         thresholds=thresholds,
                         caveats=(),
-                        reasons=(
-                            "no measurements for task batteries: "
-                            + ", ".join(batteries),
-                        ),
+                        reasons=("missing battery " + ", ".join(missing),),
                         cost_estimate_usd=estimated_cost,
                     )
                 )
                 continue
 
-            capability = sum(means.get(b, 0.0) * weight for b in batteries)
+            capability = sum(means[battery] * weight for battery in batteries)
             report = self._health.get(model_id)
             penalty = health_rank_score(report) if report is not None else 0.0
             score = capability - penalty
@@ -659,15 +672,13 @@ class RecommendationEngine:
         
         stats = {}
         for model_id, latencies in model_latencies.items():
-            latencies.sort()
-            n = len(latencies)
-            if n == 0:
+            if not latencies:
                 continue
-            p50_idx = int(n * 0.5)
-            p95_idx = int(n * 0.95)
+            # linear interpolation (np.percentile default): exact percentile
+            # between samples, not an int-index approximation
             stats[model_id] = {
-                "p50": latencies[p50_idx],
-                "p95": latencies[min(p95_idx, n - 1)],
+                "p50": float(np.percentile(latencies, 50)),
+                "p95": float(np.percentile(latencies, 95)),
             }
         return stats
 

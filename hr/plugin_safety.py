@@ -320,14 +320,34 @@ def ensure_no_preview_drift(config_dir: Path | None = None) -> dict[str, Any]:
     return {"ok": not drifted, "record": record, "drifted": drifted}
 
 
-def _consume_preview_records(config_dir: Path) -> int:
+def _consume_preview_records(
+    config_dir: Path, record: dict[str, Any] | None = None
+) -> int:
+    """Consume preview records and return how many were removed.
+
+    With ``record`` the apply consumes ONLY that record (the one the apply
+    actually bound to); stale records from earlier previews survive so a
+    concurrent binding is never clobbered. Without ``record`` all preview
+    records are consumed (legacy sweep semantics).
+    """
     record_dir = config_dir / BACKUP_DIR / PREVIEW_SUBDIR
     if not record_dir.exists():
         return 0
     removed = 0
-    for record in record_dir.glob("preview-*.json"):
-        record.unlink()
-        removed += 1
+    if record is None:
+        for path in record_dir.glob("preview-*.json"):
+            path.unlink()
+            removed += 1
+    else:
+        bound_id = record.get("preview_id")
+        for path in record_dir.glob("preview-*.json"):
+            try:
+                data = json.loads(path.read_text())
+            except (json.JSONDecodeError, OSError):
+                continue
+            if isinstance(data, dict) and data.get("preview_id") == bound_id:
+                path.unlink()
+                removed += 1
     try:
         record_dir.rmdir()
     except OSError:
@@ -736,7 +756,13 @@ def safe_apply(
 
     backup_path = None
     if create_backup_before:
-        backup_path = create_backup(config_dir=cfg_dir)
+        try:
+            backup_path = create_backup(config_dir=cfg_dir)
+        except ValueError as exc:
+            # a refused backup (e.g. duplicate name or unusable config dir)
+            # is a refusal of the whole apply: same shape as every other
+            # refusal, BEFORE any write and without a traceback
+            return {"success": False, "error": f"cannot create backup: {exc}"}
 
     owns_connection = conn is None
     if conn is None:
@@ -758,7 +784,7 @@ def safe_apply(
             set_state=include_state,
             config_dir=cfg_dir,
         )
-        consumed = _consume_preview_records(cfg_dir)
+        consumed = _consume_preview_records(cfg_dir, record=drift["record"])
         return {
             "success": True,
             "result": result,

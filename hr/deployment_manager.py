@@ -478,37 +478,45 @@ def _plugin_array_position(
     tokens: list[tuple[str, int, int]], raw: str
 ) -> tuple[tuple[str, int, int], tuple[str, int, int]] | None:
     """Span (open, close) of the top-level ``plugin`` array, or None when the
-    config has no ``plugin`` key. Raises ValueError for a non-array plugin."""
+    config has no top-level ``plugin`` key. Only a ``plugin`` KEY at brace
+    depth 1 (the config's top-level object) qualifies — nested ``plugin``
+    keys and string content elsewhere never match. Raises ValueError for a
+    top-level plugin that is not an array."""
     non_array_plugin = False
+    depth = 0
     for idx, (kind, start, end) in enumerate(tokens):
-        if kind != "s":
+        if kind == "{":
+            depth += 1
             continue
+        if kind == "}":
+            depth = max(0, depth - 1)
+            continue
+        if kind != "s" or depth != 1:
+            continue
+        prev = tokens[idx - 1][0] if idx > 0 else ""
+        if prev not in ("{", ","):
+            continue  # a value string, never a key — skip decoys
         try:
             value = json.loads(raw[start:end])
         except json.JSONDecodeError:
             continue
         if value != "plugin":
             continue
-        colon = next(
-            (j for j in range(idx + 1, len(tokens)) if tokens[j][0] == ":"), None
-        )
-        if colon is None:
-            continue
-        array = next(
-            (j for j in range(colon + 1, len(tokens)) if tokens[j][0] == "["), None
-        )
-        if array is None:
+        colon = idx + 1
+        if colon >= len(tokens) or tokens[colon][0] != ":":
+            continue  # key without a colon is not a key-value pair
+        array = colon + 1
+        if array >= len(tokens) or tokens[array][0] != "[":
             non_array_plugin = True
             continue
-        depth = 0
+        bracket_depth = 0
         for j in range(array, len(tokens)):
             if tokens[j][0] == "[":
-                depth += 1
+                bracket_depth += 1
             elif tokens[j][0] == "]":
-                depth -= 1
-                if depth == 0:
+                bracket_depth -= 1
+                if bracket_depth == 0:
                     return tokens[array], tokens[j]
-        break
     if non_array_plugin:
         raise ValueError("'plugin' entry is not an array; refusing auto-registration")
     return None
@@ -621,8 +629,10 @@ def _restore_link(
 ) -> None:
     if previous_existed and previous_target:
         _atomic_symlink(Path(previous_target), link)
-    elif link.is_symlink() or link.exists():
-        link.unlink()
+    else:
+        # single atomic unlink: a link that vanished between the caller's
+        # check and here is simply already gone (no read-then-delete race)
+        link.unlink(missing_ok=True)
 
 
 def _restore_config_file(
@@ -632,8 +642,8 @@ def _restore_config_file(
     if config_existed:
         if blob.exists():
             shutil.copy2(blob, config_file)
-    elif config_file.exists():
-        config_file.unlink()
+    else:
+        config_file.unlink(missing_ok=True)
 
 
 def activate_release(

@@ -4,10 +4,13 @@ import json
 from datetime import datetime, timedelta, timezone
 
 import pytest
+import typer
 
 from hr.health import HealthReport
 from hr.recommend import (
     RecommendationEngine,
+    RecommendationResult,
+    _heuristic_interval,
     default_constraints,
     format_recommendation_result,
 )
@@ -453,7 +456,7 @@ def test_recommend_no_measurements_for_task_batteries_is_indeterminate(
     assert result.eligible == ()
     assert result.excluded == ()
     assert [i.model_id for i in result.indeterminate] == ["alpha"]
-    assert "no measurements" in result.indeterminate[0].reasons[0]
+    assert result.indeterminate[0].reasons == ("missing battery reasoning",)
 
 
 def test_recommend_single_model_without_rival_is_indeterminate(
@@ -573,3 +576,207 @@ def test_recommend_result_shape_and_renderings(monkeypatch: pytest.MonkeyPatch) 
     assert "alpha" in table
     assert "beta" in table
     assert "gamma" in table
+
+
+# ---------------------------------------------------------------------------
+# A1: RecommendationEngine connection lifecycle (close + context manager)
+# ---------------------------------------------------------------------------
+
+
+def test_recommendation_engine_close_closes_connection() -> None:
+    from unittest.mock import MagicMock
+
+    engine = RecommendationEngine.__new__(RecommendationEngine)
+    conn = MagicMock()
+    engine._conn = conn
+
+    engine.close()
+
+    conn.close.assert_called_once_with()
+    # close() is idempotent: a second call is a no-op, not a double close
+    engine.close()
+    conn.close.assert_called_once_with()
+
+
+def test_recommendation_engine_is_a_context_manager() -> None:
+    from unittest.mock import MagicMock
+
+    engine = RecommendationEngine.__new__(RecommendationEngine)
+    conn = MagicMock()
+    engine._conn = conn
+
+    with engine as ctx:
+        assert ctx is engine
+        conn.close.assert_not_called()
+
+    conn.close.assert_called_once_with()
+
+
+class _SpyCliEngine:
+    def __init__(self) -> None:
+        from unittest.mock import MagicMock
+
+        self.closed = False
+        self.boom_on_recommend: RuntimeError | None = None
+        # legacy code closes the private attribute directly; give it a mock
+        # so the red test fails on the missing public close(), not on an
+        # AttributeError inside the CLI
+        self._conn = MagicMock()
+
+    def recommend(self, task: str) -> RecommendationResult:
+        if self.boom_on_recommend is not None:
+            raise self.boom_on_recommend
+        return RecommendationResult(
+            task=task,
+            batteries=("reasoning",),
+            sweep_id=None,
+            sweep_age_days=None,
+            eligible=(),
+            excluded=(),
+            indeterminate=(),
+        )
+
+    def seat_recommendations(self, seats: object) -> str:
+        return ""
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _patch_cli_engine(monkeypatch: pytest.MonkeyPatch) -> _SpyCliEngine:
+    from hr.cli_knowledge import recommend as cli_recommend  # noqa: F401
+
+    spy = _SpyCliEngine()
+    monkeypatch.setattr("hr.recommend.RecommendationEngine", lambda: spy)
+    return spy
+
+
+def test_cli_recommend_closes_engine_on_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hr.cli_knowledge import recommend as cli_recommend
+
+    spy = _patch_cli_engine(monkeypatch)
+
+    cli_recommend(task="reason about this problem")
+
+    assert spy.closed is True
+
+
+def test_cli_recommend_closes_engine_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hr.cli_knowledge import recommend as cli_recommend
+
+    spy = _patch_cli_engine(monkeypatch)
+    spy.boom_on_recommend = RuntimeError("boom")
+
+    with pytest.raises(typer.Exit):
+        cli_recommend(task="reason about this problem")
+
+    assert spy.closed is True
+
+
+def test_cli_recommend_seat_path_closes_engine(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from hr.cli_knowledge import recommend as cli_recommend
+
+    spy = _patch_cli_engine(monkeypatch)
+    monkeypatch.setattr("hr.recommend.load_seat_specs", lambda: [])
+
+    cli_recommend(task=None)
+
+    assert spy.closed is True
+
+
+# ---------------------------------------------------------------------------
+# A2: partial battery coverage is indeterminate, never scored with 0.0
+# ---------------------------------------------------------------------------
+
+
+def test_recommend_partial_battery_coverage_is_indeterminate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: two models that both lack the code_gen battery the task needs
+    # When: recommend() evaluates "reason and code"
+    # Then: both are indeterminate with "missing battery code_gen" — partial
+    # coverage never scores the missing batteries as 0.0 (unified with
+    # recommend_for_task / recommend_with_constraints full-coverage rules)
+    monkeypatch.setattr("hr.recommend._load_pricing", lambda: {"alpha": 1.0, "beta": 1.0})
+    monkeypatch.setattr(
+        "hr.recommend._load_tokens_per_call", lambda: {"reasoning": 4000, "code_gen": 3000}
+    )
+    engine = _make_engine(
+        means={"alpha": {"reasoning": 90.0}, "beta": {"reasoning": 75.0}},
+        health={
+            model: HealthReport(model_id=model, sweep_id="sw-test", n_measurements=1)
+            for model in ("alpha", "beta")
+        },
+        latency_stats={
+            model: {"p50": 500.0, "p95": 2000.0} for model in ("alpha", "beta")
+        },
+        success_rates={"alpha": 1.0, "beta": 1.0},
+    )
+
+    result = engine.recommend("reason and code")
+
+    assert result.eligible == ()
+    assert result.excluded == ()
+    assert {item.model_id for item in result.indeterminate} == {"alpha", "beta"}
+    assert all(
+        item.reasons == ("missing battery code_gen",)
+        for item in result.indeterminate
+    )
+
+
+# ---------------------------------------------------------------------------
+# A3: heuristic interval clamps to the score's natural scale
+# ---------------------------------------------------------------------------
+
+
+def test_heuristic_interval_clamps_upper_bound_to_score_scale() -> None:
+    # Given: a 0-100-scale score of 100 (normalizes to 1.0)
+    # When: the interval is computed with any separation probability
+    # Then: the upper bound stays <= 1.0 in normalized units and
+    # lo <= score <= hi holds — plus the same contract on [0, 1] inputs
+    lo, hi = _heuristic_interval(100.0, 0.5)
+    assert hi / 100.0 <= 1.0
+    assert lo <= 100.0 <= hi
+
+    lo, hi = _heuristic_interval(100.0, 0.0)
+    assert hi / 100.0 <= 1.0
+    assert lo <= 100.0 <= hi
+
+    # same contract on the normalized [0, 1] scale
+    lo, hi = _heuristic_interval(1.0, 0.0)
+    assert lo <= 1.0 <= hi <= 1.0
+
+    # mid-range 0-100 scores keep the prior semantics (no upper squeeze)
+    lo, hi = _heuristic_interval(90.0, 0.95)
+    assert lo <= 90.0 <= hi
+
+
+# ---------------------------------------------------------------------------
+# A4: latency percentiles use linear interpolation (np.percentile default)
+# ---------------------------------------------------------------------------
+
+
+def test_get_latency_stats_uses_linear_interpolation_percentiles() -> None:
+    from unittest.mock import MagicMock
+
+    engine = RecommendationEngine.__new__(RecommendationEngine)
+    engine._sweep_id = "test-sweep"
+
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
+    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
+    mock_cursor.fetchall.return_value = [("model-a", v) for v in (0, 1, 2, 3)]
+    engine._conn = mock_conn
+
+    stats = engine._get_latency_stats()
+
+    assert stats["model-a"]["p50"] == 1.5
+    assert stats["model-a"]["p95"] == pytest.approx(2.85)
+    assert stats == {"model-a": {"p50": 1.5, "p95": pytest.approx(2.85)}}
