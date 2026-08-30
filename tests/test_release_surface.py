@@ -14,6 +14,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -196,7 +197,10 @@ def test_package_declares_openai_adapter_runtime_dependency() -> None:
     dependencies = metadata["project"]["dependencies"]
 
     # Then: importing the installed package does not depend on ambient tools.
-    assert any(dependency.split("[")[0].split(">=")[0] == "requests" for dependency in dependencies)
+    assert any(
+        re.split(r"[<>=~!]+", dependency.split("[")[0])[0] == "requests"
+        for dependency in dependencies
+    )
 
 
 def test_fastdraw_manifest_has_no_unresolved_repository_owner() -> None:

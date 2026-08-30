@@ -261,7 +261,7 @@ class TestSeatRecommendations:
             seats = load_seat_specs()
             report = engine.seat_recommendations(seats)
         finally:
-            engine._conn.close()
+            engine.close()
         assert len(seats) == 18
         for seat in seats:
             assert f"| {seat['seat_code']} " in report

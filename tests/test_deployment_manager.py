@@ -37,6 +37,9 @@ import typer.main as typer_main
 from typer.testing import CliRunner
 
 from hr.deployment_manager import (
+    _insert_plugin_path,
+    _restore_config_file,
+    _restore_link,
     activate_release,
     build_release,
     compute_release_hash,
@@ -1402,3 +1405,104 @@ class TestReleaseCliConfinement:
         assert "unsafe" in result.output.lower()
         assert "Traceback" not in result.output
         assert _tree_inventory(victim) == inventory_before
+
+
+# ---------------------------------------------------------------------------
+# W2 A7: TOCTOU-free restore + top-level-only plugin array matching
+# ---------------------------------------------------------------------------
+
+
+def test_restore_link_survives_entry_vanishing_between_check_and_unlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a symlink that exists at check time and vanishes the instant the
+    # delete runs (concurrent actor) — a read-then-delete would crash
+    # FileNotFoundError on the race.
+    link = tmp_path / "hr"
+    link.symlink_to(tmp_path / "target")
+    real_unlink = Path.unlink
+
+    def vanishing_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == link and not kwargs.get("missing_ok") and not args:
+            real_unlink(link)
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", vanishing_unlink)
+    # When: the restore must remove a link that never existed before.
+    _restore_link(link, previous_target=None, previous_existed=False)
+    # Then: no exception escapes — absence of the entry is tolerated.
+    assert not link.exists()
+
+
+def test_restore_link_removes_prev_link_when_none_existed_before(
+    tmp_path: Path,
+) -> None:
+    # Given: an existing symlink with no recorded history.
+    link = tmp_path / "hr"
+    link.symlink_to(tmp_path / "target")
+    # When: the restore decides the link never existed before activation.
+    _restore_link(link, previous_target=None, previous_existed=False)
+    # Then: the link is removed, and a second restore is a no-op.
+    assert not link.exists()
+    _restore_link(link, previous_target=None, previous_existed=False)
+
+
+def test_restore_config_file_survives_entry_vanishing_between_check_and_unlink(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Given: a config file that never existed before activation, and a race
+    # that removes it between the exists-check and the delete.
+    backup_path = tmp_path / "backup"
+    backup_path.mkdir()
+    config_file = tmp_path / "opencode.jsonc"
+    config_file.write_text("{}")
+    real_unlink = Path.unlink
+
+    def vanishing_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self == config_file and not kwargs.get("missing_ok") and not args:
+            real_unlink(config_file)
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", vanishing_unlink)
+    # When: the config restore removes the newly-created file.
+    _restore_config_file(config_file, backup_path, config_existed=False)
+    # Then: no exception escapes — the entry simply is not there anymore.
+    assert not config_file.exists()
+
+
+def test_plugin_insert_lands_in_top_level_array_only(tmp_path: Path) -> None:
+    # Given: a JSONC config with a decoy nested "plugin" key (inside an
+    # object) and a decoy string containing "plugin" as content.
+    raw = (
+        '{\n'
+        '  "note": "the plugin system is configured",\n'
+        '  "runtime": {\n'
+        '    "plugin": ["nested-1"],\n'
+        '    "mode": "prod"\n'
+        '  },\n'
+        '  "plugin": ["@existing/plugin"]\n'
+        '}\n'
+    )
+    # When: a plugin path is registered.
+    out = _insert_plugin_path(raw, "./candidate/opencode_plugin")
+    # Then: only the TOP-LEVEL plugin array grows; the nested array and the
+    # string content are untouched.
+    assert json.loads(out)["plugin"] == [
+        "@existing/plugin",
+        "./candidate/opencode_plugin",
+    ]
+    assert json.loads(out)["runtime"]["plugin"] == ["nested-1"]
+    assert json.loads(out)["note"] == "the plugin system is configured"
+    assert out.count("./candidate/opencode_plugin") == 1
+    assert out.count("nested-1") == 1
+
+
+def test_plugin_top_level_non_array_value_refuses(tmp_path: Path) -> None:
+    # Given: a top-level "plugin" key whose value is NOT an array.
+    raw = '{\n  "plugin": "not-an-array",\n  "other": 1\n}\n'
+    # When: registration is attempted.
+    # Then: it refuses loudly instead of mis-matching a decoy later in file.
+    with pytest.raises(ValueError, match="not an array"):
+        _insert_plugin_path(raw, "./candidate/opencode_plugin")

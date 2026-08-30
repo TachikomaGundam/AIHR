@@ -64,13 +64,16 @@ def test_respects_pilot_phase():
     assert stopper.should_stop() is True
 
 
-def test_missing_threshold_never_stops():
-    """Battery without configured threshold → always False."""
+def test_missing_threshold_is_a_loud_error():
+    """Battery without a configured threshold must fail loud, never silently
+    never-stop: an unconfigured stopper is a misconfiguration, and guessing
+    would silently skip the per-battery gate forever."""
     cfg = _make_cfg(thresholds={"known": 0.5})
     stopper = SequentialStopper(battery_code="unknown_battery", config=cfg)
     for _ in range(20):
         stopper.add_round([0.5])
-    assert stopper.should_stop() is False
+    with pytest.raises(ValueError, match="unknown_battery"):
+        stopper.should_stop()
 
 
 def test_status_fields():

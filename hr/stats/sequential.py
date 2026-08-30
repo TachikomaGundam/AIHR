@@ -157,8 +157,11 @@ class SequentialStopper:
         """Check stopping condition."""
         threshold = self.config.thresholds.get(self.battery_code)
         if threshold is None:
-            # No threshold configured — never stop (or use a default)
-            return False
+            raise ValueError(
+                f"no half_width threshold configured for battery "
+                f"{self.battery_code!r}; refusing to guess (from_yaml "
+                "requires every battery to have one)"
+            )
         if self.n_rounds < self.config.n_initial:
             return False  # still in pilot
         hw = self.half_width(confidence, B)

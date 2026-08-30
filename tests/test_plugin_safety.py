@@ -496,6 +496,63 @@ class TestPreviewAndSafeApplyFlow:
             # file that did not exist before the apply is gone (not left partial)
             assert not (config_dir / STATE_FILENAME).exists()
 
+    def test_safe_apply_consumes_only_the_bound_preview_record(
+        self, monkeypatch
+    ) -> None:
+        """Scoped consumption: only the preview record the apply actually
+        binds to is consumed; a stale record (superseded by a newer preview)
+        survives so its binding is never clobbered."""
+        from hr.plugin_safety import preview_apply, safe_apply
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            self._patch_db(monkeypatch)
+
+            preview_apply(preset_name="p1", record_preview=True, config_dir=config_dir)
+            preview_apply(preset_name="p2", record_preview=True, config_dir=config_dir)
+            record_dir = config_dir / "hr-apply-backups" / "previews"
+            names_before = sorted(p.name for p in record_dir.glob("preview-*.json"))
+            assert len(names_before) == 2
+            # the drift guard binds to _latest_preview_record = largest name
+            bound = names_before[-1]
+            bound_preset = json.loads((record_dir / bound).read_text())[
+                "preset_name"
+            ]
+            expected_survivors = [p for p in names_before if p != bound]
+
+            result = safe_apply(preset_name="p2", config_dir=config_dir)
+
+            assert result["success"] is True
+            names_after = sorted(p.name for p in record_dir.glob("preview-*.json"))
+            assert names_after == expected_survivors
+            assert bound not in names_after
+            assert len(names_after) == 1
+            survivor = json.loads((record_dir / names_after[0]).read_text())
+            assert survivor["preset_name"] in ("p1", "p2")
+            assert survivor["preset_name"] != bound_preset
+
+    def test_safe_apply_maps_backup_failure_to_clean_refusal(
+        self, monkeypatch
+    ) -> None:
+        """A create_backup ValueError (e.g. bad config dir) must map to the
+        {success: False, error: ...} refusal shape — never escape raw."""
+        from hr.plugin_safety import safe_apply
+
+        def _boom_backup(**kwargs: object) -> object:
+            raise ValueError("bad config dir")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_dir = Path(tmpdir)
+            self._patch_db(monkeypatch)
+            monkeypatch.setattr("hr.plugin_safety.create_backup", _boom_backup)
+
+            result = safe_apply(preset_name="p1", config_dir=config_dir)
+
+        assert result["success"] is False
+        assert "cannot create backup" in result["error"]
+        assert "bad config dir" in result["error"]
+        assert not (config_dir / "hr-apply-backups").exists()
+
     def test_safe_apply_refuses_on_compatibility_mismatch(self, monkeypatch, tmp_path) -> None:
         """(f) declared schema version mismatch → refuses apply."""
         from hr.plugin_safety import safe_apply
