@@ -24,7 +24,7 @@ precisely what ``opencode.jsonc`` declares; stage fleets sweep those
 registry models via ``configs/deployable.yaml`` ``extra_deployable:``
 (:func:`hr.fleet.fleet_models`).
 
-Writes go to ``hr2.provider`` / ``hr2.model`` ONLY (idempotent
+Writes go to ``hr.provider`` / ``hr.model`` ONLY (idempotent
 ``ON CONFLICT DO NOTHING`` upserts) — no legacy v1 model table is ever
 written from the discover path.
 """
@@ -159,9 +159,9 @@ def enumerate_models(scope: frozenset[str]) -> list[DiscoveredModel]:
 
 
 def upsert_hr2(conn, models: list[DiscoveredModel]) -> tuple[int, int]:
-    """Idempotently upsert provider+model rows into hr2 (ON CONFLICT DO NOTHING).
+    """Idempotently upsert provider+model rows into the unified hr registry (ON CONFLICT DO NOTHING).
 
-    hr2.model rows use the composite ``provider/model_id`` as their primary
+    hr.model rows use the composite ``provider/model_id`` as their primary
     id, mirroring stage0's ``_ensure_provider_model_records`` convention.
     Provider display names come from the opencode config's ``name`` field.
     Returns ``(provider_rows, model_rows)`` — honest rowcounts, so a rerun
@@ -176,14 +176,14 @@ def upsert_hr2(conn, models: list[DiscoveredModel]) -> tuple[int, int]:
             if model.provider not in seen_providers:
                 seen_providers.add(model.provider)
                 cur.execute(
-                    "INSERT INTO hr2.provider (provider_id, name) VALUES (%s, %s) "
+                    "INSERT INTO hr.provider (provider_id, name) VALUES (%s, %s) "
                     "ON CONFLICT (provider_id) DO NOTHING",
                     (model.provider, names.get(model.provider, model.provider)),
                 )
                 provider_rows += cur.rowcount or 0
         for model in models:
             cur.execute(
-                "INSERT INTO hr2.model (model_id, provider_fk, model_name) VALUES (%s, %s, %s) "
+                "INSERT INTO hr.model (model_id, provider_fk, model_name) VALUES (%s, %s, %s) "
                 "ON CONFLICT (model_id) DO NOTHING",
                 (f"{model.provider}/{model.model_id}", model.provider, model.display_name),
             )

@@ -30,6 +30,7 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Iterable
 
 _NEAR_CAP_PROXY = 16000
@@ -182,7 +183,7 @@ def _self_consistency(rows: Iterable[dict]) -> tuple[float | None, float | None]
     for r in rows:
         score = r.get("score")
         item = r.get("item_id")
-        if item is None or not isinstance(score, (int, float)):
+        if item is None or not isinstance(score, (int, float, Decimal)):
             continue
         by_item[item].append(float(score))
     if not by_item:

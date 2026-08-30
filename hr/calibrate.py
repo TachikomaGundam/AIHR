@@ -363,9 +363,9 @@ class CalibrationRunner:
                     cur.execute(
                         """
                         SELECT r.model_id, m.item_key
-                        FROM hr2.measurement m
-                        JOIN hr2.run r ON r.id = m.run_id
-                        JOIN hr2.sweep s ON s.id = r.sweep_id
+                        FROM hr.measurement m
+                        JOIN hr.run r ON r.id = m.run_id
+                        JOIN hr.sweep s ON s.id = r.sweep_id
                         WHERE s.pool_hash = %s
                         """,
                         (self.pool_hash,),
@@ -574,7 +574,7 @@ class CalibrationRunner:
                     for m in report.measurements:
                         cur.execute(
                             """
-                            INSERT INTO hr2.calibration_event
+                            INSERT INTO hr.calibration_event
                                 (pool_hash, anchor, item_key, battery,
                                  tier, score, tokens_in, tokens_out,
                                  latency_ms, infra_failure)

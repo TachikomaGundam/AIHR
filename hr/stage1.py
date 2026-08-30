@@ -131,10 +131,10 @@ def select_finalists_from_stage0(
             cur.execute(
                 """
                 SELECT r.model_id, b.battery_code, AVG(m.score) AS mean_score
-                FROM hr2.measurement m
-                JOIN hr2.run r ON m.run_id = r.run_id
-                JOIN hr2.sweep s ON r.sweep_id = s.sweep_id
-                JOIN hr2.battery b ON r.battery_id = b.battery_id
+                FROM hr.measurement m
+                JOIN hr.run r ON m.run_id = r.run_id
+                JOIN hr.sweep s ON r.sweep_id = s.sweep_id
+                JOIN hr.battery b ON r.battery_id = b.battery_id
                 WHERE s.seat_code = %s
                 GROUP BY r.model_id, b.battery_code
                 ORDER BY b.battery_code ASC, mean_score DESC, r.model_id ASC
@@ -246,9 +246,9 @@ def _recorded_measurement_keys(conn, sweep_id: str) -> set[tuple[str, str, str, 
         cur.execute(
             """
             SELECT r.model_id, b.battery_code, m.item_id, m.repetition
-            FROM hr2.measurement m
-            JOIN hr2.run r ON m.run_id = r.run_id
-            JOIN hr2.battery b ON r.battery_id = b.battery_id
+            FROM hr.measurement m
+            JOIN hr.run r ON m.run_id = r.run_id
+            JOIN hr.battery b ON r.battery_id = b.battery_id
             WHERE r.sweep_id = %s
             """,
             (sweep_id,),
@@ -264,8 +264,8 @@ def _max_round_per_model_battery(conn, sweep_id: str) -> dict[tuple[str, str], i
         cur.execute(
             """
             SELECT r.model_id, b.battery_code, MAX(r.round)
-            FROM hr2.run r
-            JOIN hr2.battery b ON r.battery_id = b.battery_id
+            FROM hr.run r
+            JOIN hr.battery b ON r.battery_id = b.battery_id
             WHERE r.sweep_id = %s
             GROUP BY r.model_id, b.battery_code
             """,
@@ -428,7 +428,7 @@ def _run_finals_loop(
                 if record_to_db and conn is not None:
                     with conn.cursor() as cur:
                         cur.execute(
-                            "UPDATE hr2.run SET total_tokens = %s, infra_ok = %s, "
+                            "UPDATE hr.run SET total_tokens = %s, infra_ok = %s, "
                             "finished_at = %s WHERE run_id = %s",
                             (
                                 round_total_tokens,
@@ -484,9 +484,9 @@ def _rebuild_stopper_from_db(
         cur.execute(
             """
             SELECT r.model_id, b.battery_code, r.round, m.score
-            FROM hr2.measurement m
-            JOIN hr2.run r ON m.run_id = r.run_id
-            JOIN hr2.battery b ON r.battery_id = b.battery_id
+            FROM hr.measurement m
+            JOIN hr.run r ON m.run_id = r.run_id
+            JOIN hr.battery b ON r.battery_id = b.battery_id
             WHERE r.sweep_id = %s
             ORDER BY r.model_id, b.battery_code, r.round, m.item_id, m.repetition
             """,
@@ -504,9 +504,9 @@ def _rebuild_stopper_from_db(
         cur.execute(
             """
             SELECT r.model_id, b.battery_code, m.item_id, m.repetition, m.score
-            FROM hr2.measurement m
-            JOIN hr2.run r ON m.run_id = r.run_id
-            JOIN hr2.battery b ON r.battery_id = b.battery_id
+            FROM hr.measurement m
+            JOIN hr.run r ON m.run_id = r.run_id
+            JOIN hr.battery b ON r.battery_id = b.battery_id
             WHERE r.sweep_id = %s
             ORDER BY r.model_id, b.battery_code, m.item_id, m.repetition
             """,
@@ -938,7 +938,7 @@ def read_finals_separation_from_db(sweep_id: str) -> dict[str, list[dict]]:
             cur.execute(
                 """
                 SELECT battery_id, model_a, model_b, p_separated, p_weak, p_tie
-                FROM hr2.separation WHERE sweep_id = %s
+                FROM hr.separation WHERE sweep_id = %s
                 ORDER BY battery_id, model_a, model_b
                 """,
                 (sweep_id,),
@@ -969,7 +969,7 @@ def list_finals_sweeps() -> list[tuple[str, str, str]]:
             cur.execute(
                 """
                 SELECT sweep_id, purpose, created_at
-                FROM hr2.sweep WHERE seat_code = %s
+                FROM hr.sweep WHERE seat_code = %s
                 ORDER BY created_at DESC
                 """,
                 (STAGE1_SEAT_CODE,),
