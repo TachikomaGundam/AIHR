@@ -7,6 +7,8 @@ recommendation engine faked. Offline and deterministic.
 
 from __future__ import annotations
 
+import json
+
 from typer.testing import CliRunner
 
 from hr.cli_knowledge import app
@@ -30,6 +32,12 @@ class _FakeEngine:
 
 
 class _FakeResult:
+    """Empty tri-state result shaped like ``hr.recommend.RecommendationResult``."""
+
+    task = None
+    batteries = ()
+    sweep_id = None
+    sweep_age_days = None
     eligible = []
     excluded = []
     indeterminate = []
@@ -134,6 +142,17 @@ def test_recommend_task_empty_result(monkeypatch) -> None:
     result = runner.invoke(app, ["recommend", "--task", "write code"])
     assert result.exit_code == 0
     assert "(no recommendations returned)" in result.output
+
+
+def test_recommend_task_empty_result_json(monkeypatch) -> None:
+    engine = _FakeEngine(result=_FakeResult())
+    monkeypatch.setattr("hr.recommend.RecommendationEngine", lambda: engine)
+    result = runner.invoke(app, ["recommend", "--task", "write code", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["eligible"] == []
+    assert payload["excluded"] == []
+    assert payload["indeterminate"] == []
 
 
 def test_recommend_task_json_flag(monkeypatch) -> None:
