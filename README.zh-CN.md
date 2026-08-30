@@ -187,6 +187,14 @@ hr bench --model gpt-4o --battery reasoning
 
 统一过程中已移除提供者特定的硬编码。模型机队在运行时从 opencode 的实时配置推导（`opencode.jsonc` 的 provider 块：每个 `provider.*.models` 条目即一个机队模型，`npm` 字段推导 wire 类型）；`configs/fleet.yaml` 只保留可选覆盖（`wire_overrides` 用于仅注册表提供的模型、`scope_excludes`、`gateway_urls`），`configs/deployable.yaml` 的 `extra_deployable` 是唯一手工维护的模型列表（在 opencode 配置之外提供的模型）。在 opencode 配置中新增模型即自动进入扫描池、discover 与路由，此处零改动。知识数据存于 `configs/models.yaml`（定价/能力）与 `configs/knowledge.yaml`（参考分数、研究结论），未知模型均有安全默认值。
 
+## 安全说明
+
+发布完整性由自证式 SHA-256 记录保护：每个发布的 `metadata.json` 对自身载荷计算哈希，验证时在本地重新计算并比对。发布与备份**没有密码学签名**——能修改发布目录的本地攻击者可重算全部哈希使其匹配；控制发布的攻击者可将随附的插件路径注册进 opencode 配置，并在下次加载配置时执行代码。
+
+因此信任模型为**同用户本地信任**：操作员与进程运行于同一账户。交付边界将所有调用方提供的名称与路径——发布名、备份名、清单文件键、激活账本中的符号链接目标——限制在发布目录与配置目录之内；越界或外来路径一律拒绝并给出明确错误，绝不跟随。无特权的远程用户无法触达这些表面。
+
+完整的供应链保证（密钥签名的发布、由仓库之外的密钥验证）已列为后续工作，不属于本次发布范围。
+
 ## License
 
 见 `LICENSE`。

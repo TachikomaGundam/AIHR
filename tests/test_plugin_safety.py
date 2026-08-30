@@ -14,6 +14,7 @@ Contract under test (plan row 7):
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import psycopg2
@@ -24,6 +25,8 @@ import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from hr.plugin_safety import (
     HR_FASTDRAW_SCHEMA_VERSION,
@@ -649,3 +652,140 @@ print(json.dumps({
         assert "subproc-00" in out["removed"]  # expired by age
         assert "subproc-01" in out["removed"]  # expired by age + beyond budget
         assert "subproc-11" in out["kept"]  # newest survives
+
+# ---------------------------------------------------------------------------
+# R3/C3-C5: name/path confinement of the apply-backup machinery
+# ---------------------------------------------------------------------------
+
+
+class TestNamePathConfinement:
+    """Externally-supplied backup names and manifest file keys must never
+    escape the opencode config dir (audit primitives B and C)."""
+
+    @pytest.mark.parametrize(
+        "name",
+        ["../../evilb", "../x", "a/b", "/abs/path", "..", ".", ""],
+    )
+    def test_create_backup_refuses_escaping_names_without_any_write(
+        self, tmp_path, name
+    ):
+        # Given: a config dir with a presets file and an attacker-chosen name.
+        config_dir = tmp_path / "cfg"
+        config_dir.mkdir()
+        (config_dir / PRESETS_FILENAME).write_text('{"presets": {}}')
+        # When: a backup is created under the escaping name.
+        with pytest.raises(ValueError, match="unsafe backup name"):
+            create_backup(name, config_dir=config_dir)
+        # Then: no backup directory exists anywhere and no file moved.
+        assert not (config_dir / "hr-apply-backups").exists()
+        assert (config_dir / PRESETS_FILENAME).read_text() == '{"presets": {}}'
+
+    @pytest.mark.parametrize(
+        "name",
+        ["../../evilb", "../x", "a/b", "/abs/path", "..", "."],
+    )
+    def test_rollback_refuses_escaping_names_without_restoring(
+        self, tmp_path, name
+    ):
+        # Given: an attacker-controlled "backup" directory OUTSIDE the config
+        # dir that looks like a valid snapshot (manifest + blob).
+        config_dir = tmp_path / "cfg"
+        config_dir.mkdir()
+        (config_dir / PRESETS_FILENAME).write_text('{"presets": {"orig": {}}}')
+        create_backup("legit", config_dir=config_dir)
+        # the config drifts after the legit snapshot...
+        (config_dir / PRESETS_FILENAME).write_text('{"presets": {"DRIFTED": {}}}')
+        # ...and an outside directory pretends to be a backup the operator
+        # could be tricked into rolling back.
+        outside = tmp_path / "evilb"
+        outside.mkdir()
+        (outside / "fastdraw-presets.json").write_text("EVIL-BYTES")
+        (outside / MANIFEST_FILENAME).write_text(
+            json.dumps(
+                {
+                    "snapshot_id": "forged",
+                    "created_at": "2026-01-01T00:00:00+00:00",
+                    "files": {
+                        PRESETS_FILENAME: {
+                            "existed_before": True,
+                            "sha256": hashlib.sha256(b"EVIL-BYTES").hexdigest(),
+                        }
+                    },
+                }
+            )
+        )
+        # When: rollback targets the escaping name.
+        result = rollback(name, config_dir=config_dir)
+        # Then: it refuses and NOTHING was restored from outside.
+        assert result["success"] is False
+        assert "unsafe backup name" in result["error"]
+        assert (config_dir / PRESETS_FILENAME).read_text() == (
+            '{"presets": {"DRIFTED": {}}}'
+        )
+
+    @pytest.mark.parametrize("existed_before", [True, False])
+    def test_rollback_refuses_manifest_key_escaping_config_dir(
+        self, tmp_path, existed_before
+    ):
+        # Given: a crafted backup whose manifest names ../victim.md as a file.
+        # existed_before=True maps to the arbitrary-WRITE primitive (blob
+        # copy2 over the victim); existed_before=False to the arbitrary-DELETE
+        # primitive (target.unlink()).
+        config_dir = tmp_path / "cfg"
+        victim = tmp_path / "victim.md"  # == config_dir / "../victim.md"
+        victim.write_text("VICTIM-BYTES")
+        backup = config_dir / "hr-apply-backups" / "evil-key"
+        backup.mkdir(parents=True)
+        files: dict[str, dict[str, object]] = {
+            "../victim.md": {"existed_before": existed_before, "sha256": None}
+        }
+        manifest: dict[str, object] = {
+            "snapshot_id": "forged",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "files": files,
+        }
+        blob = config_dir / "hr-apply-backups" / "victim.md"
+        if existed_before:
+            files["../victim.md"]["sha256"] = hashlib.sha256(
+                b"FORGED-BLOB"
+            ).hexdigest()
+            # the blob for the escaped key lives at backup_path/"../victim.md"
+            blob.write_text("FORGED-BLOB")
+        (backup / MANIFEST_FILENAME).write_text(json.dumps(manifest))
+        # When: rollback is attempted.
+        result = rollback("evil-key", config_dir=config_dir)
+        # Then: the escaped key is refused BEFORE any write or delete — the
+        # victim keeps its bytes and continues to exist.
+        assert result["success"] is False
+        assert "corrupt" in result["error"]
+        assert "../victim.md" in result["error"]
+        assert victim.exists()
+        assert victim.read_text() == "VICTIM-BYTES"
+
+    def test_safe_component_accepts_legitimate_names(self):
+        # Given: legitimate single-component names (the auto-generated shapes
+        # the tool itself produces).
+        from hr.plugin_safety import safe_component
+
+        for name in (
+            "backup-20260830-120000-a1b2c3d4",
+            "release-20260830-120000",
+            "cli-r1",
+            "a-001",
+            "fastdraw-presets.json",
+            ".fastdraw.json",
+        ):
+            # When/Then: they pass through unchanged.
+            assert safe_component(name) == name
+
+    def test_contained_accepts_inside_and_refuses_outside(self, tmp_path):
+        # Given: a root and a sibling outside it, plus a symlink escape.
+        from hr.plugin_safety import contained
+
+        root = tmp_path / "root"
+        inside = root / "name"
+        outside = tmp_path / "outside"
+        # When/Then: inside is accepted (canonicalized), outside is refused.
+        assert contained(inside, root) == inside.resolve()
+        with pytest.raises(ValueError, match="outside its root"):
+            contained(outside, root)

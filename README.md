@@ -192,6 +192,14 @@ This codebase targets the general class of autonomous LLM coding agents, not a s
 
 Provider-specific hardcoding was removed during unification. The model fleet is derived at RUNTIME from opencode's live config (`opencode.jsonc` provider blocks: every `provider.*.models` entry becomes a fleet model, and the `npm` field derives the wire type); `configs/fleet.yaml` holds only OPTIONAL overrides (`wire_overrides` for registry-only providers, `scope_excludes`, `gateway_urls`), and `configs/deployable.yaml` `extra_deployable` is the only hand-maintained model list (models served outside the opencode config). Add a model to opencode's config and it flows into the sweep pools, discover and routing with zero file edits here. Knowledge data lives in `configs/models.yaml` (pricing/capabilities) and `configs/knowledge.yaml` (reference scores, findings), both with safe defaults for unknown models.
 
+## Security note
+
+Release integrity is protected by self-attesting SHA-256 records: each release's `metadata.json` hashes its own payloads, and verification recomputes the digests locally. There is **no cryptographic signature** on releases or backups — a local attacker who can modify the release tree can recompute every hash to match, and an attacker who controls a release can register its shipped plugin path into the opencode config, which executes on the next config load.
+
+The trust model is therefore *same-user local trust*: the operator is the same account the processes run under. The shipped boundaries confine every caller-supplied name and path — release names, backup names, manifest file keys, symlink targets from activation ledgers — to the releases directory and the config directory; escaped or foreign paths are refused with a clear error, never followed. Unprivileged remote users cannot reach these surfaces.
+
+A full supply-chain guarantee (signed releases, verified with a key outside the repository) is tracked as future work and is out of scope for this release.
+
 ## License
 
 See `LICENSE`.

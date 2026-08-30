@@ -53,9 +53,13 @@ from hr.plugin_safety import (
     BACKUP_DIR,
     MAX_AGE_DAYS,
     MAX_BACKUPS,
+    UnsafeNameError,
+    UnsafePathError,
+    contained,
     create_backup,
     get_config_dir,
     rollback,
+    safe_component,
 )
 from hr.release_manifest import INCLUDED_HR_MODULES, RELEASE_ASSETS
 
@@ -155,6 +159,10 @@ def build_release(
     ws = Path(workspace)
     if release_name is None:
         release_name = datetime.now(timezone.utc).strftime("release-%Y%m%d-%H%M%S")
+    try:
+        safe_component(release_name)
+    except UnsafeNameError as exc:
+        return {"success": False, "error": f"unsafe release name {release_name!r}: {exc}"}
     candidate = root / release_name
 
     if not (ws / "hr").is_dir():
@@ -213,6 +221,10 @@ def build_release(
 def compute_release_hash(release_name: str, releases_root: Path | None = None) -> str:
     """SHA-256 over every payload of a release, in sorted path order."""
     root = Path(releases_root) if releases_root is not None else RELEASES_DIR
+    try:
+        safe_component(release_name)
+    except UnsafeNameError:
+        return ""
     metadata_path = root / release_name / "metadata.json"
     if not metadata_path.is_file():
         return ""
@@ -246,6 +258,18 @@ def verify_release(
     (``remove_on_failure=False`` keeps it for inspection).
     """
     root = Path(releases_root) if releases_root is not None else RELEASES_DIR
+    try:
+        safe_component(release_name)
+    except UnsafeNameError as exc:
+        return {
+            "valid": False,
+            "error": f"unsafe release name {release_name!r}: {exc}",
+            "removed": False,
+            "checks": [],
+            "verified_at": _utcnow(),
+            "manifest_hash": None,
+            "payload_count": 0,
+        }
     candidate = root / release_name
     if not candidate.is_dir():
         return {"valid": False, "error": f"Release directory not found: {candidate}"}
@@ -310,6 +334,14 @@ def verify_release(
             json.dumps(verification, indent=2) + "\n"
         )
     elif remove_on_failure:
+        try:
+            contained(candidate, root)
+        except UnsafePathError as exc:
+            return {
+                **verification,
+                "removed": False,
+                "error": f"refusing to remove candidate: {exc}",
+            }
         shutil.rmtree(candidate, ignore_errors=True)
         removed = True
     return {**verification, "removed": removed}
@@ -324,6 +356,13 @@ def list_releases(releases_root: Path | None = None) -> list[dict[str, Any]]:
     for release_path in sorted(root.iterdir(), reverse=True):
         metadata_path = release_path / "metadata.json"
         if not release_path.is_dir() or not metadata_path.is_file():
+            continue
+        try:
+            safe_component(release_path.name)
+            contained(release_path, root)
+        except (UnsafeNameError, UnsafePathError):
+            # Security: foreign entries (escaped names, symlinks pointing out
+            # of the releases root) are skipped, never touched.
             continue
         try:
             metadata = json.loads(metadata_path.read_text())
@@ -617,9 +656,19 @@ def activate_release(
     root = Path(releases_root) if releases_root is not None else RELEASES_DIR
     link = Path(hr_symlink) if hr_symlink is not None else HR_SYMLINK
     cfg_dir = Path(config_dir) if config_dir is not None else get_config_dir()
+    try:
+        safe_component(release_name)
+    except UnsafeNameError as exc:
+        return {"success": False, "error": f"unsafe release name {release_name!r}: {exc}"}
     candidate = root / release_name
     config_file = cfg_dir / CONFIG_FILENAME
-    plugin_path = str((candidate / PLUGIN_SUBDIR).resolve())
+    try:
+        plugin_path = str(contained(candidate / PLUGIN_SUBDIR, root))
+    except UnsafePathError as exc:
+        return {
+            "success": False,
+            "error": f"cannot register plugin path outside the releases root: {exc}",
+        }
 
     verification = verify_release(release_name, root, remove_on_failure=False)
     if not verification["valid"]:
@@ -679,6 +728,9 @@ def activate_release(
         "activated_at": _utcnow(),
         "previous_symlink_target": previous_target,
         "previous_symlink_existed": previous_existed,
+        "previous_symlink_target_absolute": isinstance(previous_target, str)
+        and bool(previous_target)
+        and previous_target.startswith(os.sep),
         "config_existed_before": config_existed,
         "plugin_path": plugin_path,
         "config_file": str(config_file),
@@ -735,7 +787,27 @@ def rollback_release(
     link = Path(hr_symlink) if hr_symlink is not None else HR_SYMLINK
     cfg_dir = Path(config_dir) if config_dir is not None else get_config_dir()
     config_file = cfg_dir / CONFIG_FILENAME
-    backup_path = cfg_dir / BACKUP_DIR / backup_name
+    backup_dir = cfg_dir / BACKUP_DIR
+    name_path = Path(backup_name)
+    if name_path.is_absolute():
+        # The caller may pass the absolute path returned by activate_release;
+        # it is only acceptable when it resolves INSIDE the backups dir.
+        try:
+            backup_path = contained(name_path, backup_dir)
+        except UnsafePathError as exc:
+            return {
+                "success": False,
+                "error": f"unsafe backup name {backup_name!r}: {exc}",
+            }
+    else:
+        try:
+            safe_component(backup_name)
+        except UnsafeNameError as exc:
+            return {
+                "success": False,
+                "error": f"unsafe backup name {backup_name!r}: {exc}",
+            }
+        backup_path = backup_dir / backup_name
     if not backup_path.is_dir():
         return {"success": False, "error": f"Backup '{backup_name}' not found"}
     ledger_path = backup_path / ACTIVATION_LEDGER
@@ -758,6 +830,24 @@ def rollback_release(
     previous_target = ledger.get("previous_symlink_target")
     previous_existed = bool(ledger.get("previous_symlink_existed"))
     config_existed = bool(ledger.get("config_existed_before"))
+
+    if previous_existed:
+        absolute_at_activation = ledger.get("previous_symlink_target_absolute") is True
+        if (
+            not isinstance(previous_target, str)
+            or not previous_target
+            or not previous_target.startswith(os.sep)
+            or not absolute_at_activation
+        ):
+            return {
+                "success": False,
+                "error": (
+                    f"corrupt release activation ledger in '{backup_name}': "
+                    "previous_symlink_target is missing, relative, or was not "
+                    "recorded as existing at activation time; refusing to "
+                    "restore the symlink"
+                ),
+            }
 
     t7 = rollback(backup_name, config_dir=cfg_dir)
     if not t7["success"]:
@@ -837,7 +927,13 @@ def enforce_retention_policy(
         return {
             "action": "none",
             "dry_run": dry_run,
-            "releases": {"kept": [], "archived": [], "to_archive": [], "corrupt": []},
+            "releases": {
+                "kept": [],
+                "archived": [],
+                "to_archive": [],
+                "corrupt": [],
+                "foreign": [],
+            },
             "archives": {"removed": [], "kept": []},
             "plugin_entries": {"removed": [], "backup": None},
         }
@@ -853,10 +949,19 @@ def enforce_retention_policy(
 
     valid_entries: list[tuple[Path, dict[str, Any]]] = []
     corrupt: list[str] = []
+    foreign: list[str] = []
     for item in sorted(root.iterdir(), reverse=True):
-        metadata_path = item / "metadata.json"
         if not item.is_dir():
             continue
+        try:
+            safe_component(item.name)
+            contained(item, root)
+        except (UnsafeNameError, UnsafePathError):
+            # Security: entries with escaped names or symlinks pointing out
+            # of the releases root are flagged, never removed.
+            foreign.append(item.name)
+            continue
+        metadata_path = item / "metadata.json"
         if not metadata_path.is_file():
             corrupt.append(item.name)
             continue
@@ -901,6 +1006,10 @@ def enforce_retention_policy(
             os.utime(archive_file, (stamp.timestamp(), stamp.timestamp()))
         except OSError:
             pass
+        try:
+            contained(item, root)
+        except UnsafePathError:
+            continue
         shutil.rmtree(item, ignore_errors=True)
         archived.append({"name": name, "action": "archived"})
 
@@ -952,6 +1061,7 @@ def enforce_retention_policy(
             "archived": archived,
             "to_archive": to_archive,
             "corrupt": corrupt,
+            "foreign": foreign,
         },
         "archives": {"removed": archives_removed, "kept": archives_kept},
         "plugin_entries": {
@@ -1053,7 +1163,7 @@ def release_prune(
         dry_run=dry_run,
     )
     if result.get("plugin_entries", {}).get("error"):
-        console.print(
+        print(
             f"warning: plugin cleanup skipped: {result['plugin_entries']['error']}",
             file=sys.stderr,
         )

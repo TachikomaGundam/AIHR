@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -28,6 +29,75 @@ from typing import Any
 import psycopg2
 
 from hr.config import opencode_config_dir
+
+
+# ---------------------------------------------------------------------------
+# R3/C3-C5: shared name/path confinement validators
+# ---------------------------------------------------------------------------
+
+
+class UnsafeNameError(ValueError):
+    """A caller-supplied name is not a safe single path component.
+
+    Shared by the release machinery (hr.deployment_manager) and the apply
+    machinery (this module): release names, backup names and manifest file
+    keys all cross the same trust boundary (CLI arguments, opencode plugin
+    tool arguments, on-disk backup manifests) and are rejected with the same
+    operator-friendly contract.
+    """
+
+
+class UnsafePathError(ValueError):
+    """A path resolves outside its confinement root."""
+
+
+def safe_component(name: str) -> str:
+    """Validate a caller-supplied name as a single, non-escaping path component.
+
+    Refuses empty names, the special ``'.'``/``'..'`` components, any path
+    separator (``os.sep``/``os.altsep``) and absolute paths — everything that
+    could make a later ``root / name`` join escape ``root``. Returns the name
+    unchanged on success.
+    """
+    if not isinstance(name, str) or not name:
+        raise UnsafeNameError("name must be a non-empty string")
+    if name in (".", ".."):
+        raise UnsafeNameError(f"name {name!r} must not be '.' or '..'")
+    for sep in (os.sep, os.altsep):
+        if sep is not None and sep in name:
+            raise UnsafeNameError(f"name {name!r} must not contain a path separator")
+    if Path(name).name != name:
+        raise UnsafeNameError(f"name {name!r} must be a single path component")
+    return name
+
+
+def contained(target: Path, root: Path) -> Path:
+    """Resolve ``target`` (symlinks followed) and require it inside ``root``.
+
+    ``target`` may be the root itself (``target == root``). Resolution is
+    non-strict so nonexistent targets (e.g. a file a restore is about to
+    create) are still judged by their resolved location. Returns the resolved
+    (canonicalized) target on success; raises ``UnsafePathError`` otherwise.
+    """
+    root_resolved = root.resolve(strict=False)
+    target_resolved = target.resolve(strict=False)
+    if target_resolved != root_resolved and not target_resolved.is_relative_to(
+        root_resolved
+    ):
+        raise UnsafePathError(
+            f"path {target} resolves outside its root {root}; refusing"
+        )
+    return target_resolved
+
+
+def _inside(target: Path, root: Path) -> bool:
+    """True when ``contained`` would accept the target (foreign/following
+    entries — e.g. a symlink pointing out of the directory — are skipped)."""
+    try:
+        contained(target, root)
+    except ValueError:
+        return False
+    return True
 
 
 PRESETS_FILENAME = "fastdraw-presets.json"
@@ -279,12 +349,15 @@ def create_backup(
     snapshot identity.
     """
     cfg_dir = Path(config_dir) if config_dir is not None else get_config_dir()
-    backup_dir = cfg_dir / BACKUP_DIR
-    backup_dir.mkdir(exist_ok=True)
-
     if backup_name is None:
         stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         backup_name = f"backup-{stamp}-{uuid.uuid4().hex[:8]}"
+    try:
+        safe_component(backup_name)
+    except UnsafeNameError as exc:
+        raise UnsafeNameError(f"unsafe backup name {backup_name!r}: {exc}") from exc
+    backup_dir = cfg_dir / BACKUP_DIR
+    backup_dir.mkdir(exist_ok=True)
 
     backup_path = backup_dir / backup_name
     if backup_path.exists() and (backup_path / MANIFEST_FILENAME).exists():
@@ -330,6 +403,14 @@ def _validate_backup(backup_path: Path) -> tuple[dict[str, Any] | None, str | No
     if not isinstance(manifest.get("snapshot_id"), str) or not manifest["snapshot_id"]:
         return None, "corrupt backup: manifest missing snapshot_id"
     for name, info in manifest["files"].items():
+        try:
+            safe_component(name)
+        except ValueError:
+            return (
+                None,
+                f"corrupt backup: manifest file name {name!r} is not a safe "
+                "single path component (would escape the config dir)",
+            )
         if not isinstance(info, dict):
             return None, f"corrupt backup: manifest entry for {name!r} is not an object"
         if info.get("existed_before"):
@@ -357,7 +438,11 @@ def list_backups() -> list[dict[str, Any]]:
 
     backups = []
     for backup_path in sorted(backup_dir.iterdir(), reverse=True):
-        if not backup_path.is_dir() or backup_path.name == PREVIEW_SUBDIR:
+        if (
+            not backup_path.is_dir()
+            or backup_path.name == PREVIEW_SUBDIR
+            or not _inside(backup_path, backup_dir)
+        ):
             continue
         manifest, _ = _validate_backup(backup_path)
         backups.append(
@@ -395,7 +480,11 @@ def _restore_from_backup(
     deleted: list[str] = []
     failed: list[str] = []
     for name, info in manifest["files"].items():
-        target = config_dir / name
+        try:
+            target = contained(config_dir / name, config_dir)
+        except ValueError as exc:
+            failed.append(f"{name} ({exc})")
+            continue
         try:
             if info.get("existed_before"):
                 shutil.copy2(backup_path / name, target)
@@ -432,7 +521,27 @@ def rollback(
     Returns a dict with the result of the rollback operation.
     """
     cfg_dir = Path(config_dir) if config_dir is not None else get_config_dir()
-    backup_path = cfg_dir / BACKUP_DIR / backup_name
+    backup_dir = cfg_dir / BACKUP_DIR
+    name_path = Path(backup_name)
+    if name_path.is_absolute():
+        # The caller may pass the absolute path returned by create_backup;
+        # it is only acceptable when it resolves INSIDE the backups dir.
+        try:
+            backup_path = contained(name_path, backup_dir)
+        except UnsafePathError as exc:
+            return {
+                "success": False,
+                "error": f"unsafe backup name {backup_name!r}: {exc}",
+            }
+    else:
+        try:
+            safe_component(backup_name)
+        except UnsafeNameError as exc:
+            return {
+                "success": False,
+                "error": f"unsafe backup name {backup_name!r}: {exc}",
+            }
+        backup_path = backup_dir / backup_name
 
     if not backup_path.exists() or not backup_path.is_dir():
         return {"success": False, "error": f"Backup '{backup_name}' not found"}
@@ -491,7 +600,9 @@ def prune_backups(
     snapshots = [
         p
         for p in backup_dir.iterdir()
-        if p.is_dir() and p.name != PREVIEW_SUBDIR
+        if p.is_dir()
+        and p.name != PREVIEW_SUBDIR
+        and _inside(p, backup_dir)
     ]
     snapshots.sort(key=lambda p: p.name, reverse=True)
 
@@ -519,7 +630,10 @@ def prune_backups(
             removed.append(snapshot.name)
 
     for name in removed:
-        shutil.rmtree(backup_dir / name, ignore_errors=True)
+        path = backup_dir / name
+        if not _inside(path, backup_dir):
+            continue
+        shutil.rmtree(path, ignore_errors=True)
 
     return {"removed": removed, "kept": kept}
 
@@ -690,7 +804,10 @@ __all__ = [
     "HR_FASTDRAW_SCHEMA_VERSION",
     "MAX_AGE_DAYS",
     "MAX_BACKUPS",
+    "UnsafeNameError",
+    "UnsafePathError",
     "check_compatibility",
+    "contained",
     "create_backup",
     "ensure_no_preview_drift",
     "list_backups",
@@ -698,4 +815,5 @@ __all__ = [
     "prune_backups",
     "rollback",
     "safe_apply",
+    "safe_component",
 ]
