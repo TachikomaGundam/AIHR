@@ -63,7 +63,6 @@ def test_graphql_raises_on_http_error_and_bad_payloads(
     # When: the HTTP layer fails / returns junk / reports GraphQL errors
     # Then: each failure is a loud RuntimeError (except HTTPError, raised
     # as-is so callers can wrap it).
-    client = httpx.Client()
     monkeypatch.setattr(
         publisher,
         "_client",
