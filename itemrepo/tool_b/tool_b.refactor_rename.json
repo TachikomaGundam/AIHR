@@ -2,7 +2,7 @@
   "item_key": "tool_b.refactor_rename",
   "type": "tool_b",
   "tier": 5,
-  "content_hash": "sha256:2322c4cb8c05d11d7b2ba88d91d24ef742e91553b83ec30f51b846c5549f850d",
+  "content_hash": "sha256:ece301a865a14ce28c2fbfe933f0af94ea15a2d1d397eacab734a0ae2620550b",
   "payload": {
     "scenario_id": "tb_refactor_rename",
     "env": "opencode-sandbox",

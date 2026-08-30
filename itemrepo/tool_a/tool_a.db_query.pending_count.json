@@ -2,7 +2,7 @@
   "item_key": "tool_a.db_query.pending_count",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:228328ef775f4e587d93fb7b4d084f88cc394236fbae9e7bca4de999ff101914",
+  "content_hash": "sha256:66172c635cc47b32cedc9b023733e0f0f50fb1fedb0e2556498c49f73e53c0b7",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "查询 orders 表里 status='pending' 的订单数量。",

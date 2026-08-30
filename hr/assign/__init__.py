@@ -1,4 +1,4 @@
-"""hr2.assign — assignment engine."""
+"""Assignment engine."""
 from .ranker import rank, CandidateModel, RankerResult
 
 __all__ = [

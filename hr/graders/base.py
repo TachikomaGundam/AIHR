@@ -1,4 +1,4 @@
-"""hr2.graders.base — ModelResponse, GradeResult, Grader Protocol (spec §6.1).
+"""Model response, grade result, and grader protocol (spec §6.1).
 
 Spec §6.1 protocol:
   - ModelResponse: text, thinking, tool_calls, raw, latency_ms, tokens_in,
@@ -60,7 +60,7 @@ class GradeResult:
     Score in [0, 1]; pass threshold is supplied by the caller at aggregation.
     Detail carries grader-specific structured metadata (e.g., per-checkpoint
     breakdowns). judge_verdict_fk is set only by the llm_judge grader and
-    references an hr2.judge_verdict row.
+    references an ``hr.judge_verdict`` row.
     """
 
     score: float

@@ -2,7 +2,7 @@
   "item_key": "tool_a.image_generate.golden_retriever",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:7f800135eeeadac7df5d875c7c774345ede6864cb47c5b015c7f381cd466f635",
+  "content_hash": "sha256:fd8f1fe595b1ba6fe97d144a4be9baa33993369952ee6698c1a01eb363d3eaad",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "画一只在草地上奔跑的金毛犬，webp 格式，1024×1024。",

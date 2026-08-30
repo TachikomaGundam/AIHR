@@ -13,7 +13,7 @@ Modules:
   - :mod:`hr.bench.prompts` — prompt/data content (verbatim v1 port).
   - :mod:`hr.bench.truths` — lazy runtime-computed ground truths.
   - :mod:`hr.bench.scorers` — v1 scorer formulas, semantically intact.
-  - :mod:`hr.bench.engine` — ChatRequest runners + hr2.measurement writer.
+- :mod:`hr.bench.engine` — ChatRequest runners and measurement writer.
 """
 
 from hr.bench.engine import BenchOutcome, ItemResult, LivebenchEngine, make_sweep_id

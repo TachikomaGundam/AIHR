@@ -2,7 +2,7 @@
   "item_key": "tool_a.code_search.missing_query",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:042b6e35b49f22940d882bf97ebebfd8591351d7cf0c2cd7b5acab9db623c11b",
+  "content_hash": "sha256:cbf9b2c948c909fddbaa37839def600cb3898f07cd170e4f33c47a4c5e7687cd",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "搜一下源码。",

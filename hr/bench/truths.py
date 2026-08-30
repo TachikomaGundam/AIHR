@@ -154,6 +154,8 @@ def reasoning_truths() -> dict[int, int]:
                 n_val *= p ** e
             if best is None or n_val < best:
                 best = n_val
+        if best is None:
+            raise ValueError(f"no factorization found for {target}")
         return best
     truths[11] = _smallest_n_with_d(100)
 
@@ -265,15 +267,15 @@ def _compute_long_horizon_truths() -> dict[str, Any]:
 
 
 #: Manual lazy cache (module attribute, so tests can reset/starve it).
-_LONG_HORIZON_CACHE: dict[str, Any] | None = None
+_long_horizon_cache: dict[str, Any] | None = None
 
 
 def long_horizon_truths() -> dict[str, Any]:
     """Lazy accessor: the CPM graph is computed on FIRST call, not at import."""
-    global _LONG_HORIZON_CACHE
-    if _LONG_HORIZON_CACHE is None:
-        _LONG_HORIZON_CACHE = _compute_long_horizon_truths()
-    return _LONG_HORIZON_CACHE
+    global _long_horizon_cache
+    if _long_horizon_cache is None:
+        _long_horizon_cache = _compute_long_horizon_truths()
+    return _long_horizon_cache
 
 
 __all__ = ["long_horizon_truths", "reasoning_truths"]

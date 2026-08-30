@@ -12,17 +12,51 @@ origins.ts implements. Consumers: :mod:`hr.fleet` (model inventory),
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 from hr.config import opencode_config_dir
 
 
 def strip_jsonc_comments(text: str) -> str:
-    """Remove single-line (//) and block (/* */) comments from JSONC text."""
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    text = re.sub(r"^\s*//.*$", "", text, flags=re.MULTILINE)
-    return text
+    """Remove JSONC comments without altering comment markers in strings."""
+    out: list[str] = []
+    index = 0
+    in_string = False
+    quote = ""
+    while index < len(text):
+        char = text[index]
+        following = text[index + 1] if index + 1 < len(text) else ""
+        if in_string:
+            out.append(char)
+            if char == "\\":
+                out.append(following)
+                index += 2
+                continue
+            if char == quote:
+                in_string = False
+            index += 1
+            continue
+        if char in {'"', "'"}:
+            in_string = True
+            quote = char
+            out.append(char)
+            index += 1
+            continue
+        if char == "/" and following == "/":
+            while index < len(text) and text[index] != "\n":
+                index += 1
+            continue
+        if char == "/" and following == "*":
+            index += 2
+            while index < len(text) and not (
+                text[index] == "*" and text[index + 1 : index + 2] == "/"
+            ):
+                index += 1
+            index += 2
+            continue
+        out.append(char)
+        index += 1
+    return "".join(out)
 
 
 def parse_config_file(path: Path) -> dict:

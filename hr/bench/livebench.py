@@ -1,7 +1,7 @@
 """Livebench battery registry — the 10 live capability benchmarks (task 12).
 
 Port of v1's benchmark engine onto the unified hr.adapters. Each battery is
-registered in the hr2 schema exactly like tool_b (todo 15): hr2.battery row,
+registered in the HR schema exactly like tool_b: battery row,
 one item_pool row per graded unit, battery_item links, and a seat_battery
 link under the ``_stage0_sweep`` pseudo-seat.
 
@@ -101,7 +101,7 @@ _ITEM_LABELS: dict[BenchmarkCategory, tuple[str, ...]] = {
 
 
 def battery_code(battery: BenchmarkCategory) -> str:
-    """hr2 ``battery_code`` for a livebench battery (``livebench_<name>``)."""
+    """Database battery code for a livebench battery."""
     return f"livebench_{battery.value}"
 
 
@@ -149,8 +149,6 @@ def battery_strata(battery: BenchmarkCategory) -> dict[str, tuple[str, ...]]:
     for label in battery_item_labels(battery):
         groups.setdefault(battery_item_stratum(battery, label), []).append(label)
     return {stratum: tuple(labels) for stratum, labels in groups.items()}
-
-
 
 
 __all__ = [

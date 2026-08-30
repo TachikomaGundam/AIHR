@@ -1,4 +1,4 @@
-"""Tests for hr2.deployable — JSONC comment stripping and deployable-set resolution.
+"""Tests for JSONC parsing and deployable-set resolution.
 
 No live opencode.jsonc required: the loader is exercised through tmp_path
 fake files; the real machine config is only used implicitly by the CLI.

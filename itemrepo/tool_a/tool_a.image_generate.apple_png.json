@@ -2,7 +2,7 @@
   "item_key": "tool_a.image_generate.apple_png",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:a18bf1fe9b43e7391189b5d9a7d4c8a66bfb17ef0952b901a56cc2d7b80b7bad",
+  "content_hash": "sha256:24d3a1c70605f429bf46b950470aae0fc4052bb42c1423eb0ed01c2d76fdc316",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "生成一张 512x512 的 PNG 图片，内容是 'a red apple on a wooden table'。",

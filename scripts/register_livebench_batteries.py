@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Register the 8 livebench batteries (hr bench, task 12) in the hr2 schema.
+"""Register the livebench batteries in the HR schema.
 
 Idempotent row-only registration (no DDL), mirroring
 scripts/register_tool_b_battery.py:
-  * hr2.battery         -> battery-livebench_<name> (v1) x8
-  * hr2.item_pool       -> one row per graded unit (52 total:
+* hr.battery         -> battery-livebench_<name> (v1) x8
+* hr.item_pool       -> one row per graded unit (52 total:
                           13 code_gen + 13 reasoning + 16 instruction_follow
                           + 1 tool_use + 3 long_context + 1 vision + 1 speed
                           + 4 long_horizon)
-  * hr2.battery_item    -> 1 row per item (weight 1.0, position ordered)
-  * hr2.seat_battery    -> ('_stage0_sweep', battery, n_initial, n_max) with
+* hr.battery_item    -> one row per item (weight 1.0, position ordered)
+* hr.seat_battery    -> ('_stage0_sweep', battery, n_initial, n_max) with
                           honest bounds: n_initial=min(3, items),
                           n_max=min(10, items)
 

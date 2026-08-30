@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_diff.release_to_head",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:04dcdf799d38883bd51b563e9e3b3e1ffcac8d3b3b55aa6e3e7a20f288a466e5",
+  "content_hash": "sha256:2b29622926ed29af166488748d1a8c08690a3148ce8dc9dde5d7fbfae614ee82",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "看最近的 release tag v1.2.0 到当前 HEAD 之间，只有 .ts 文件的变化。",

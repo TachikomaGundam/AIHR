@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from hr import config
+from hr import config_resources
 
 _MONOREPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,6 +31,21 @@ def test_hr_home_env_override(tmp_path, monkeypatch):
 
 def test_hr_home_auto_detect_is_monorepo_root():
     assert config.hr_home() == _MONOREPO_ROOT
+
+
+def test_hr_home_uses_installed_share_when_source_configs_are_absent(
+    tmp_path, monkeypatch
+):
+    # Given: a wheel-style install with configs under the interpreter prefix.
+    package_file = tmp_path / "site-packages" / "hr" / "config.py"
+    installed_home = tmp_path / "share" / "hr-agent"
+    (installed_home / "configs").mkdir(parents=True)
+    monkeypatch.delenv("HR_HOME", raising=False)
+    monkeypatch.setattr(config_resources, "__file__", str(package_file))
+    monkeypatch.setattr(config_resources.sys, "prefix", str(tmp_path))
+
+    # When/Then: resource resolution chooses installed data, not site-packages.
+    assert config.hr_home() == installed_home
 
 
 def test_config_path_lives_under_hr_home_configs(tmp_path, monkeypatch):
@@ -132,6 +148,23 @@ def test_db_dsn_toml_plus_password_env(tmp_path, monkeypatch):
     assert config.db_dsn() == "postgresql://alice:s3cret@db.example:5433/hr"
 
 
+def test_db_dsn_encodes_reserved_credential_characters(tmp_path, monkeypatch):
+    # Given: database credentials containing URI delimiters.
+    (tmp_path / "hr.toml").write_text(
+        'db_name = "hr data"\n'
+        'db_user = "alice@example.com"\n',
+        encoding="utf-8",
+    )
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    monkeypatch.setenv("HR_DB_PASSWORD", "p@ss:/word")
+
+    # When / Then: each credential component remains within its URI field.
+    assert config.db_dsn() == (
+        "postgresql://alice%40example.com:p%40ss%3A%2Fword@localhost:5432/hr%20data"
+    )
+
+
 def test_db_dsn_toml_defaults_when_no_password(tmp_path, monkeypatch):
     """(a) toml-less error path: nothing resolvable -> error listing steps."""
     _clear_dsn_envs(monkeypatch)
@@ -206,15 +239,3 @@ def test_opencode_config_dir_override(tmp_path, monkeypatch):
 def test_opencode_config_dir_default_under_home(monkeypatch):
     monkeypatch.delenv("OPENCODE_CONFIG_DIR", raising=False)
     assert config.opencode_config_dir() == Path.home() / ".config" / "opencode"
-
-
-def test_load_settings_backward_compat(tmp_path, monkeypatch):
-    """v1 contract: load_settings() -> Settings with env-driven fields."""
-    _clear_dsn_envs(monkeypatch)
-    s = config.load_settings()
-    assert s.dsn == ""
-    assert s.db_host == "localhost"
-    monkeypatch.setenv("HR_DSN", "postgresql://env-dsn")
-    assert config.load_settings().dsn == "postgresql://env-dsn"
-    monkeypatch.setenv("HR_DB_PASSWORD", "hunter2")
-    assert config.load_settings().db_password == "hunter2"

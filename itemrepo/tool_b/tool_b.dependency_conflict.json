@@ -2,7 +2,7 @@
   "item_key": "tool_b.dependency_conflict",
   "type": "tool_b",
   "tier": 4,
-  "content_hash": "sha256:3a0e9996664405cb258f6ef1b53dc6b70253fa1df49b3f34dec593820c254eb1",
+  "content_hash": "sha256:7deffd3f0ae63b7c88e53add8ca5e04738f08864e04da80ffbc7149430f7c4dd",
   "payload": {
     "scenario_id": "tb_dependency_conflict",
     "env": "opencode-sandbox",

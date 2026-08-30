@@ -4,7 +4,8 @@ Algorithm:
   1. Hard gates: filter out models that fail capability/capacity requirements.
      - vision seats require capabilities.vision == true
      - hephaestus seats require context_window >= seat.ctx_p95
-  2. Fitness ranking: sort survivors by weighted score (descending).
+  2. Fitness ranking: subtract seat-specific health penalties from capability
+     scores, then sort the resulting decision scores (descending).
   3. Separation-driven primary:
      - If top1 vs top2 are separated (p>=0.95) → top1 is primary.
      - If tie → fallback to cost-per-solved-task ordering.
@@ -39,7 +40,7 @@ class RankerResult:
     primary: str
     fallbacks: List[Tuple[str, str]]  # (model_id, separation_label)
     eliminated: List[Tuple[str, str]]  # (model_id, gate_reason)
-    scores_table: Dict[str, float]     # {model_id: weighted_score}
+    scores_table: Dict[str, float]     # {model_id: health-adjusted fitness}
 
 
 def _apply_hard_gate(c: CandidateModel, seat_required_capabilities: List[str],
@@ -131,9 +132,11 @@ def rank(
     if not survivors:
         raise ValueError(f"no candidates pass hard gates for seat {seat.get('seat_code')}")
 
-    # Step 2: fitness ranking (weighted score desc)
+    # Step 2: measured adverse factors are part of fitness, not report-only
+    # metadata. Missing health data remains neutral rather than speculative.
     scores_table = {
         c.model_id: _weighted_score(c.scores, battery_weights)
+        - (health_rank_score(c.health, seat_code) if c.health is not None else 0.0)
         for c in survivors
     }
     ranked = sorted(survivors, key=lambda c: scores_table[c.model_id], reverse=True)
@@ -145,12 +148,22 @@ def rank(
         top2_id = ranked[1].model_id
         key = (top1_id, top2_id)
         rkey = (top2_id, top1_id)
-        p = separation_pairs.get(key) or (1.0 - separation_pairs.get(rkey, 0.5))
+        if key in separation_pairs:
+            p = separation_pairs[key]
+            supported = top1_id
+        elif rkey in separation_pairs:
+            p = separation_pairs[rkey]
+            supported = top2_id
+        else:
+            p = 0.5
+            supported = top1_id
         label = _boot.classify(p)
-        if label == "tie":
-            # Tie: health breaks the tie BEFORE cost — among tied candidates,
-            # prefer the healthier (lowest health_rank_score); candidates
-            # without health data sort after healthy ones; then cost as today.
+        if label == "separated":
+            primary = supported
+        elif label == "tie":
+            # The fitness score already includes measured health. For a
+            # statistically tied top pair, health remains the deterministic
+            # first tie-break before cost.
             tied = [ranked[0], ranked[1]]
 
             def _tie_key(c):
@@ -165,11 +178,17 @@ def rank(
 
     # Step 4: fallbacks 1..3
     fallbacks: List[Tuple[str, str]] = []
-    for c in ranked[1:4]:
-        if separation_pairs is not None and c.model_id != primary:
+    fallback_candidates = [c for c in ranked if c.model_id != primary][:3]
+    for c in fallback_candidates:
+        if separation_pairs is not None:
             key = (primary, c.model_id)
             rkey = (c.model_id, primary)
-            p = separation_pairs.get(key) or (1.0 - separation_pairs.get(rkey, 0.5))
+            if key in separation_pairs:
+                p = separation_pairs[key]
+            elif rkey in separation_pairs:
+                p = separation_pairs[rkey]
+            else:
+                p = 0.5
             fallbacks.append((c.model_id, _boot.classify(p)))
         else:
             fallbacks.append((c.model_id, "unknown"))

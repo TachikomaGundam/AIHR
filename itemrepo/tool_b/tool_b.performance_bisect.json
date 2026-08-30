@@ -2,7 +2,7 @@
   "item_key": "tool_b.performance_bisect",
   "type": "tool_b",
   "tier": 6,
-  "content_hash": "sha256:950c8414c11ec6026ca2a69a24248ec760ee3cd834b9e33e5e63a10582ebf97b",
+  "content_hash": "sha256:df0d22e07a59424275f55f02a02755b4c92619bdb3d748b94bce2bc5cfcbdb34",
   "payload": {
     "scenario_id": "tb_performance_bisect",
     "env": "opencode-sandbox",

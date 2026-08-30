@@ -21,9 +21,9 @@ Config dir resolution goes through the hr config layer
 ``CONFIG_DIR = homedir()/.config/opencode`` maps to in the default setup.
 
 The verdict seating is COMPUTED per sweep (verdict queries never persist an
-assignment — ``hr2.assignment`` has no writers); the bridge therefore
+assignment — ``hr.assignment`` has no writers); the bridge therefore
 recomputes it with the exact same code path as ``hr verdict``
-(``hr.cli.seat_assignments`` + the shared ranker). If that computation finds
+(``hr.decision.seat_assignments`` + the shared ranker). If that computation finds
 no seating (no sweeps, or no seat got a recommendation), the bridge REFUSES
 with a non-zero exit naming the cause — presets are never clobbered with
 empty data.
@@ -41,13 +41,15 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from hr.cli import (
+from hr.decision import (
+    SeatAssignment,
     battery_codes,
     capability_means,
     latest_sweep_id,
     model_capabilities,
     seat_assignments,
     seat_rows,
+    separation_probabilities,
 )
 from hr.config import opencode_config_dir
 from hr.deployable import load_deployable
@@ -65,11 +67,11 @@ def _agent_name(seat_code: str) -> str:
     return seat_code.replace("_", "-")
 
 
-def latest_assignments(conn, deployable: Optional[set[str]] = None) -> tuple[list[dict], str]:
+def latest_assignments(conn, deployable: Optional[set[str]] = None) -> tuple[list[SeatAssignment], str]:
     """Recompute the verdict seating for the latest sweep (same path as hr verdict).
 
     Returns ``(assignments, sweep_id)`` where assignments is
-    ``cli.seat_assignments`` output — one structured entry per seat. Raises
+    ``decision.seat_assignments`` output — one structured entry per seat. Raises
     RuntimeError naming the cause when there is no sweep to seat.
     """
     try:
@@ -85,16 +87,18 @@ def latest_assignments(conn, deployable: Optional[set[str]] = None) -> tuple[lis
     codes = battery_codes(conn)
     seat_db = seat_rows(conn)
     caps_db = model_capabilities(conn)
+    separations = separation_probabilities(conn, sweep_id)
     deployable_ids = set(deployable) if deployable is not None else set(load_deployable())
     pool = set(means) & set(deployable_ids)
     assignments = seat_assignments(
         pool, means, reports, seat_db, caps_db, codes,
         retired_set=set(), include_retired=False,
+        separations=separations,
     )
     return assignments, sweep_id
 
 
-def agents_from_assignments(assignments: list[dict]) -> dict[str, str]:
+def agents_from_assignments(assignments: list[SeatAssignment]) -> dict[str, str]:
     """{agent name: primary model id} for every seat with a recommendation.
 
     Seats without a recommendation (``primary`` None) are skipped.

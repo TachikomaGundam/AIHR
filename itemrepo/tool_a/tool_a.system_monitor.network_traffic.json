@@ -2,7 +2,7 @@
   "item_key": "tool_a.system_monitor.network_traffic",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:09dc2e167346cc14cad9480a0314aef641255f06fedef4d1b763164c6d59f5b3",
+  "content_hash": "sha256:b4d4f2ea6e75c9070f280e154f0704cb4bb32487f7641c7c7a3a20b8b77dbcb6",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "监控 60 秒的网络流量，5 秒采样。",

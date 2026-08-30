@@ -1,19 +1,16 @@
-"""Tests for hr2.items — schema + loader (spec §5.1, §5.3)."""
+"""Tests for item schema and loading (spec §5.1, §5.3)."""
 
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
 
 from hr.items.schema import (
     ItemEnvelope,
-    ItemMeta,
     ItemType,
     PayloadVision,
-    build_envelope,
     canonical_bytes,
     content_hash,
 )
@@ -21,8 +18,9 @@ from hr.items.loader import (
     ItemLoader,
     LoaderError,
     pool_hash,
-    MIN_CANARY_FRAC,
 )
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +154,28 @@ class TestItemEnvelope:
 # loader tests
 # ---------------------------------------------------------------------------
 class TestItemLoader:
+    def test_real_vision_pool_uses_canonical_hashes(self):
+        # Given: the shipped generated vision pool with persisted hashes.
+        db = FakeLoaderDB()
+        loader = ItemLoader(db=db, pool_id="vision", require_canary=False)
+
+        # When: the public loader ingests the production pool.
+        items = loader.load_directory(ROOT / "itemrepo" / "vision")
+
+        # Then: every generated envelope passes canonical hash verification.
+        assert len(items) == 22
+
+    def test_factuality_pool_ignores_non_item_resource_arrays(self):
+        # Given: the shipped factuality pool containing item files and source data.
+        db = FakeLoaderDB()
+        loader = ItemLoader(db=db, pool_id="factuality", require_canary=False)
+
+        # When: the public loader scans the complete pool directory.
+        items = loader.load_directory(ROOT / "itemrepo" / "factuality")
+
+        # Then: only the 70 item envelopes are loaded.
+        assert len(items) == 70
+
     def test_load_directory_basic(self, tmp_path):
         db = FakeLoaderDB()
         loader = ItemLoader(db=db, pool_id="p1", require_canary=False)
@@ -208,8 +228,6 @@ class TestItemLoader:
         db = FakeLoaderDB()
         loader = ItemLoader(db=db, pool_id="p1", require_canary=False)
         data = _make_vision_item()
-        env = ItemEnvelope.model_validate(data)
-        real_hash = content_hash(env)
         data["content_hash"] = "sha256:" + ("f" * 64)
         (tmp_path / "a.json").write_text(json.dumps(data))
         with pytest.raises(LoaderError) as exc:

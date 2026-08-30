@@ -1,6 +1,6 @@
-"""hr2.adapters.base — Adapter protocol + common types (spec §7).
+"""Adapter protocol and common types (spec §7).
 
-Defines the Adapter contract consumed by :mod:`hr2.calibrate`:
+Defines the Adapter contract consumed by :mod:`hr.calibrate`:
 
   - :class:`Capabilities`: per-model capability profile (thinking, vision).
   - :class:`ChatRequest`: a structured chat request.
@@ -8,7 +8,7 @@ Defines the Adapter contract consumed by :mod:`hr2.calibrate`:
     and a single ``chat()`` method returning a :class:`ModelResponse`.
 
 Concrete adapters live alongside — the only one in use at this stage is
-:class:`hr2.adapters.anthropic_compat.AnthropicCompatAdapter`, which
+:class:`hr.adapters.anthropic_compat.AnthropicCompatAdapter`, which
 wraps the two ``x-api-key`` + ``anthropic-version`` gateways used in
 v1 (bailian-token-plan and kimi-for-coding).
 """
@@ -65,7 +65,7 @@ class Adapter(Protocol):
     Implementations are responsible for translating ``model_id`` into
     endpoint + headers, honouring rate limits, and streaming where
     required. They must classify transport failures via
-    :func:`hr2.scheduler.taxonomy.classify_failure` and raise a
+:func:`hr.scheduler.taxonomy.classify_failure` and raise a
     :class:`AdapterError` carrying the descriptor on terminal failure.
     """
 
@@ -78,6 +78,7 @@ class Adapter(Protocol):
         messages: list[dict[str, Any]],
         *,
         images: list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | None = None,
         thinking_budget: int | None = None,
         max_output: int = 16384,
         timeout_s: int = 600,

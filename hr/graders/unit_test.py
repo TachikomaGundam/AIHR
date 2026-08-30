@@ -1,17 +1,7 @@
-"""hr2.graders.unit_test — sandbox subprocess evaluator.
-
-Spec §6.2: unit_test grader runs a pytest-compatible suite in a subprocess
-with best-effort isolation (cwd, no network env, 30s timeout). Grading is
-deterministic: exit_code==0, expected file existence, pytest stdout pass
-count. Does NOT perform model-API calls.
-
-Sandbox strategy is OS-dependent on Linux with unshare if available; falls
-back to subprocess with a short timeout. Tests use `tempfile` directories.
-"""
+"""Run item-authored tests in a network- and filesystem-isolated sandbox."""
 
 from __future__ import annotations
 
-import os
 import subprocess
 import tempfile
 import textwrap
@@ -23,16 +13,16 @@ from hr.graders.base import (
     GraderError,
     ModelResponse,
 )
+from hr.sandbox import SandboxUnavailableError, run_sandboxed
 
 DEFAULT_TIMEOUT_S = 30
 
 
-def _safe_env() -> dict[str, str]:
-    """A stripped-down env without network-relevant variables."""
-    keep = {"PATH", "HOME", "LANG", "LC_ALL", "VIRTUAL_ENV", "PYTHONPATH"}
-    env = {k: v for k, v in os.environ.items() if k in keep}
-    env.update({"PYTHONUNBUFFERED": "1"})
-    return env
+def _workspace_path(workdir: Path, value: Any, label: str) -> Path:
+    relative_path = Path(str(value or ""))
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise GraderError(f"invalid {label} path: {relative_path}")
+    return workdir / relative_path
 
 
 def _write_artifacts(
@@ -62,7 +52,7 @@ def _write_artifacts(
         ).strip()
         tests = [{"name": "test_response.py", "content": src}]
     for t in tests:
-        p = workdir / (t.get("name") or "test_file.py")
+        p = _workspace_path(workdir, t.get("name") or "test_file.py", "test file")
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(t.get("content") or "", encoding="utf-8")
 
@@ -88,57 +78,54 @@ class UnitTestGrader:
         if test_files is not None:
             payload_copy["test_files"] = test_files
 
-        with tempfile.TemporaryDirectory(prefix="hr2-unit-") as td:
+        with tempfile.TemporaryDirectory(prefix="hr-unit-") as td:
             workdir = Path(td) / "sandbox"
             _write_artifacts(workdir, payload_copy, response)
             try:
-                proc = subprocess.run(
+                proc = run_sandboxed(
+                    workdir,
                     [
-                        "python",
                         "-m",
                         "pytest",
                         "-q",
                         "--no-header",
                         "-p", "no:cacheprovider",
-                        str(workdir),
+                        "/work",
                     ],
-                    cwd=str(workdir),
-                    env=_safe_env(),
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout,
-                    check=False,
+                    timeout,
                 )
                 exit_code = proc.returncode
                 pytest_out = proc.stdout + proc.stderr
-            except subprocess.TimeoutExpired as exc:
+            except subprocess.TimeoutExpired:
                 exit_code = 124
                 pytest_out = f"timeout after {timeout}s"
+            except SandboxUnavailableError as exc:
+                exit_code = 126
+                pytest_out = str(exc)
 
-        # Deterministic checks evaluation.
-        check_results: list[dict[str, Any]] = []
-        passed_count = 0
-        for chk in checks_spec:
-            kind = chk.get("kind")
-            passed = False
-            if kind == "exit_code":
-                passed = exit_code == int(chk.get("value", 0))
-            elif kind == "file_exists":
-                path = Path(workdir) / (chk.get("path") or "")
-                passed = path.exists()
-            elif kind == "pytest_pass":
-                passed = ("passed" in pytest_out) and (exit_code == 0)
-            elif kind == "stdout_contains":
-                passed = (chk.get("value") or "") in pytest_out
-            else:
-                raise GraderError(f"unknown check kind: {kind}")
-            check_results.append({
-                "kind": kind,
-                "expected": chk.get("value"),
-                "passed": passed,
-            })
-            if passed:
-                passed_count += 1
+            check_results: list[dict[str, Any]] = []
+            passed_count = 0
+            for chk in checks_spec:
+                kind = chk.get("kind")
+                passed = False
+                if kind == "exit_code":
+                    passed = exit_code == int(chk.get("value", 0))
+                elif kind == "file_exists":
+                    path = _workspace_path(workdir, chk.get("path"), "check file")
+                    passed = path.exists()
+                elif kind == "pytest_pass":
+                    passed = ("passed" in pytest_out) and (exit_code == 0)
+                elif kind == "stdout_contains":
+                    passed = (chk.get("value") or "") in pytest_out
+                else:
+                    raise GraderError(f"unknown check kind: {kind}")
+                check_results.append({
+                    "kind": kind,
+                    "expected": chk.get("value"),
+                    "passed": passed,
+                })
+                if passed:
+                    passed_count += 1
 
         total = max(len(check_results), 1)
         score = passed_count / total

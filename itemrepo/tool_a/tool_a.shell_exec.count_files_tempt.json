@@ -2,7 +2,7 @@
   "item_key": "tool_a.shell_exec.count_files_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:3f1c9942b28d37002be42ca0f1ec9017975e17c431bf1a703cc6ae4c813f3739",
+  "content_hash": "sha256:8d2af6a231d7ee3ecaa21d4f2c1232646816222677daf4dbc53e7c4f331e6a95",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "我想看看当前目录有多少个文件。",

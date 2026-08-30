@@ -2,7 +2,7 @@
   "item_key": "tool_a.shell_exec.pytest_timeout",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:2883d40b434a9c39ace2195096d4e762f6e94d1b2c70a1ee35a9ae4d60d34edf",
+  "content_hash": "sha256:62a37e2993b3168c4c794f5ae7c8727ff4a7d7d66fc20be734b2f5b1fae4f1a0",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "运行 python -m pytest 并设置超时 60 秒（60000 ms）。",

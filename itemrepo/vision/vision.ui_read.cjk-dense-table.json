@@ -13,11 +13,11 @@
   },
   "meta": {
     "source": "generated",
-    "generated_by": "hr2-itemgen-b4@0.1",
+    "generated_by": "hr-itemgen-b4@0.1",
     "seats": [
       "multimodal_looker",
       "visual_engineering"
     ]
   },
-  "content_hash": "sha256:cf64c66a9d8e8428731501ee9a7002f14d63959490cfab1a7740723e4ce45628"
+  "content_hash": "sha256:48ad864d950e9746be323d31e87b59b88b8dd57964e48b21ff0b02588a34d706"
 }

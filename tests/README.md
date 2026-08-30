@@ -26,7 +26,7 @@ Three modes live in `scripts/test.sh`. Any unrecognised flag prints usage and ex
 |------|---------|-----------|---------------|-------------|
 | Offline (default) | `bash scripts/test.sh` | no | `--cov-fail-under=80` | all tests pass and coverage >= 80 % |
 | With DB | `bash scripts/test.sh --with-db` | yes | `--cov-fail-under=80` | all tests pass (incl. DB) and coverage >= 80 % |
-| CI simulation | `bash scripts/test.sh --ci` | no | report only | all lints + tests + universality pass |
+| CI simulation | `bash scripts/test.sh --ci` | no | >= 80% | all lints + tests + universality + wheel build pass |
 
 ### Offline (default)
 
@@ -63,7 +63,7 @@ Either path sets `HR_TEST_DB=1` so the `test_db.py` live-schema test activates a
 bash scripts/test.sh --ci
 ```
 
-Mirrors the exact step order in `.github/workflows/ci.yml`: `compileall`, `ruff check`, `basedpyright`, `pytest --cov` (report only, no fail-under), universality gate. Useful for catching CI failures before pushing.
+Mirrors the local-safe CI sequence in `.github/workflows/ci.yml`: `compileall`, `ruff check`, `basedpyright`, `pytest --cov --cov-fail-under=80`, universality gate, and wheel build. It intentionally omits CI's PostgreSQL service, so DB-marked tests remain skipped.
 
 ### Unknown flag
 
@@ -163,15 +163,15 @@ python3 -m pytest -m db --co -q
 | Gate | Threshold | Where enforced |
 |------|-----------|----------------|
 | Overall | >= 80 % | `scripts/test.sh` default and `--with-db` (`--cov-fail-under=80`) |
-| Per-module (bottom 3) | >= 75 % each | Rule: the three lowest-coverage modules in the eligible set must each reach 75 %. Enforced in `scripts/test.sh` and `.github/workflows/ci.yml` line 47. |
+| Per-module (bottom 3) | reporting target | Review the three lowest-coverage modules before release; the current runner does not enforce a per-module threshold. |
 
-The overall gate is live today. `scripts/test.sh` (default and `--with-db`) exits 1 when total coverage falls below 80 %. The CI simulation mode (`--ci`) reports coverage without the fail-under threshold, matching the current `ci.yml` step.
+The overall gate is live today. `scripts/test.sh` (default, `--with-db`, and `--ci`) exits 1 when total coverage falls below 80 %.
 
 Coverage is measured with `--cov=hr --cov-report=term-missing`. Branch coverage is enabled (`branch = true` in `pyproject.toml`). The source set is `hr/` only.
 
 ## CI Behavior
 
-`.github/workflows/ci.yml` runs on push and pull request. The job matrix covers Python 3.11 and 3.14.
+`.github/workflows/ci.yml` runs on push and pull request. The job matrix covers Python 3.12 and 3.14.
 
 ### Postgres service
 

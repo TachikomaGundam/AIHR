@@ -2,7 +2,7 @@
   "item_key": "tool_a.edit_file.missing_file_content",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:f87631787fdb855ae8e1ab0069eb1f529bd0691b23e164d22655258b0ac38a68",
+  "content_hash": "sha256:e73a05504e45467d680776c206ccdf049984768b5deb1a94b38bef020f169c25",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我把某个文件里的 TODO 标记改一下。",

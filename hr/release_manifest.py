@@ -17,7 +17,9 @@ Design rules
   locks the closure-completeness invariant.
 * ``EXCLUDED_HR_MODULES`` — every OTHER ``hr/`` python module that exists in
   the working tree. Each has a documented disposition. Nothing is deleted;
-  the exclusions are intentional registrations of in-flight work.
+  the exclusions are intentional registrations of in-flight work. The
+  registry is EMPTY since the hr-ship W1 commit: the release surface
+  coincides with the repository surface (tracked tree, no double reality).
 * ``GUARDED_IMPORTS`` — imports of EXCLUDED modules that are performed by
   modules that ARE tracked at HEAD, and are deliberately tolerated because
   the importing code degrades gracefully (try/except) or loads lazily inside
@@ -95,83 +97,65 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/db_schema.py",                     # unified-era 20-table hr-schema DDL; imported unguarded by tracked hr/db.py
     "hr/deployment_manager.py",            # todo 9 release lifecycle core module; ships because the facade imports register_release_commands
     "hr/release_manifest.py",              # the manifest file itself: ships in every release because deployment_manager imports it at runtime
+    # Unification-era modules landed with the hr-ship W1 commit: the former
+    # worktree-only surface is now tracked, so the release surface coincides
+    # with the repository surface (no double reality).
+    "hr/adapters/anthropic_messages.py",   # Anthropic wire-format message encoder (stdlib-only)
+    "hr/adapters/anthropic_stream.py",     # Anthropic SSE streaming response decoder (httpx + adapters.base + graders.base)
+    "hr/adapters/openai_endpoint.py",      # OpenAI-compatible endpoint client (adapters.base + fleet)
+    "hr/bench/engine_interactive.py",      # interactive single-item benchmark engine (adapter-backed)
+    "hr/bench/engine_runners.py",          # battery runner family (score_* from scorers + graders.base)
+    "hr/bench/prompt_image.py",            # PNG -> base64 prompt image payload (stdlib-only)
+    "hr/bench/scorer_attention.py",        # attention-probe scorer (scorer_shared + stress_prompts)
+    "hr/bench/scorer_code.py",             # hidden-Python-test scorer running code through hr.sandbox
+    "hr/bench/scorer_instruction.py",      # instruction-following constraint scorer (scorer_shared)
+    "hr/bench/scorer_reasoning.py",        # runtime-truth math/number-theory scorer (scorer_shared)
+    "hr/bench/scorer_runtime.py",          # runtime-verified artifact scorer (scorer_shared)
+    "hr/calibration_cli.py",               # calibration command cluster (calibration_runner + config)
+    "hr/config_resources.py",              # shipped yaml config files resolved as package resources
+    "hr/fleet_policy.py",                  # fleet scope policy (yaml + config.load_yaml)
+    "hr/graders/constraint_dsl.py",        # constraint-DSL evaluator (graders.base)
+    "hr/health_metrics.py",                # behavioral health metrics (stdlib + decimal)
+    "hr/items/payloads.py",                # typed benchmark item payloads (pydantic)
+    "hr/sandbox.py",                       # subprocess code sandbox backing scorer_code
+    # Vision item authoring toolchain (itemrepo/vision). Script-mode modules:
+    # they import each other by bare sibling name, so the import closure
+    # resolves only with the vision directory on sys.path (their tools run
+    # that way: build.py / regenerate_verify.py). Pillow is an OPTIONAL
+    # dependency (the ``[vision]`` extra) — drawing primitives load lazily
+    # inside the generators, so the import closure works without Pillow
+    # installed; only regeneration (an authoring action) needs the extra.
+    "itemrepo/vision/vision_chart_core.py",
+    "itemrepo/vision/vision_chart_dense.py",
+    "itemrepo/vision/vision_draw.py",
+    "itemrepo/vision/vision_registry.py",
+    "itemrepo/vision/vision_registry_chart.py",
+    "itemrepo/vision/vision_registry_schematic.py",
+    "itemrepo/vision/vision_registry_ui.py",
+    "itemrepo/vision/vision_schematic_flow.py",
+    "itemrepo/vision/vision_schematic_network.py",
+    "itemrepo/vision/vision_tier3.py",
+    "itemrepo/vision/vision_ui_core.py",
+    "itemrepo/vision/vision_ui_dense.py",
 })
 
 # ---------------------------------------------------------------------------
 # Excluded: every other hr/*.py present in the working tree, with disposition
 # ---------------------------------------------------------------------------
 
-# The worktree-era split CLI cluster (cli_report_*/cli_inventory/cli_selection)
-# graduated to INCLUDED_HR_MODULES with the unification commit — they are the
-# shipped CLI's command surface now, not exclusions.
-
-# Modules imported ONLY by uncommitted revisions of tracked files (or by no
-# one). They are the in-flight unification-era codebase; their commits are
-# expected to track them together with the tracked-file revisions that
-# import them.
-_WORKTREE_ERA: Dict[str, str] = {
-    "hr/adapters/anthropic_messages.py": "imported only by the uncommitted revision of tracked hr/adapters/anthropic_compat.py",
-    "hr/adapters/anthropic_stream.py": "imported only by the uncommitted revision of tracked hr/adapters/anthropic_compat.py",
-    "hr/adapters/openai_endpoint.py": "no importer anywhere in the tree (working-tree orphan); worktree-era adapter variant",
-    "hr/bench/engine_interactive.py": "imported only by the uncommitted revision of tracked hr/bench/engine.py",
-    "hr/bench/engine_runners.py": "imported only by the uncommitted revision of tracked hr/bench/engine.py",
-    "hr/bench/prompt_image.py": "imported only by the uncommitted revision of tracked hr/bench/prompts.py",
-    "hr/bench/scorer_attention.py": "imported only by the uncommitted revision of tracked hr/bench/scorers.py",
-    "hr/bench/scorer_code.py": "imported only by uncommitted revisions of tracked hr/bench/scorers.py and hr/graders/unit_test.py",
-    "hr/bench/scorer_instruction.py": "imported only by the uncommitted revision of tracked hr/bench/scorers.py",
-    "hr/bench/scorer_reasoning.py": "imported only by the uncommitted revision of tracked hr/bench/scorers.py",
-    "hr/bench/scorer_runtime.py": "imported only by the uncommitted revision of tracked hr/bench/scorers.py",
-    "hr/calibration_cli.py": "imported only by the uncommitted revision of tracked hr/calibrate.py",
-    "hr/config_resources.py": "imported only by the uncommitted revision of tracked hr/config.py",
-    "hr/fleet_policy.py": "imported only by the uncommitted revision of tracked hr/fleet.py",
-    "hr/graders/constraint_dsl.py": "imported only by the uncommitted revision of tracked hr/graders/constraint.py",
-    "hr/health_metrics.py": "imported only by the uncommitted revision of tracked hr/health.py",
-    "hr/items/payloads.py": "imported only by the uncommitted revision of tracked hr/items/schema.py",
-    "hr/sandbox.py": "imported only by uncommitted revisions of tracked hr/graders/unit_test.py and hr/bench/scorers.py",
-}
-
-# Generator/authoring toolchain for the vision battery. Produces the tracked
-# pre-generated items (itemrepo/vision/*.json + img/*) but requires Pillow,
-# which is NOT a pyproject dependency; regeneration is an authoring concern,
-# not a runtime path.
-_VISION_TOOLCHAIN: Dict[str, str] = {
-    f"itemrepo/vision/{name}": "vision item authoring/generator module (Pillow, undeclared dep); the pre-generated items and images are tracked"
-    for name in (
-        "vision_chart_core.py", "vision_chart_dense.py", "vision_draw.py",
-        "vision_registry.py", "vision_registry_chart.py", "vision_registry_schematic.py",
-        "vision_registry_ui.py", "vision_schematic_flow.py", "vision_schematic_network.py",
-        "vision_tier3.py", "vision_ui_core.py", "vision_ui_dense.py",
-    )
-}
-
-# Legacy parallel database layer: still tracked at HEAD (the working-tree
-# deletion is uncommitted, unification-era). Several HEAD blobs still import
-# it (see GUARDED_IMPORTS) — those imports work at a fresh checkout of this
-# commit because the file is still tracked; the deletion + rewire to hr.db
-# land with the unification commit. This manifest neither re-creates nor
-# deletes it.
-_LEGACY_TRACKED: Dict[str, str] = {
-    "hr/database.py": "legacy DB layer deleted in the working tree (unification era); deletion pending a future commit; HEAD blobs of publish/reference/research/cli still import it (whitelisted in GUARDED_IMPORTS)",
-}
-
-EXCLUDED_HR_MODULES: Dict[str, str] = {
-    **_WORKTREE_ERA,
-    **_VISION_TOOLCHAIN,
-    **_LEGACY_TRACKED,
-}
+# Every module that used to be registered here has landed in
+# INCLUDED_HR_MODULES with the hr-ship W1 commit (the 18 unified-era modules
+# and the 12 vision-toolchain modules above). Exclusions are an intentional
+# registration of in-flight work; now that the release surface coincides with
+# the repository surface there is nothing in flight, so the registry is empty.
+# Future untracked work registers here again until it lands.
+EXCLUDED_HR_MODULES: Dict[str, str] = {}
 
 # (importer, imported) pairs tolerated by the release surface even though the
-# imported module is excluded. Every entry is a real reference from the
-# tracked tree to the excluded surface — importing code degrades gracefully.
-GUARDED_IMPORTS: List[Tuple[str, str]] = [
-    # HEAD blobs importing the legacy database layer while hr/database.py is
-    # still tracked. These imports RESOLVE at a fresh checkout of this commit
-    # (the file exists there); the deletion and the rewire to hr.db land with
-    # the unification commit (the worktree revisions already import hr.db).
-    ("hr/publish.py", "hr/database.py"),
-    ("hr/reference.py", "hr/database.py"),
-    ("hr/research.py", "hr/database.py"),
-]
+# imported module is excluded. Empty since the hr-ship W1 commit: the legacy
+# hr/database.py layer is DELETED (its importers were rewired to hr.db in the
+# same commit), so no tracked module references an excluded module anymore.
+GUARDED_IMPORTS: List[Tuple[str, str]] = []
 
 # ---------------------------------------------------------------------------
 # Dead/edge tables in the 20-table schema contract (tests/test_db.py

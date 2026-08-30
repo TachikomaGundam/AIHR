@@ -2,7 +2,7 @@
   "item_key": "tool_a.todo_write.missing_todos_data",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:d293640f778bbc5781d8ae0cbccc4d773d874273e3d1b31b6f9e90f0442ac72e",
+  "content_hash": "sha256:02c3a9bfbc5a6637d79fed0e8161f4ab7ffb9e2708cedc4383a3c73857d710ba",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "写一些待办。",

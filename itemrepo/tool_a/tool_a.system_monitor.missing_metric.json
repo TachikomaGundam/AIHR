@@ -2,7 +2,7 @@
   "item_key": "tool_a.system_monitor.missing_metric",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:128dee3d55a8470181b42a39f4b00093913c13f5e915e93ae0e838043786243e",
+  "content_hash": "sha256:bd6a4ea61ff6bdf79aca7635d533c7b6d756f0b7f44a3a943bfe525115ec52e1",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "监控一下系统。",

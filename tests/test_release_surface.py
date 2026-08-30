@@ -51,9 +51,11 @@ def _git_show(rev: str, path: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
-def _subprocess_import(module: str) -> subprocess.CompletedProcess[str]:
+def _subprocess_import(
+    module: str, extra_paths: tuple[str, ...] = ()
+) -> subprocess.CompletedProcess[str]:
     command = [sys.executable, "-c", f"import {module}"]
-    env = os.environ | {"PYTHONPATH": os.pathsep.join(sys.path)}
+    env = os.environ | {"PYTHONPATH": os.pathsep.join([*sys.path, *extra_paths])}
     return subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=False)
 
 
@@ -131,6 +133,13 @@ def test_shipped_cli_runtime_closure_is_tracked_and_included() -> None:
     assert not_included == [], f"closure members missing from INCLUDED_HR_MODULES: {not_included}"
     # Guard rails: the closure is non-trivial and its roots are present.
     assert len(closure) >= 30, f"closure unexpectedly small: {len(closure)}"
+    # The manifest itself covers the FULL repository surface since the
+    # hr-ship W1 commit (the 18 landed unified-era modules + the 12 vision
+    # toolchain modules on top of the shipped closure): lock a floor so the
+    # registry cannot silently shrink back to the split-era closure.
+    assert len(INCLUDED_HR_MODULES) >= 70, (
+        f"manifest closure unexpectedly small: {len(INCLUDED_HR_MODULES)}"
+    )
     for root in ("hr/__init__.py", "hr/__main__.py", "hr/cli.py"):
         assert root in INCLUDED_HR_MODULES, f"entry point missing from INCLUDED: {root}"
 
@@ -218,7 +227,11 @@ def test_manifest_included_module_exists_and_imports_cleanly(module_path: str) -
     # Given: a module the release manifest declares part of the release surface.
     # When: the manifest is evaluated at this checkout (fresh-HEAD gate).
     assert (ROOT / module_path).is_file(), f"INCLUDED module missing from checkout: {module_path}"
-    result = _subprocess_import(module_path.removesuffix(".py").replace("/", "."))
+    # The vision toolchain is script-mode (bare sibling imports): mirror its
+    # runtime by putting the vision directory on sys.path, exactly as
+    # build.py / regenerate_verify.py do when invoked from that directory.
+    extra = (str(ROOT / "itemrepo" / "vision"),) if module_path.startswith("itemrepo/vision/") else ()
+    result = _subprocess_import(module_path.removesuffix(".py").replace("/", "."), extra_paths=extra)
     # Then: the module imports cleanly in a fresh interpreter.
     assert result.returncode == 0, f"{module_path}: {result.stderr}"
 
@@ -236,13 +249,14 @@ def test_manifest_lists_every_untracked_hr_module() -> None:
     assert unknown == set(), f"untracked and unclassified: {sorted(unknown)}"
 
 
-def test_manifest_excluded_tracked_modules_are_only_legacy_database() -> None:
+def test_manifest_has_no_excluded_tracked_modules() -> None:
     # Given: modules that are BOTH tracked at HEAD AND listed as excluded.
     tracked = set(_git(["ls-files"]).splitlines())
     gone = set(EXCLUDED_HR_MODULES) & tracked
-    # Then: exactly the legacy database module, whose working-tree deletion
-    # (unification era) is deliberately left uncommitted.
-    assert gone == {"hr/database.py"}, f"unexpected tracked-but-excluded: {sorted(gone)}"
+    # Then: none. The exclusion registry is empty since the hr-ship W1
+    # commit — every module that used to be excluded is now included, and
+    # the legacy database layer is deleted rather than excluded.
+    assert gone == set(), f"unexpected tracked-but-excluded: {sorted(gone)}"
 
 
 def test_guarded_imports_reference_documented_exclusions() -> None:
@@ -358,44 +372,38 @@ def test_release_closure_has_no_legacy_product_identifier() -> None:
     # content swept into the shipped closure by the CLI unification (e.g.
     # hr/deployable.py); their cleanup lands with the unification commit —
     # out of this commit's scope. Text that DIFFERS from the parent blob (new
-    # or rewritten modules) must present the canonical name. One carve-out:
-    # hr/cli_inventory.py imports the committed discover upsert by its API
-    # name (upsert_hr2) — the identifier itself carries the legacy suffix and
-    # cannot be referenced honestly without it; the unification commit renames
-    # the API and lifts this exemption.
-    _API_NAME_EXEMPT = {"hr/cli_inventory.py"}
+    # or rewritten modules) must present the canonical name.
     offenders = [
         path.relative_to(ROOT)
         for path in sources
         if "hr2" in path.read_text(encoding="utf-8").lower()
         and path.read_text(encoding="utf-8") != (_git_show("HEAD~1", str(path.relative_to(ROOT))) or "")
-        and str(path.relative_to(ROOT)) not in _API_NAME_EXEMPT
     ]
     # Then: the registered surface consistently presents the canonical name.
     assert offenders == []
 
 
 def test_release_surface_has_one_database_layer() -> None:
-    # Given: the manifest disposition of the legacy database layer.
-    # When: the import surface is inspected by the same AST resolution the
-    # manifest gate uses (string matching is unreliable — HEAD blobs mention
-    # "hr.database" in docstrings).
-    imported_by: list[str] = []
+    # Given: the unified storage layer. The legacy parallel layer
+    # (hr/database.py) was DELETED by the hr-ship W1 commit and its importers
+    # were rewired to hr.db in the same commit — it must neither be tracked,
+    # nor registered as an exclusion, nor referenced by any tracked module.
     tracked = set(_git(["ls-files"]).splitlines())
+    assert "hr/database.py" not in tracked, "legacy database.py re-appeared in the tree"
+    assert "hr/database.py" not in EXCLUDED_HR_MODULES, "hr/database.py registered as an exclusion while unreachable"
+    # When: every tracked python module's imports are inspected with the same
+    # AST resolution the manifest gate uses (string matching is unreliable —
+    # blobs mention "hr.database" in docstrings).
     for path in sorted(tracked):
         if not path.endswith(".py"):
             continue
         src = _git(["show", f"HEAD:{path}"])
         for module, level, lineno, guarded, names in imports_in_src(src):
             targets = resolve_import(module, level, path, names)
-            if "hr/database.py" in targets and (path, "hr/database.py") not in GUARDED_IMPORTS:
-                imported_by.append(f"{path}:{lineno}")
-    # Then: no tracked module imports the legacy layer outside the documented
-    # whitelist. The file itself is still tracked at HEAD (deletion is
-    # uncommitted, unification era) and is documented-excluded in the
-    # manifest — it is neither deleted nor silently imported.
-    assert imported_by == [], f"unwhitelisted hr.database references: {imported_by}"
-    assert EXCLUDED_HR_MODULES["hr/database.py"], "hr/database.py disposition missing"
+            assert "hr/database.py" not in targets, f"{path}:{lineno} imports deleted hr.database"
+    # Then: the hr.database layer is unreachable in a fresh interpreter.
+    result = _subprocess_import("hr.database")
+    assert result.returncode != 0, "deleted hr.database is still importable"
 
 
 # ---------------------------------------------------------------------------
@@ -436,3 +444,46 @@ def test_spread_probe_resolves_current_benchmark_api() -> None:
     # When: a clean interpreter imports the script without making API calls.
     # Then: all benchmark imports resolve.
     assert result.returncode == 0, result.stderr
+
+
+_PIL_BLOCKER = (
+    "import sys\n"
+    "class _BlockPIL:\n"
+    "    def find_spec(self, fullname, path=None, target=None):\n"
+    "        if fullname == 'PIL' or fullname.startswith('PIL.'):\n"
+    "            raise ModuleNotFoundError(f'PIL blocked: {fullname}')\n"
+    "        return None\n"
+    "sys.meta_path.insert(0, _BlockPIL())\n"
+)
+
+
+def test_included_import_closure_succeeds_with_pillow_blocked() -> None:
+    """Every INCLUDED module imports in an interpreter where PIL is absent.
+
+    Pillow is an optional dependency (the ``[vision]`` extra). The vision
+    toolchain draws lazily inside its generator functions, so the import
+    closure never touches PIL — only regeneration (an authoring action)
+    does, and it raises a loud RuntimeError naming the extra. The blocker
+    sits on ``sys.meta_path`` so the absence is absolute, regardless of any
+    Pillow installed in the environment.
+    """
+    # Given: a Pillow-blocked interpreter (meta_path finder raising
+    # ModuleNotFoundError for PIL and PIL.*) and every manifest module.
+    vision_dir = ROOT / "itemrepo" / "vision"
+    for module_path in sorted(INCLUDED_HR_MODULES):
+        if module_path == "hr/__main__.py":
+            continue  # entry point, not an importable module
+        module = module_path.removesuffix(".py").replace("/", ".")
+        extra = (str(vision_dir),) if module_path.startswith("itemrepo/vision/") else ()
+        env = os.environ | {"PYTHONPATH": os.pathsep.join([*sys.path, *extra])}
+        # When: the module is imported with PIL blocked.
+        result = subprocess.run(
+            [sys.executable, "-c", f"{_PIL_BLOCKER}import {module}"],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # Then: the import closure holds without Pillow.
+        assert result.returncode == 0, f"{module_path} fails without Pillow:\n{result.stderr}"

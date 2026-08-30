@@ -2,7 +2,7 @@
   "item_key": "tool_a.translate_text.de_to_es",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:e4f23c15ebd84b79eed4a06c82d2746f735c6ff92a5eac8a24d6c7a7eaf526d0",
+  "content_hash": "sha256:4db6a69702cf15e9aad986bd5f38b47f0d71d1e097fa5d91ae31dfced83bb75c",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把 'Die Zukunft ist jetzt' 从德文翻译成西班牙文。",

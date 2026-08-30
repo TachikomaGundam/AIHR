@@ -2,7 +2,7 @@
   "item_key": "tool_a.csv_analyze.duplicates_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:91f421c9aba02cd9cfed13332d21dd876d7fd44b8d1fca90f3f0eacbf1e45c93",
+  "content_hash": "sha256:f1f7b3e879e3d2af31583e12076de56d2f0f68b845d1de74722d723bb14a3a88",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "这个 csv 文件里有哪些重复值？",

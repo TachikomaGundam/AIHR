@@ -12,7 +12,7 @@
   },
   "item_key": "factuality.una.ud.company-salary-system",
   "meta": {
-    "generated_by": "hr2-itemgen@0.1",
+    "generated_by": "hr-itemgen@0.1",
     "seats": [
       "oracle",
       "writing"

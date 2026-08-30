@@ -1,7 +1,7 @@
-"""hr2.items.loader — load a directory tree of item JSONs into a pool.
+"""Load a directory tree of item JSON files into a pool.
 
 Spec §5.1 enforcement:
-  - each item validates against hr2.items.schema.ItemEnvelope,
+- each item validates against ``hr.items.schema.ItemEnvelope``,
   - item_key format enforced by the Pydantic model,
   - meta.seats non-empty enforced by the Pydantic model,
   - factuality_qa requires meta.knowledge_after,
@@ -40,7 +40,7 @@ class LoaderError(ValueError):
 
 
 # ---------------------------------------------------------------------------
-# Minimal DB protocol — mockable. hr2.db implements more; we only call these.
+# Minimal DB protocol; ``hr.db`` implements more than this loader needs.
 # ---------------------------------------------------------------------------
 @runtime_checkable
 class LoaderDB(Protocol):
@@ -128,7 +128,9 @@ class ItemLoader:
         items: list[_LoadedItem] = []
         for path in sorted(root.rglob("*.json")):
             if path.is_file():
-                items.append(self._load_one(path))
+                item = self._load_one(path)
+                if item is not None:
+                    items.append(item)
 
         self._check_canary_fraction(items)
         self._check_pool_hash(items)
@@ -170,12 +172,14 @@ class ItemLoader:
         return loaded
 
     # -- internal --
-    def _load_one(self, path: Path) -> _LoadedItem:
+    def _load_one(self, path: Path) -> _LoadedItem | None:
         try:
             text = path.read_text(encoding="utf-8")
             raw = json.loads(text)
         except (OSError, json.JSONDecodeError) as exc:
             raise LoaderError(f"{path}: {exc}") from exc
+        if not isinstance(raw, dict):
+            return None
         envelope = self._validate_one(raw)
         chash = self._verify_or_compute_hash(envelope)
         self._check_seat_cutoff(envelope, path)

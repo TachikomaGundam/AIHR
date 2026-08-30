@@ -2,7 +2,7 @@
   "item_key": "tool_a.calculator.compound_expr",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:607e7fb754307784539ee3f2aade6c75cc49b6b6a15b6a596e66ff8f804536ab",
+  "content_hash": "sha256:afa7e3d7470b2d45326516895d8b22c5dad62db43dc3ca1061248d06a431c830",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "计算 2^20 + sqrt(144)，结果保留 2 位小数。",

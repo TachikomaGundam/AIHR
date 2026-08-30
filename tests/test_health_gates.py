@@ -1,4 +1,4 @@
-"""Tests for hr2.seats.health_gates — gate levels, thresholds, ranking key."""
+"""Tests for health gate levels, thresholds, and ranking penalties."""
 
 from __future__ import annotations
 

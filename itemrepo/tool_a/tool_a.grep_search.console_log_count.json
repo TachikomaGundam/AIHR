@@ -2,7 +2,7 @@
   "item_key": "tool_a.grep_search.console_log_count",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:4af5ed2742b63b1f07982a2ae36a9dcbf87f46f70227547de65369e9c6007f62",
+  "content_hash": "sha256:28fff2e99246ca96eac8e7360bf25c39e6e0552c9ae1def6a981566675ab4bfa",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "统计项目里有多少行包含 'console.log'。",

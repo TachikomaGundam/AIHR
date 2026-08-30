@@ -2,7 +2,7 @@
   "item_key": "tool_a.deploy_service.my-api_staging",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:33be3adce2e877f1f261b470ec4d7ef7678138c7a345fe55abd6ae6015bd386c",
+  "content_hash": "sha256:b8069be34045b2b0f91326c3b25422b3f43008c7fb2344e19f5b771f899705bb",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "把 my-api 服务部署到 staging，镜像 my-api:v1.2.3，3 个副本。",

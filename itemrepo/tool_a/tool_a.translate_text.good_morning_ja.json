@@ -2,7 +2,7 @@
   "item_key": "tool_a.translate_text.good_morning_ja",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:96672f0f1a086e6cfa0dde65a65d86c1b1d3140d0a33ca4bac971405c5e0a414",
+  "content_hash": "sha256:f707ada3f10160f3ea46e412e76cb99607e3d3c01fc7d9e8e0ed6349ea8fcab8",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "Translate 'Good morning' from English to Japanese.",

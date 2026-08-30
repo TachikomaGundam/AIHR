@@ -1,4 +1,4 @@
-"""hr2.graders.schema_valid — JSON Schema subset + arg_constraints.
+"""JSON Schema subset and argument constraints.
 
 Implements a minimal JSON Schema validator for tool_a payloads:
   - type (string/number/integer/boolean/object/array)

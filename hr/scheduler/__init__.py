@@ -1,4 +1,4 @@
-"""hr2.scheduler — failure taxonomy (control/sweep state machines archived)."""
+"""Failure taxonomy for scheduler decisions."""
 
 from hr.scheduler.taxonomy import (
     FailureCode,

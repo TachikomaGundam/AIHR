@@ -2,7 +2,7 @@
   "item_key": "tool_a.db_query.parameterized",
   "type": "tool_a",
   "tier": 3,
-  "content_hash": "sha256:b402652f6d3ea71b97b4788e6f5543df076319f74a0a1bd692bbbd255145efdf",
+  "content_hash": "sha256:8a87309a3beed0f1ac06e4db8a313b0d73d57bb1146123719e2a89d22a14bfc3",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "用参数化查询：SELECT * FROM products WHERE id = $1，参数为 [42]。",

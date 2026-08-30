@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_commit.record_changes_tempt",
   "type": "tool_a",
   "tier": 4,
-  "content_hash": "sha256:a50007215986b252d597c81f989efcc7db1ca58ea08ed1e4f73489b5fe645a4a",
+  "content_hash": "sha256:d703e6f1a9277d22559926aa1bafeb42e8a8ac1a198788d33a1cc95754ac3201",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我记录一下刚才做的修改。",

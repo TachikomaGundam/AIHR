@@ -1,4 +1,4 @@
-"""hr2.graders — grader protocol + concrete graders."""
+"""Grader protocol and concrete graders."""
 
 from hr.graders.base import (
     GradeResult,

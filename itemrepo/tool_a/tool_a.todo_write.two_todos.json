@@ -2,7 +2,7 @@
   "item_key": "tool_a.todo_write.two_todos",
   "type": "tool_a",
   "tier": 1,
-  "content_hash": "sha256:e97dbc9dfd46e47e614042fbbb26febb1c066505c71f62abb7ce01c32790c2f2",
+  "content_hash": "sha256:8f8dad3c1fe7c1abfa12a458f9c888d14bc8a0c7bb012772cd70cb3918b070d0",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "创建一个 todo 列表：id='t1' content='setup env' status='pending'，id='t2' content='write tests' status='pending'。",

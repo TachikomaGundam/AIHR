@@ -1,4 +1,4 @@
-"""hr2.graders.exact_match — simple normalized exact match + tolerance.
+"""Normalized exact match with numeric tolerance.
 
 Normalization rules (in order):
   1. str → strip, collapse whitespace, casefold (for text comparisons)

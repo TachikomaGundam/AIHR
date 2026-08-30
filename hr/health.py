@@ -1,4 +1,4 @@
-"""hr.health — behavioral-health analyzer (loop_score + friends).
+"""Behavioral-health analyzer (loop score and related signals).
 
 Computes per-model metrics from measurement rows for a sweep:
   - loop_score (0..1, text-based)
@@ -27,173 +27,34 @@ Spec ambiguities resolved:
 
 from __future__ import annotations
 
-import re
-from collections import defaultdict
-from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Iterable
 
-_NEAR_CAP_PROXY = 16000
-_FINAL_ANSWER_RE = re.compile(
-    r"(结论|answer\s*:|final\s*answer|therefore|\b所以\b)",
-    re.IGNORECASE,
+from hr.health_metrics import (
+    HealthReport,
+    _answer_completion_rate,
+    _has_final_answer,
+    _loop_score,
+    _NEAR_CAP_PROXY,
+    _self_consistency,
+    _token_efficiency,
+    _truncation_rate,
+    _truncation_rate_rows,
 )
-_TRAILING_NUMBER_RE = re.compile(r"\s*(-?\d+(?:\.\d+)?)\s*[.。?!？]*\s*$")
 
-
-@dataclass
-class HealthReport:
-    model_id: str
-    sweep_id: str
-    n_measurements: int
-    loop_mean: float | None = None
-    loop_max: float | None = None
-    truncation_rate: float | None = None
-    token_efficiency: float | None = None
-    consistency_mean_range: float | None = None
-    consistency_unanimity_pct: float | None = None
-    answer_completion_rate: float | None = None
-    battery_breakdown: list[dict] | None = None
-    notes: list[str] = field(default_factory=list)
-
-
-def _loop_score(text: str | None) -> float | None:
-    """Per-response repetition metric in [0, 1]. None if text is empty."""
-    if not text:
-        return None
-    text_stripped = text.strip()
-    if not text_stripped:
-        return None
-
-    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-    line_dup_frac = 0.0
-    if lines:
-        seen: dict[str, int] = defaultdict(int)
-        for ln in lines:
-            seen[ln] += 1
-        unique = sum(1 for v in seen.values() if v == 1)
-        line_dup_frac = 1.0 - (unique / len(lines))
-
-    span_hit = 0.0
-    if len(text_stripped) >= 40:
-        seen_spans: dict[str, int] = defaultdict(int)
-        for i in range(len(text_stripped) - 39):
-            seen_spans[text_stripped[i : i + 40]] += 1
-        if any(c >= 3 for c in seen_spans.values()):
-            span_hit = 1.0
-
-    return max(line_dup_frac, span_hit)
-
-
-def _row_cap(row: dict, fallback: int) -> int:
-    """Per-measurement output cap: the ``requested_max_output`` recorded on
-    the row (the cap actually sent with that call), else ``fallback``."""
-    cap = row.get("requested_max_output")
-    if isinstance(cap, int) and cap > 0:
-        return cap
-    return fallback
-
-
-def _truncation_rate(
-    tokens_outs: Iterable[int | None], cap: int = _NEAR_CAP_PROXY
-) -> float | None:
-    outs = [t for t in tokens_outs if isinstance(t, int) and t >= 0]
-    if not outs:
-        return None
-    return sum(1 for t in outs if t >= cap) / len(outs)
-
-
-def _truncation_rate_rows(
-    rows: Iterable[dict], fallback_cap: int = _NEAR_CAP_PROXY
-) -> float | None:
-    """Row-level truncation rate: each measurement is compared against the
-    output cap ACTUALLY requested for that call (``requested_max_output`` on
-    the row), falling back to ``fallback_cap`` when the row doesn't record
-    one. A response that ends exactly at its requested cap counts as
-    truncated (>= semantics)."""
-    n = 0
-    flagged = 0
-    for r in rows:
-        tokens_out = r.get("tokens_out")
-        if not isinstance(tokens_out, int) or tokens_out < 0:
-            continue
-        n += 1
-        if tokens_out >= _row_cap(r, fallback_cap):
-            flagged += 1
-    if n == 0:
-        return None
-    return flagged / n
-
-
-def _token_efficiency(
-    tokens_outs: Iterable[int | None], scores: Iterable[float]
-) -> float | None:
-    to = list(tokens_outs)
-    sc = list(scores)
-    if len(to) != len(sc):
-        raise ValueError("tokens_outs and scores must be the same length")
-    total_out = sum(t for t in to if isinstance(t, int))
-    total_score = sum(sc)
-    if total_score <= 0:
-        return None
-    return total_out / total_score
-
-
-def _has_final_answer(text: str | None) -> bool:
-    if not text:
-        return False
-    t = text.strip()
-    if not t:
-        return False
-    if _FINAL_ANSWER_RE.search(t):
-        return True
-    if _TRAILING_NUMBER_RE.search(t):
-        return True
-    return False
-
-
-def _answer_completion_rate(
-    rows: Iterable[dict], cap: int = _NEAR_CAP_PROXY
-) -> float | None:
-    counted = 0
-    ok = 0
-    for r in rows:
-        text = r.get("response_text")
-        tokens_out = r.get("tokens_out")
-        if not isinstance(text, str) or not text.strip():
-            continue
-        counted += 1
-        truncated = isinstance(tokens_out, int) and tokens_out >= _row_cap(r, cap)
-        if not truncated and _has_final_answer(text):
-            ok += 1
-    if counted == 0:
-        return None
-    return ok / counted
-
-
-def _self_consistency(rows: Iterable[dict]) -> tuple[float | None, float | None]:
-    """Per-(item) rep-score range → (mean_range, unanimity_pct).
-
-    Only items with >= 2 repetitions count: a single-rep item carries no
-    consistency information and must not count as "unanimous" (it used to
-    inflate unanimity toward a vacuous 100% that let the strict gate pass
-    on items that were never actually re-run).
-    """
-    by_item: dict[str, list[float]] = defaultdict(list)
-    for r in rows:
-        score = r.get("score")
-        item = r.get("item_id")
-        if item is None or not isinstance(score, (int, float, Decimal)):
-            continue
-        by_item[item].append(float(score))
-    if not by_item:
-        return None, None
-    multi = [v for v in by_item.values() if len(v) >= 2]
-    ranges = [max(v) - min(v) for v in multi]
-    mean_range = sum(ranges) / len(ranges) if ranges else None
-    unanimous = sum(1 for v in multi if max(v) - min(v) <= 0.01)
-    unanimity_pct = unanimous / len(multi) if multi else None
-    return mean_range, unanimity_pct
+__all__ = [
+    "HealthReport",
+    "_answer_completion_rate",
+    "_has_final_answer",
+    "_loop_score",
+    "_self_consistency",
+    "_token_efficiency",
+    "_truncation_rate",
+    "_truncation_rate_rows",
+    "compute_health",
+    "report",
+    "summary_table",
+    "sweep_health",
+]
 
 
 def _fetch_rows(conn, sweep_id: str, model_id: str) -> list[dict]:

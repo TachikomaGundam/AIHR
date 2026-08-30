@@ -1,4 +1,4 @@
-"""hr2.adapters.anthropic_compat — real adapter for the Anthropic Messages gateways.
+"""Adapter for Anthropic Messages-compatible gateways.
 
 Wraps every provider whose fleet wire type is ``anthropic-compat``
 (``x-api-key`` + ``anthropic-version`` gateways). Provider routing, gateway
@@ -16,7 +16,6 @@ thinking calls at ~300s. v1's SSE parser tolerates both ``event:`` and
 from __future__ import annotations
 
 import json
-import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,14 +24,11 @@ from typing import Any
 from hr import config
 from hr.adapters.base import AdapterError, Capabilities
 from hr.adapters.fleet import resolve_capabilities
+from hr.adapters.anthropic_messages import attach_images
+from hr.adapters.anthropic_stream import decode_stream
 from hr.graders.base import ModelResponse
-from hr.scheduler.taxonomy import classify_failure, retryable
-
-
-def _strip_jsonc_comments(text: str) -> str:
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
-    text = re.sub(r"^\s*//.*$", "", text, flags=re.MULTILINE)
-    return text
+from hr.opencfg import strip_jsonc_comments as _strip_jsonc_comments
+from hr.scheduler.taxonomy import retryable
 
 
 def _provider_for(model_id: str) -> str:
@@ -82,16 +78,18 @@ class AnthropicCompatAdapter:
     # Credential plumbing — config-driven, no provider-name special cases
     # ------------------------------------------------------------------
     def _read_opencode_provider(self, name: str) -> dict[str, Any]:
-        if not self._opencode_config.exists():
+        path = self._opencode_config
+        if path is None or not path.exists():
             return {}
-        raw = self._opencode_config.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8")
         data = json.loads(_strip_jsonc_comments(raw))
         return data.get("provider", {}).get(name, {})
 
     def _read_auth_key(self, provider: str) -> str:
-        if not self._auth_json.exists():
+        path = self._auth_json
+        if path is None or not path.exists():
             return ""
-        raw = self._auth_json.read_text(encoding="utf-8")
+        raw = path.read_text(encoding="utf-8")
         entry = json.loads(raw).get(provider, {})
         key = entry.get("key", "") if isinstance(entry, dict) else ""
         return key.strip() if isinstance(key, str) else ""
@@ -200,7 +198,7 @@ class AnthropicCompatAdapter:
         messages = self._attach_images(messages, images)
 
         # The gateway expects the bare model slug (e.g. ``deepseek-v4-flash``);
-        # the ``bailian-token-plan/`` prefix is an hr2 namespace.
+        # The ``bailian-token-plan/`` prefix selects the deployment namespace.
         wire_model = (
             model_id.split("/", 1)[-1] if "/" in model_id else model_id
         )
@@ -242,35 +240,7 @@ class AnthropicCompatAdapter:
         messages: list[dict[str, Any]],
         images: list[dict[str, Any]] | None,
     ) -> list[dict[str, Any]]:
-        if not images:
-            return list(messages)
-        msg_list = list(messages)
-        last_user_idx = next(
-            (i for i in range(len(msg_list) - 1, -1, -1)
-             if msg_list[i].get("role") == "user"),
-            -1,
-        )
-        if last_user_idx < 0:
-            return msg_list
-        msg = dict(msg_list[last_user_idx])
-        existing = msg.get("content")
-        content: list[dict[str, Any]] = []
-        if isinstance(existing, str):
-            content.append({"type": "text", "text": existing})
-        elif isinstance(existing, list):
-            content.extend(existing)
-        for img in images:
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": img.get("media_type", "image/png"),
-                    "data": img["data"],
-                },
-            })
-        msg["content"] = content
-        msg_list[last_user_idx] = msg
-        return msg_list
+        return attach_images(messages, images)
 
     # ------------------------------------------------------------------
     # Retry loop
@@ -318,152 +288,14 @@ class AnthropicCompatAdapter:
         model_id: str,
         timeout_s: int,
     ) -> ModelResponse:
-        import httpx
-
-        client = self._get_client(timeout_s)
-        start = time.perf_counter()
-        input_tokens = 0
-        output_tokens = 0
-        thinking_tokens = 0
-        text_parts: list[str] = []
-        thinking_parts: list[str] = []
-        tool_calls: list[dict[str, Any]] = []
-        _open_tool: dict[str, Any] | None = None
-        current_event: str | None = None
-        data_lines: list[str] = []
-
-        def _close_tool() -> None:
-            nonlocal _open_tool
-            if _open_tool is None:
-                return
-            raw_json = "".join(_open_tool.pop("_json_parts", []))
-            try:
-                _open_tool["input"] = json.loads(raw_json) if raw_json else {}
-            except (json.JSONDecodeError, ValueError):
-                _open_tool["input"] = {"_raw": raw_json}
-            tool_calls.append(_open_tool)
-            _open_tool = None
-
-        def flush() -> None:
-            nonlocal input_tokens, output_tokens, thinking_tokens, _open_tool
-            if not data_lines:
-                return
-            payload = "\n".join(data_lines)
-            data_lines.clear()
-            try:
-                event = json.loads(payload)
-            except (json.JSONDecodeError, ValueError):
-                return
-            if current_event == "message_start":
-                usage = (event.get("message") or {}).get("usage") or {}
-                input_tokens = int(usage.get("input_tokens", 0) or 0)
-            elif current_event == "content_block_start":
-                block = event.get("content_block") or {}
-                if block.get("type") == "tool_use":
-                    _close_tool()
-                    _open_tool = {
-                        "id": block.get("id"),
-                        "name": block.get("name"),
-                        "_json_parts": [],
-                    }
-            elif current_event == "content_block_delta":
-                delta = event.get("delta") or {}
-                dtype = delta.get("type")
-                if dtype == "text_delta":
-                    t = delta.get("text", "")
-                    if t:
-                        text_parts.append(t)
-                elif dtype == "thinking_delta":
-                    t = delta.get("thinking", "")
-                    if t:
-                        thinking_parts.append(t)
-                elif dtype == "input_json_delta" and _open_tool is not None:
-                    _open_tool["_json_parts"].append(delta.get("partial_json", ""))
-            elif current_event == "content_block_stop":
-                _close_tool()
-            elif current_event == "message_delta":
-                usage = event.get("usage") or {}
-                output_tokens = int(usage.get("output_tokens", 0) or 0)
-
-        try:
-            with client.stream(
-                "POST", endpoint.url, json=body, headers=endpoint.headers
-            ) as http_resp:
-                status = http_resp.status_code
-                if status >= 400:
-                    http_resp.read()
-                    err_body = http_resp.text
-                    descriptor = classify_failure(
-                        status_code=status,
-                        error_message=err_body,
-                    )
-                    raise AdapterError(
-                        f"HTTP {status} from {endpoint.url}: {err_body[:200]}",
-                        failure=descriptor,
-                        status_code=status,
-                    )
-                for line in http_resp.iter_lines():
-                    ev = _strip_prefix(line, "event")
-                    if ev is not None:
-                        current_event = ev.strip()
-                        continue
-                    dat = _strip_prefix(line, "data")
-                    if dat is not None:
-                        data_lines.append(dat)
-                        continue
-                    if line == "":
-                        flush()
-                flush()
-        except httpx.TimeoutException as e:
-            descriptor = classify_failure(
-                timed_out=True, error_message=str(e)
-            )
-            raise AdapterError(
-                f"timeout after {timeout_s}s for {model_id}",
-                failure=descriptor,
-            ) from e
-        except httpx.HTTPError as e:
-            descriptor = classify_failure(
-                error_message=str(e)
-            )
-            raise AdapterError(
-                f"HTTP error for {model_id}: {e}",
-                failure=descriptor,
-            ) from e
-
-        elapsed_ms = int((time.perf_counter() - start) * 1000)
-        _close_tool()
-        text = "".join(text_parts).strip()
-        thinking = "".join(thinking_parts).strip()
-        if not text and not thinking and output_tokens == 0 and input_tokens == 0:
-            descriptor = classify_failure(empty_body=True)
-            raise AdapterError(
-                f"empty response from {model_id}",
-                failure=descriptor,
-            )
-        extra = {}
-        if thinking_tokens:
-            extra["thinking_tokens"] = thinking_tokens
-        return ModelResponse(
-            text=text,
-            thinking=thinking,
-            tool_calls=tool_calls,
-            raw=None,
-            latency_ms=elapsed_ms,
-            tokens_in=input_tokens,
-            tokens_out=output_tokens,
+        return decode_stream(
+            self._get_client(timeout_s),
+            url=endpoint.url,
+            headers=endpoint.headers,
+            body=body,
+            model_id=model_id,
+            timeout_s=timeout_s,
         )
-
-
-def _strip_prefix(line: str, prefix: str) -> str | None:
-    """Accept both ``prefix: X`` (Anthropic-spec) and ``prefix:X``
-    (Alibaba gateway omits the space).
-    """
-    if line.startswith(prefix + ": "):
-        return line[len(prefix) + 2:]
-    if line.startswith(prefix + ":"):
-        return line[len(prefix) + 1:]
-    return None
 
 
 def _backoff(attempt: int) -> None:

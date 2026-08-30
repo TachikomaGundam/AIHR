@@ -1,4 +1,4 @@
-"""hr2.graders.constraint — DSL grader per spec 附录A.
+"""Constraint DSL grader.
 
 DSL shape (checks[]):
   - name: str
@@ -19,207 +19,15 @@ skipped weights).
 
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
 from hr.graders.base import (
     GradeResult,
-    Grader,
     GraderError,
     ModelResponse,
 )
-
-
-# ---------------------------------------------------------------------------
-# Minimal JSONPath subset — no external libs.
-# ---------------------------------------------------------------------------
-_TOKEN_RE = re.compile(r"\[\s*(-?\d+|\*|'[^']*'|\"[^\"]*\")\s*\]")
-
-
-def _parse_path(expression: str) -> list[tuple[str, str | int | None]]:
-    """Parse $.a.b[0].c[*] into a list of (kind, value) steps.
-
-    `kind` == 'field' for dotted fields; 'index' for literal ints; '*' for
-    wildcard (any index). Nested brackets not supported (spec uses flat).
-    """
-    if not expression.startswith("$"):
-        raise GraderError(f"jsonpath must start with '$': {expression!r}")
-    # Strip leading '$.' and subsequent leading dots.
-    rest = expression[1:].lstrip(".")
-    # Split on dots BUT preserve bracket content for later processing.
-    # We walk character by character, splitting on dots outside brackets.
-    segments: list[str] = []
-    depth = 0
-    cur = ""
-    for ch in rest:
-        if ch == "[":
-            depth += 1
-            cur += ch
-        elif ch == "]":
-            depth -= 1
-            cur += ch
-        elif ch == "." and depth == 0:
-            if cur:
-                segments.append(cur)
-            cur = ""
-        else:
-            cur += ch
-    if cur:
-        segments.append(cur)
-
-    steps: list[tuple[str, str | int | None]] = []
-    for seg in segments:
-        # Extract any bracketed suffix(s).
-        head = seg
-        brackets: list[str] = []
-        m = _TOKEN_RE.search(seg)
-        while m:
-            brackets.append(m.group(1))
-            head = seg[: m.start()]
-            seg = seg[m.end() :]
-            m = _TOKEN_RE.search(seg)
-        if head:
-            steps.append(("field", head))
-        for b in brackets:
-            b = b.strip()
-            if b == "*":
-                steps.append(("star", None))
-            elif b.startswith("'") or b.startswith('"'):
-                steps.append(("field", b[1:-1]))
-            else:
-                try:
-                    steps.append(("index", int(b)))
-                except ValueError:
-                    raise GraderError(f"unsupported bracket: [{b!r}]")
-    return steps
-
-
-def _walk(data: Any, steps: list[tuple[str, str | int | None]]) -> list[Any]:
-    """Walk a parsed JSONPath and return a list of matched values."""
-    current: list[Any] = [data]
-    for kind, val in steps:
-        nxt: list[Any] = []
-        for node in current:
-            if kind == "field":
-                if isinstance(node, dict) and val in node:
-                    nxt.append(node[val])
-            elif kind == "index":
-                if isinstance(node, list) and isinstance(val, int):
-                    if -len(node) <= val < len(node):
-                        nxt.append(node[val])
-            elif kind == "star":
-                if isinstance(node, list):
-                    nxt.extend(node)
-        current = nxt
-    return current
-
-
-def _extract_text(value: Any) -> str:
-    if isinstance(value, str):
-        return value
-    if value is None:
-        return ""
-    return json.dumps(value, ensure_ascii=False)
-
-
-# ---------------------------------------------------------------------------
-# Assertion evaluators
-# ---------------------------------------------------------------------------
-def _assert_numeric_eq(
-    extracted: list[Any], value: float, tol: float
-) -> bool:
-    for v in extracted:
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            candidates = [float(v)]
-        else:
-            s = _extract_text(v)
-            # Scan EVERY numeric literal in the text, not just the first one —
-            # a model that shows working ("1+2+...+100 = 5050") mentions many
-            # numbers before the final answer, and the answer is the one that
-            # must match, not whichever literal appears first.
-            candidates = []
-            for m in re.finditer(r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", s):
-                try:
-                    candidates.append(float(m.group(0)))
-                except ValueError:
-                    continue
-        denom = max(abs(value), 1e-9)
-        for f in candidates:
-            if abs(f - value) / denom <= tol:
-                return True
-    return False
-
-
-def _assert_contains_all(extracted: list[Any], needles: list[str]) -> bool:
-    text = " ".join(_extract_text(v) for v in extracted)
-    return all(n in text for n in needles)
-
-
-def _assert_not_contains(extracted: list[Any], needles: list[str]) -> bool:
-    text = " ".join(_extract_text(v) for v in extracted)
-    return all(n not in text for n in needles)
-
-
-def _assert_regex_match(extracted: list[Any], pattern: str) -> bool:
-    rx = re.compile(pattern)
-    for v in extracted:
-        if rx.search(_extract_text(v)):
-            return True
-    return False
-
-
-def _apply_assert(assertion: dict[str, Any], extracted: list[Any]) -> bool:
-    if "numeric_eq" in assertion:
-        spec = assertion["numeric_eq"]
-        return _assert_numeric_eq(
-            extracted, float(spec["value"]), float(spec.get("tolerance", 0.0))
-        )
-    if "contains_all" in assertion:
-        return _assert_contains_all(extracted, list(assertion["contains_all"]))
-    if "not_contains" in assertion:
-        return _assert_not_contains(extracted, list(assertion["not_contains"]))
-    if "regex_match" in assertion:
-        return _assert_regex_match(extracted, str(assertion["regex_match"]))
-    raise GraderError(f"unknown assertion: {assertion!r}")
-
-
-# ---------------------------------------------------------------------------
-# Extract step
-# ---------------------------------------------------------------------------
-def _extract(
-    response: ModelResponse,
-    item_payload: dict[str, Any],
-    extract_spec: dict[str, Any],
-) -> list[Any]:
-    """Apply extract spec to response (or payload if jsonpath points there)."""
-    jp = extract_spec.get("jsonpath")
-    regex = extract_spec.get("regex")
-    if jp is not None:
-        # We apply jsonpath to response.text by default, wrapped as a JSON
-        # object if the text parses as JSON; otherwise we try payload.
-        parsed: Any = response.text.strip()
-        try:
-            parsed = json.loads(parsed)
-        except Exception:
-            parsed = {"text": response.text}
-        try:
-            extracted = _walk(parsed, _parse_path(jp))
-        except GraderError:
-            raise
-    else:
-        extracted = [response.text]
-
-    if regex:
-        # Optional regex filter — keep only values matching the regex.
-        rx = re.compile(regex)
-        out: list[Any] = []
-        for v in extracted:
-            text = _extract_text(v)
-            if rx.search(text):
-                out.append(v)
-        return out
-    return extracted
+from hr.graders.constraint_dsl import _apply_assert, _extract, _parse_path, _walk
 
 
 # ---------------------------------------------------------------------------
@@ -322,23 +130,17 @@ class ConstraintGrader:
             if not extract_spec and kind != "numeric_eq":
                 # Numeric path is tolerant of raw text containing a number.
                 pass
-            try:
-                extracted = _extract(response, item_payload, extract_spec)
-                passed = _apply_assert(assertion, extracted)
-            except GraderError:
-                passed = False
+            extracted = _extract(response, item_payload, extract_spec)
+            passed = _apply_assert(assertion, extracted)
             return {"name": name or kind, "passed": passed, "weight": weight}
 
         # Full form {name, extract, assert, weight}.
         extract_spec = check.get("extract") or {}
-        assertion = check.get("assert")
-        if not assertion:
+        full_assertion = check.get("assert")
+        if not isinstance(full_assertion, dict) or not full_assertion:
             raise GraderError(f"check {name!r}: missing 'assert'")
-        try:
-            extracted = _extract(response, item_payload, extract_spec)
-            passed = _apply_assert(assertion, extracted)
-        except GraderError:
-            passed = False
+        extracted = _extract(response, item_payload, extract_spec)
+        passed = _apply_assert(full_assertion, extracted)
         return {"name": name, "passed": passed, "weight": weight}
 
     # ------------------------------------------------------------------
@@ -436,6 +238,3 @@ __all__ = [
     "_apply_assert",
     "_extract",
 ]
-
-# Silence flake unused import.
-_ = Grader

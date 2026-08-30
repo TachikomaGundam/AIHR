@@ -2,7 +2,7 @@
   "item_key": "tool_a.browser_open.missing_url_browser",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:1794877247cfa7009628f2f74ac3642cde7f55638f1de8c19027a17fd18212b0",
+  "content_hash": "sha256:29954431a58a511df25e4f09db68a31cd3b6e9c505947b7854cdde51f0e3a231",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "打开个网站。",

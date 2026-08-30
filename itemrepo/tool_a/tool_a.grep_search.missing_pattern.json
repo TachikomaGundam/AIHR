@@ -2,7 +2,7 @@
   "item_key": "tool_a.grep_search.missing_pattern",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:0428124dbdb3f8441dedde2d36f0dcc94f191f26c86bf9da9f39da86083048e7",
+  "content_hash": "sha256:d82a528d8198c39e03980bd4a225ea456bdc158f14611355075a453468ff061e",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我搜一下那个东西。",

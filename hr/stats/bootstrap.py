@@ -12,12 +12,13 @@ Classification (spec §10.2):
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import ArrayLike
 from typing import Tuple
 
 
 def paired_bootstrap_separation(
-    scores_a: np.ndarray,
-    scores_b: np.ndarray,
+    scores_a: ArrayLike,
+    scores_b: ArrayLike,
     B: int = 2000,
     seed: int | None = None,
 ) -> float:

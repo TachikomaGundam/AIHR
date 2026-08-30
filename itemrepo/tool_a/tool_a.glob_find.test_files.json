@@ -2,7 +2,7 @@
   "item_key": "tool_a.glob_find.test_files",
   "type": "tool_a",
   "tier": 2,
-  "content_hash": "sha256:c6391dacdd2f75f7a85787d4d8073a943f39ac0939842695faeb405f49ef74a1",
+  "content_hash": "sha256:fae05af27f8e5f5e5eb50a77842a90f358df648b0ede18158e779e271b430fef",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "列出 src/tests 目录里所有的 .test.ts 文件。",

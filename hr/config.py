@@ -1,38 +1,9 @@
-"""Unified configuration layer for HR.
+"""Runtime, database, and provider configuration.
 
-This module is THE config module for the hr package:
-
-* ``db_dsn()``      — one DSN resolution chain:
-  ``HR_DSN`` env -> ``hr.toml`` + ``HR_DB_PASSWORD`` env
-  -> opt-in docker-compose fallback (``HR_COMPOSE_FILE`` env)
-* ``hr_home()``     — monorepo root (``HR_HOME`` env > package auto-detect)
-* ``config_path()`` — ``hr_home()/configs/<name>``
-* ``load_yaml()``   — load a named YAML config through this layer only, then
-  deep-merge the optional gitignored ``configs/<name>.local.yaml`` overlay
-  (publish-safe seam: tracked configs ship placeholders, real deployment
-  values stay local — local wins per key, dicts merge recursively,
-  lists are replaced)
-* ``opencode_config_dir()`` — ``OPENCODE_CONFIG_DIR`` env > ``~/.config/opencode``
-* ``compose_db_password()`` — docker-compose password reader backing both
-  ``db_dsn()`` and ``hr.db`` (opt-in via ``HR_COMPOSE_FILE``)
-* ``get_provider_config()`` — generic per-provider endpoint + API key
-  (opencode provider block -> ``gateway_urls`` in ``configs/fleet.yaml`` ->
-  ``auth.json``), no provider-name special cases
-* ``gateway_urls()`` — provider -> base URL map (routing data) from
-  ``configs/fleet.yaml``
-* ``itemrepo_path()`` — calibration item repo (``HR_ITEMREPO`` env >>
-  ``HR_HOME/itemrepo``, fail loud naming the resolution)
-* ``output_root()`` — runtime output root for run artifacts
-  (``HR_OUTPUT_DIR`` env >> platform cache dir; never the repo tree)
-* ``Settings`` / ``load_settings()`` — v1 backward-compat pydantic contract
-  (consumed by ``hr.database``, ``hr.recommend``, ``hr.bench``), reimplemented
-  on top of this layer.
-
-Invariants (F2 universality gate):
-* zero hardcoded absolute paths — every location derives from env vars,
-  ``Path(__file__)`` or ``Path.home()``
-* zero password literals — secrets only ever come from env vars or the
-  opt-in docker-compose fallback
+Resource discovery and YAML overlays live in :mod:`hr.config_resources` and
+are re-exported here as the package's stable configuration surface. Secrets
+come only from environment variables, auth files, or an explicitly selected
+compose file; runtime paths never rely on hardcoded machine locations.
 """
 from __future__ import annotations
 
@@ -42,10 +13,15 @@ import sys
 import tomllib
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import yaml
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from hr.config_resources import config_path as config_path
+from hr.config_resources import hr_home as hr_home
+from hr.config_resources import load_yaml as load_yaml
+from hr.config_resources import opencode_config_dir as opencode_config_dir
 
 # ---------------------------------------------------------------------------
 # Unified layer
@@ -55,95 +31,6 @@ _DEFAULT_DB_HOST = "localhost"
 _DEFAULT_DB_PORT = 5432
 _DEFAULT_DB_NAME = "wiki"
 _DEFAULT_DB_USER = "wikijs"
-
-
-def hr_home() -> Path:
-    """Monorepo root: ``HR_HOME`` env override, else auto-detect.
-
-    Auto-detect: parent of the parent of this package directory
-    (``…/hr/config.py`` -> repo root), i.e.
-    ``Path(__file__).resolve().parent.parent``. In this checkout that
-    resolves to the repository root at runtime, wherever it is deployed.
-    """
-    env = os.environ.get("HR_HOME")
-    if env:
-        return Path(env).expanduser().resolve()
-    return Path(__file__).resolve().parent.parent
-
-
-def config_path(name: str) -> Path:
-    """Path of a named YAML config under the unified ``configs/`` directory."""
-    return hr_home() / "configs" / name
-
-
-def _local_overlay_path(name: str) -> Path:
-    """Path of the optional local overlay for ``configs/<name>``.
-
-    ``configs/fleet.yaml`` -> ``configs/fleet.local.yaml``. Overlays are
-    gitignored (``*.local.yaml``): they carry THIS machine's real deployment
-    values so the tracked configs can ship with placeholders only.
-    """
-    suffix = ".yaml"
-    if not name.endswith(suffix):
-        raise ValueError(f"overlay only supported for *.yaml configs: {name!r}")
-    return config_path(name[: -len(suffix)] + ".local.yaml")
-
-
-def _deep_merge(base: dict, overlay: dict) -> dict:
-    """Recursive dict merge with local-wins semantics.
-
-    * dict values merge recursively, key by key (local keys win over base
-      keys; base keys absent from the local file are preserved);
-    * everything else (lists, scalars) is REPLACED by the local value,
-      never merged/concatened.
-
-    Returns a new dict; neither input is mutated.
-    """
-    merged = dict(base)
-    for key, value in overlay.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = _deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
-def load_yaml(name: str) -> dict:
-    """Load ``configs/<name>`` through this layer only, then deep-merge an
-    optional local overlay.
-
-    Overlay: when ``configs/<name-without-.yaml>.local.yaml`` exists, it is
-    deep-merged over the tracked file — local wins per key, dict values
-    merge recursively, lists are replaced (never merged). This is the
-    publish-safe seam: real anchors / wire overrides / gateway URLs / extra
-    models live in the gitignored ``*.local.yaml`` files, while the tracked
-    configs ship with example placeholders only. A missing overlay is
-    normal (the tracked file is used as-is); a missing tracked file still
-    raises FileNotFoundError with the fully resolved path.
-    """
-    path = config_path(name)
-    if not path.exists():
-        raise FileNotFoundError(f"config file not found: {path}")
-    with path.open("r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
-    overlay_path = _local_overlay_path(name)
-    if overlay_path.exists():
-        with overlay_path.open("r", encoding="utf-8") as fh:
-            extra = yaml.safe_load(fh) or {}
-        if not isinstance(extra, dict):
-            raise ValueError(
-                f"invalid local overlay (must be a mapping): {overlay_path}"
-            )
-        data = _deep_merge(data, extra)
-    return data
-
-
-def opencode_config_dir() -> Path:
-    """opencode config dir: ``OPENCODE_CONFIG_DIR`` env > ``~/.config/opencode``."""
-    env = os.environ.get("OPENCODE_CONFIG_DIR")
-    if env:
-        return Path(env).expanduser().resolve()
-    return Path.home() / ".config" / "opencode"
 
 
 def wiki_config() -> dict[str, Any] | None:
@@ -179,7 +66,10 @@ def _build_dsn(fields: dict[str, Any], password: str) -> str:
     port = int(os.environ.get("HR_DB_PORT") or fields.get("db_port", _DEFAULT_DB_PORT))
     name = os.environ.get("HR_DB_NAME") or fields.get("db_name", _DEFAULT_DB_NAME)
     user = os.environ.get("HR_DB_USER") or fields.get("db_user", _DEFAULT_DB_USER)
-    return f"postgresql://{user}:{password}@{host}:{port}/{name}"
+    encoded_user = quote(str(user), safe="")
+    encoded_password = quote(password, safe="")
+    encoded_name = quote(str(name), safe="")
+    return f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{encoded_name}"
 
 
 def compose_db_password(compose_path: Path) -> str:
@@ -413,33 +303,3 @@ def output_root() -> Path:
         return Path.home() / "Library" / "Caches" / "hr"
     base = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache")))
     return base / "hr"
-
-
-# ---------------------------------------------------------------------------
-# v1 backward-compat Settings / load_settings (consumers: database, recommend,
-# bench; contract: load_settings -> Settings(.dsn) used by database.get_connection)
-# ---------------------------------------------------------------------------
-
-class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="HR_",
-        env_file=".env",
-        extra="ignore",
-    )
-
-    dsn: str = ""  # override via HR_DSN env var (preferred); takes precedence over individual fields
-    db_host: str = _DEFAULT_DB_HOST
-    db_port: int = _DEFAULT_DB_PORT
-    db_name: str = _DEFAULT_DB_NAME
-    db_user: str = os.environ.get("HR_DB_USER", _DEFAULT_DB_USER)  # also resolvable via HR_DSN
-    db_password: str = ""  # resolved via HR_DB_PASSWORD env var or HR_DSN; never hardcode
-
-
-def load_settings() -> Settings:
-    """Load settings, merging the root ``hr.toml`` defaults if present.
-
-    Reads ``hr_home()/hr.toml`` through the unified layer; ``HR_*`` env vars
-    (pydantic-settings) always win.
-    """
-    file_defaults: dict[str, object] = _read_root_toml()
-    return Settings(**file_defaults)

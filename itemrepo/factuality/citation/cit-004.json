@@ -10,7 +10,7 @@
   },
   "item_key": "factuality.cit.resnet-arxiv-and-venue",
   "meta": {
-    "generated_by": "hr2-itemgen@0.1",
+    "generated_by": "hr-itemgen@0.1",
     "seats": [
       "librarian",
       "deep"

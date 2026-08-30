@@ -1,4 +1,4 @@
-"""Tests for hr2.health — behavioral-health analyzer."""
+"""Tests for the behavioral-health analyzer."""
 
 from __future__ import annotations
 

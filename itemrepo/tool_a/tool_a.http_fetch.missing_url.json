@@ -2,7 +2,7 @@
   "item_key": "tool_a.http_fetch.missing_url",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:19b138ee36ae8dba762ed12624d51b4a1fa300328de991e33f23263500da37e4",
+  "content_hash": "sha256:2c4b3d5237e4d00620e01abf11e30fe7abec1fd49fa855272c75514320f46f1c",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "帮我发个网络请求。",

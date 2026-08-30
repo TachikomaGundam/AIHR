@@ -2,7 +2,7 @@
   "item_key": "tool_b.feature_with_tests",
   "type": "tool_b",
   "tier": 5,
-  "content_hash": "sha256:4db04b377c032055ddbc4c9e17e497cdb126dec5ad465a1f349aea2aaf9780b8",
+  "content_hash": "sha256:a2aa9b49710de59e1b6a80f69cc9ac64076f9de22ae3b834bd6921dfa8413076",
   "payload": {
     "scenario_id": "tb_feature_with_tests",
     "env": "opencode-sandbox",

@@ -2,7 +2,7 @@
   "item_key": "tool_a.git_commit.missing_message",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:d89d2125a56d87f28d15b7a14c8569afa443de012767c6dd049ee5304f545d4e",
+  "content_hash": "sha256:c2a27ba1d4250324f1bc129a964a607d3985d347aacf1e57c53b0eca1aaa7884",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "做个 git 提交。",

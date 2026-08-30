@@ -2,7 +2,7 @@
   "item_key": "tool_a.deploy_service.missing_deploy_params",
   "type": "tool_a",
   "tier": 5,
-  "content_hash": "sha256:16b3b9068d93bd56649bea983ab41c5a9de307e4158bd6b643847d3564a23bec",
+  "content_hash": "sha256:1df2a86a9623059698c80170b6ca5a49665d761e7660d2958027827dfc018542",
   "payload": {
     "system": "OpenCode coding assistant.",
     "user": "部署一个服务。",

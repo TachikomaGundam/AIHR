@@ -1,12 +1,9 @@
-"""Tests for hr2.graders (spec §6.1, §6.2, 附录A constraint DSL)."""
+"""Tests for graders and the constraint DSL."""
 import json
-import os
-import textwrap
-from pathlib import Path
 
 import pytest
 
-from hr.graders.base import ModelResponse, GradeResult, build_default_registry
+from hr.graders.base import GraderError, ModelResponse, build_default_registry
 from hr.graders.exact_match import ExactMatchGrader
 from hr.graders.constraint import ConstraintGrader, _parse_path, _walk
 from hr.graders.schema_valid import SchemaValidGrader
@@ -132,6 +129,15 @@ class TestConstraintDSL:
         r = g.grade({}, params, ModelResponse(text="hello world"))
         # Pass: 2.0, Total: 3.0 → 2/3.
         assert abs(r.score - (2.0 / 3.0)) < 1e-9
+
+    def test_invalid_assertion_is_a_grader_configuration_error(self):
+        # Given: a check with an assertion kind the DSL does not implement.
+        grader = ConstraintGrader()
+        params = {"checks": [{"assert": {"unknown": True}}]}
+
+        # When/Then: configuration failure is not reported as model failure.
+        with pytest.raises(GraderError, match="unknown assertion"):
+            grader.grade({}, params, ModelResponse(text="answer"))
 
     def test_regex_match_assert(self):
         g = ConstraintGrader()
