@@ -32,3 +32,5 @@ node_modules/
 
 # fastdraw esbuild build artifact (source repo gitignores test/.build/)
 fastdraw/test/.build/
+build/
+dist/
