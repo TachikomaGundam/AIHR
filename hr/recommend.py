@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Callable
 
 import numpy as np
+import psycopg2
 import yaml
 
 from hr.config import config_path, load_yaml
@@ -347,6 +348,18 @@ class RecommendationEngine:
     def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
         self.close()
 
+    def _require_conn(self) -> psycopg2.extensions.connection:
+        """Return the live DB connection; fail loudly if the engine is closed.
+
+        ``close()`` nulls ``self._conn`` so the type checker cannot prove a
+        connection at the query sites below; this guard turns what would be an
+        AttributeError on ``None`` into a named error instead.
+        """
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("RecommendationEngine is closed; recreate it before use")
+        return conn
+
     def recommend_for_task(self, task_description: str) -> list[tuple[str, float]]:
         text = task_description.lower()
         batteries = {
@@ -642,7 +655,7 @@ class RecommendationEngine:
         """Get the creation timestamp of the current sweep."""
         if self._sweep_id is None:
             return None
-        with self._conn.cursor() as cur:
+        with self._require_conn().cursor() as cur:
             cur.execute(
                 "SELECT created_at FROM hr.sweep WHERE sweep_id = %s",
                 (self._sweep_id,),
@@ -654,7 +667,7 @@ class RecommendationEngine:
         """Calculate latency percentiles per model from measurement data."""
         if self._sweep_id is None:
             return {}
-        with self._conn.cursor() as cur:
+        with self._require_conn().cursor() as cur:
             cur.execute(
                 """
                 SELECT r.model_id, m.latency_ms
@@ -686,7 +699,7 @@ class RecommendationEngine:
         """Calculate success rate per model from run status."""
         if self._sweep_id is None:
             return {}
-        with self._conn.cursor() as cur:
+        with self._require_conn().cursor() as cur:
             cur.execute(
                 """
                 SELECT model_id,
