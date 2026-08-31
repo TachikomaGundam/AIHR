@@ -1,6 +1,6 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位、跨模型集群执行能力基准测试、并发布部署判定。单一安装包。13 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
+统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位、跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，23 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
 
 本文档（README.zh-CN.md）是英文规范版本的忠实镜像。当两者出现差异时，以英文版本为准。
 
@@ -55,6 +55,20 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 - provider 密钥只能位于环境变量或本地覆盖层，不能位于被跟踪 YAML、`hr.toml`、测试夹具或报告中。
 
 ## Install
+
+Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）；OpenCode 插件发布于 npm：
+
+```bash
+# Python 引擎（仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow）
+pip install "aihr[vision]"
+
+# OpenCode 插件 —— 一条命令装两个
+npm install -g opencode-hr-agent opencode-fastdraw
+```
+
+`opencode-fastdraw` 是独立的模型/角色切换插件，可单独安装；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
+
+从本仓库源码安装（source/editable）同样支持：
 
 ```bash
 pip install .
@@ -118,9 +132,19 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 
 模型机队本身不在此仓库声明：运行时从 opencode 配置（`opencode.jsonc` 的 provider 块）推导，并与 `deployable.yaml` 的 extras 合并——见下文 Universality。
 
+### 快速上手
+
+```bash
+cp configs/hr.toml.example hr.toml   # 把数据库参数指向你的 PostgreSQL
+hr seed                              # 建库/升级结构 + 写入规范座位
+hr status                            # 扫描列表 + 最新扫描能力均值
+```
+
+实时基准（`hr bench`、`hr discover`）额外从 OpenCode 配置/环境读取 provider 凭据；其余命令纯 DB 运行。
+
 ## CLI Map
 
-十三条命令，每条针对一项具体职责。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
+二十三条命令，每条针对一项具体职责：13 条核心命令、4 条 `apply-*` 事务预设命令、6 条 `release-*` 生命周期命令。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
 
 | 命令 | 用途 |
 |------|------|
@@ -137,6 +161,16 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 | `hr recommend` | 基于 `configs/seats.yaml` + 近期测量的席位推荐 |
 | `hr status` | DB 状态：扫描 + 最新扫描能力均值（纯 DB） |
 | `hr apply` | 将最新判定结果桥接为 FastDraw 预设 |
+| `hr apply-preview` | 预览 apply 事务（精确文件变更 + 预览记录 id） |
+| `hr apply-rollback` | 依据备份清单回滚一次 apply 事务 |
+| `hr apply-backups` | 列出保留中的 apply 备份（有界：10 份 / 30 天） |
+| `hr apply-prune` | 强制执行 apply 备份保留上限 |
+| `hr release-build` | 构建发布候选（完整运行时闭包 + 逐载荷 SHA-256） |
+| `hr release-verify` | 重算全部载荷哈希；验证失败即移除候选 |
+| `hr release-activate` | 原子激活已验证的发布（先备份、幂等） |
+| `hr release-rollback` | 回滚到激活前的符号链接 + 配置状态 |
+| `hr release-list` | 按时间倒序列出发布 |
+| `hr release-prune` | 强制执行发布保留上限（最新有效版 + 当前激活版永不删） |
 
 CLI 没有全局 `--config` 选项：配置从环境变量（见上表）以及相对 HR_HOME 的 `configs/` 解析。运行 `hr --help` 与 `hr <命令> --help` 查看各命令的完整参数列表。
 

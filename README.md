@@ -1,6 +1,6 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. One package, one database schema, and 13 CLI commands.
+Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. One Python engine on PyPI (`aihr`), two OpenCode plugins on npm, one database schema, and 23 CLI commands.
 
 The English version is canonical. The Chinese version (`README.zh-CN.md`) is a faithful mirror. When the two diverge, the English text governs.
 
@@ -64,6 +64,20 @@ The database stores sweeps, runs, measurements, infra incidents, separations, an
 - Production provider credentials belong in environment variables or local overlays, never in tracked YAML, `hr.toml`, test fixtures, or reports.
 
 ## Install
+
+The engine ships on PyPI as **`aihr`** (import package `hr`, console script `hr`); the OpenCode plugins ship on npm:
+
+```bash
+# Python engine (add [vision] only if you need the vision item generators)
+pip install "aihr[vision]"
+
+# OpenCode plugins — both in one command
+npm install -g opencode-hr-agent opencode-fastdraw
+```
+
+`opencode-fastdraw` is a standalone model/role-switching plugin and can be installed on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases).
+
+Installing from this repository (source/editable) works identically:
 
 ```bash
 pip install .
@@ -130,9 +144,19 @@ The per-file split:
 
 The model fleet itself is not declared in this repo: it is derived at runtime from the opencode config (`opencode.jsonc` provider blocks) and merged with the `deployable.yaml` extras — see Universality below.
 
+### Quick start
+
+```bash
+cp configs/hr.toml.example hr.toml   # point the DB knobs at your PostgreSQL
+hr seed                              # create/upgrade the schema + canonical seats
+hr status                            # sweeps + latest-sweep capability means
+```
+
+Live benchmarks (`hr bench`, `hr discover`) additionally read provider credentials from your OpenCode config / environment; everything else runs DB-only.
+
 ## CLI Map
 
-Thirteen commands, each targeting a specific concern. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
+Twenty-three commands, each targeting a specific concern: 13 core commands, 4 `apply-*` transactional-preset commands, and 6 `release-*` lifecycle commands. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
 
 | Command | Purpose |
 |---------|---------|
@@ -149,6 +173,16 @@ Thirteen commands, each targeting a specific concern. Legacy v1 commands (`evalu
 | `hr recommend` | Seat recommendations from `configs/seats.yaml` + recent measurements |
 | `hr status` | DB status: sweeps + latest-sweep capability means (DB-only) |
 | `hr apply` | Bridge the latest verdict seating into a FastDraw preset |
+| `hr apply-preview` | Preview an apply transaction (exact file changes, preview record id) |
+| `hr apply-rollback` | Roll back an apply transaction from its backup manifest |
+| `hr apply-backups` | List retained apply backups (bounded: 10 / 30 days) |
+| `hr apply-prune` | Enforce the apply-backup retention bounds |
+| `hr release-build` | Build a release candidate (full runtime closure, per-payload SHA-256) |
+| `hr release-verify` | Re-hash every payload; a failed verify removes the candidate |
+| `hr release-activate` | Atomically activate a verified release (backup-first, idempotent) |
+| `hr release-rollback` | Roll back to the pre-activation symlink + config state |
+| `hr release-list` | List releases, newest first |
+| `hr release-prune` | Enforce bounded release retention (newest-valid + active preserved) |
 
 The CLI has no global `--config` flag: configuration is resolved from the environment (see the table above) and from `configs/` relative to HR_HOME. Run `hr --help` and `hr <command> --help` for the full per-command flag list.
 
