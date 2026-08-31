@@ -34,3 +34,6 @@ node_modules/
 fastdraw/test/.build/
 build/
 dist/
+
+# npm local auth (may contain publish tokens) — never ship
+.npmrc
