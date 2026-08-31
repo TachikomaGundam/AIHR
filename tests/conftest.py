@@ -174,6 +174,59 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     session.exitstatus = max(int(exitstatus), 1)
 
 
+# --- bwrap sandbox capability probe (CI environments) ------------------------
+#
+# ``hr.bench.scorer_code`` executes model code under bubblewrap --unshare-all.
+# GitHub-hosted runners are UNPRIVILEGED: bwrap cannot create the network
+# namespace there and aborts with "loopback: Failed RTM_NEWADDR: Operation not
+# permitted". The sandbox-execution tests genuinely exercise the scorer; to
+# never fake results we SKIP exactly those tests on environments where the
+# sandbox cannot start, and run them as today everywhere else (the probe
+# succeeds on this host and on any capable runner). The probe runs the REAL
+# sandbox command the scorer builds, once per session, on a trivial program.
+
+_SANDBOX_PROBE_RESULT: bool | None = None
+
+
+def _bwrap_sandbox_capable() -> bool:
+    global _SANDBOX_PROBE_RESULT
+    if _SANDBOX_PROBE_RESULT is not None:
+        return _SANDBOX_PROBE_RESULT
+    from hr.sandbox import run_sandboxed
+
+    capable = False
+    try:
+        with tempfile.TemporaryDirectory(prefix="hr-bwrap-probe-") as td:
+            workdir = Path(td)
+            (workdir / "probe.py").write_text(
+                "print('HRSANDBOX_OK')\n", encoding="utf-8"
+            )
+            proc = run_sandboxed(workdir, ["probe.py"], timeout=30)
+            capable = proc.returncode == 0 and "HRSANDBOX_OK" in proc.stdout
+    except Exception:
+        capable = False
+    _SANDBOX_PROBE_RESULT = capable
+    return capable
+
+
+def pytest_collection_modifyitems(
+    session: pytest.Session, config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip sandbox-execution tests where bwrap cannot create namespaces.
+
+    Environment limitation only — never a result fake: on a capable machine
+    the probe succeeds and every ``@pytest.mark.sandbox`` test runs as written.
+    """
+    sandbox_items = [item for item in items if item.get_closest_marker("sandbox")]
+    if not sandbox_items or _bwrap_sandbox_capable():
+        return
+    skip = pytest.mark.skip(
+        reason="bwrap network namespace unsupported in this environment"
+    )
+    for item in sandbox_items:
+        item.add_marker(skip)
+
+
 # --- shared scratch-postgres fixture (hr-evolution T1) ----------------------
 #
 # One unified live-DB fixture: bench e2e tests (tests/bench/) and non-bench
@@ -204,6 +257,9 @@ def _restore_env(saved: dict[str, str | None]) -> None:
             os.environ[var] = value
 
 
+_ADMIN_TEST_PARAMS: dict[str, str] | None = None
+
+
 def _require_admin_test_dsn() -> dict[str, str]:
     """Resolve and validate HR_TEST_PG_DSN; return the parsed admin params.
 
@@ -211,7 +267,17 @@ def _require_admin_test_dsn() -> dict[str, str]:
     * HR_DSN set while HR_TEST_PG_DSN is unset -> FAIL (ambient DSN rejected)
     * HR_TEST_PG_DSN dbname != "postgres" (incl. any hr_test_* name) -> FAIL
     * neither env set -> SKIP (offline runs stay green)
+
+    The first successful resolution is cached: every ``scratch_db`` invocation
+    rewrites HR_TEST_PG_DSN to its scratch DSN for the duration of its yield,
+    so a concurrent invocation (``test_live_concurrency_*``) could re-read a
+    scratch DSN and reach the wrong "admin" endpoint. Resolving the ambient
+    value exactly once makes the admin path immune to those rewrites. Refusal
+    paths never cache, so the admission contract tests see fresh env.
     """
+    global _ADMIN_TEST_PARAMS
+    if _ADMIN_TEST_PARAMS is not None:
+        return _ADMIN_TEST_PARAMS
     dsn = os.environ.get("HR_TEST_PG_DSN")
     if not dsn:
         if os.environ.get("HR_DSN"):
@@ -228,6 +294,7 @@ def _require_admin_test_dsn() -> dict[str, str]:
             f"got dbname={dbname!r}; the fixture creates and drops its own "
             f"hr_test_* scratch database — never run tests in a real database"
         )
+    _ADMIN_TEST_PARAMS = params
     return params
 
 
@@ -302,6 +369,7 @@ def scratch_db() -> Iterator[tuple[str, str]]:
     scratch_dsn = psycopg2.extensions.make_dsn(**{**params, "dbname": dbname})
     shim_dir = tempfile.mkdtemp(prefix="hr-test-pg-")
     saved = _save_env()
+    scratch_conn: psycopg2.extensions.connection | None = None
     try:
         os.environ["HR_TEST_PG_DSN"] = scratch_dsn
         os.environ["HR_COMPOSE_FILE"] = _compose_shim(params, shim_dir)
@@ -309,11 +377,29 @@ def scratch_db() -> Iterator[tuple[str, str]]:
         os.environ["HR_DB_USER"] = params.get("user") or "wikijs"
         os.environ["HR_DB_HOST"] = params.get("host") or "localhost"
         os.environ["HR_DB_PORT"] = str(params.get("port") or 5432)
+        # Init through an EXPLICIT connection to THIS invocation's own scratch
+        # database. ``init_schema()`` without a conn resolves the DSN from the
+        # process environment, but concurrent scratch_db invocations
+        # (test_live_concurrency_yields_distinct_database_names) rewrite that
+        # environment from two threads: both could init the SAME database and
+        # one thread's teardown DROP would kill the other's live connection.
+        # psycopg2 connections are not thread-safe, so each thread opens and
+        # closes its own here; the env rewrite below still makes db_dsn()
+        # resolve to this scratch DB for the single-threaded contract.
+        scratch_conn = psycopg2.connect(
+            dbname=dbname,
+            host=params.get("host") or "localhost",
+            port=int(params.get("port") or 5432),
+            user=params.get("user") or "wikijs",
+            password=params.get("password"),
+        )
         from hr.db import init_schema  # imported fresh, matches the bench pattern
 
-        init_schema()
+        init_schema(conn=scratch_conn)
         yield dbname, scratch_dsn
     finally:
+        if scratch_conn is not None:
+            scratch_conn.close()
         _restore_env(saved)
         shutil.rmtree(shim_dir, ignore_errors=True)
         admin = _admin_connect(params)

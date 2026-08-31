@@ -20,6 +20,11 @@ from tests.bench.fake_adapter import FakeAdapter
 
 runner = CliRunner()
 
+# Deterministic help rendering: rich wraps panels at the detected terminal
+# width (80 in CI pty) and colors output — COLUMNS fixes the width for
+# shutil.get_terminal_size, NO_COLOR strips ANSI escapes.
+_HELP_ENV = {"COLUMNS": "200", "NO_COLOR": "1"}
+
 ALL_10 = [
     "code_gen",
     "reasoning",
@@ -42,7 +47,7 @@ def test_bench_help_lists_ten_benchmarks() -> None:
 
 
 def test_bench_help_lists_models_and_battery_flags() -> None:
-    result = runner.invoke(app, ["bench", "--help"])
+    result = runner.invoke(app, ["bench", "--help"], env=_HELP_ENV)
     assert "--models" in result.stdout
     assert "--battery" in result.stdout
 

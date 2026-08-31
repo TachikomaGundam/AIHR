@@ -48,7 +48,9 @@ class TestTyperWiring:
         assert "parse_args(" not in src
 
     def test_help_lists_all_13_commands(self):
-        result = runner.invoke(app, ["--help"])
+        # COLUMNS/NO_COLOR pin the rich panel width (80-col CI pty wraps the
+        # ╭─ Commands header) and strip ANSI so the section split is stable.
+        result = runner.invoke(app, ["--help"], env={"COLUMNS": "200", "NO_COLOR": "1"})
         assert result.exit_code == 0
         section = result.output.split("╭─ Commands")[1].split("╰─")[0]
         for name in sorted(COMMANDS):

@@ -38,6 +38,7 @@ from hr.bench.scorers import (
 from hr.bench.truths import reasoning_truths
 
 import json
+import pytest
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ _PARTIAL_CODE = _CORRECT_CODE.replace(
 )
 
 
+@pytest.mark.sandbox
 def test_code_gen_correct_100():
     r = score_code_gen(_CORRECT_CODE)
     # Case 12 is the SIGALRM performance gate — passing it is required to
@@ -115,6 +117,7 @@ def test_code_gen_correct_100():
     assert all(ok for _, ok in r.item_scores)
 
 
+@pytest.mark.sandbox
 def test_code_gen_partial():
     r = score_code_gen(_PARTIAL_CODE)
     # median cases 0-7 pass; burst 8-10 and inversion 11 + 12 fail => 8/13 ≈ 61.5

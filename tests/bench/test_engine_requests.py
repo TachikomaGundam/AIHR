@@ -26,6 +26,7 @@ def test_every_battery_runs_through_chat_request(engine: LivebenchEngine) -> Non
         assert isinstance(outcome.tokens_in, int) or outcome.tokens_in is None
         assert outcome.raw_output != ""
 
+@pytest.mark.sandbox
 def test_code_gen_request_shape(engine: LivebenchEngine) -> None:  # noqa: F811 (fixture param shadows re-exported engine)
     outcome = engine.run_battery(MODEL, BenchmarkCategory.code_gen)
     assert outcome.score == pytest.approx(100.0)

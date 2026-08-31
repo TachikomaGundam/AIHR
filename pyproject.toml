@@ -81,6 +81,7 @@ addopts = ["--strict-markers", "-ra", "--timeout=300"]
 markers = [
     "db: requires live postgres (env/service-gated)",
     "integration: exercises real external resources (postgres)",
+    "sandbox: executes model code under bubblewrap isolation (auto-skipped wherever bwrap cannot create namespaces)",
 ]
 
 [tool.ruff.lint]

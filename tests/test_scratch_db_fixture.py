@@ -26,6 +26,21 @@ from tests.conftest import _save_env
 from tests.conftest import _scratch_db_exists
 from tests.conftest import scratch_db
 from tests.test_db import EXPECTED_TABLES
+import tests.conftest as _conftest_mod
+
+
+@pytest.fixture(autouse=True)
+def _reset_admin_test_params_cache() -> None:
+    """Run every test in this module against a pristine admin-resolution cache.
+
+    ``_require_admin_test_dsn`` caches the first valid ambient admin DSN so
+    concurrent ``scratch_db`` invocations stay immune to each other's
+    HR_TEST_PG_DSN rewrite; the admission tests below pin the refusal
+    semantics against a FRESH environment, so the cache must start empty
+    for them regardless of which live-DB tests ran earlier in the session.
+    """
+    _conftest_mod._ADMIN_TEST_PARAMS = None
+    yield
 
 # pytest 8 wraps decorated fixture functions and forbids DIRECT calls
 # ("fixtures are not meant to be called directly"); ``__wrapped__`` exposes
