@@ -19,6 +19,7 @@ from tests.bench.test_scorers import (
     score_reasoning
 )
 
+@pytest.mark.sandbox
 def test_code_gen_perfect_solution_scores_100() -> None:
     outcome = score_code_gen(_CORRECT_CODE)
     assert outcome.score == pytest.approx(100.0)
@@ -27,6 +28,7 @@ def test_code_gen_perfect_solution_scores_100() -> None:
     assert all(passed for _, passed in outcome.item_scores or [])
 
 
+@pytest.mark.sandbox
 def test_code_gen_cannot_access_host_environment_or_filesystem(tmp_path, monkeypatch) -> None:
     # Given: otherwise-correct model code that probes host secrets and files.
     escaped_file = tmp_path / "escaped.txt"
@@ -50,6 +52,7 @@ def test_code_gen_cannot_access_host_environment_or_filesystem(tmp_path, monkeyp
     assert not escaped_file.exists()
 
 
+@pytest.mark.sandbox
 def test_code_gen_buggy_burst_fails_exactly_three_tests() -> None:
     outcome = score_code_gen(_BUGGY_BURST_CODE)
     assert outcome.score == pytest.approx(10 / 13 * 100.0)

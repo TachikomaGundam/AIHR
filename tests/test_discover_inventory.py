@@ -113,7 +113,10 @@ class TestDiscoverFixture:
         assert "Traceback" not in result.output
 
     def test_help_documents_static_parse_limitation(self):
-        result = runner.invoke(app, ["discover", "--help"])
+        # COLUMNS/NO_COLOR pin the rich panel width so flag rows never wrap.
+        result = runner.invoke(
+            app, ["discover", "--help"], env={"COLUMNS": "200", "NO_COLOR": "1"}
+        )
         assert result.exit_code == 0, result.output
         assert "static config parse only" in result.output
         assert "--all" in result.output

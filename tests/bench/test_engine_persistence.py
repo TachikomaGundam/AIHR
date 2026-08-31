@@ -48,6 +48,14 @@ def test_garbage_adapter_scores_zero_not_crash(
 
 @pytest.mark.db
 @pytest.mark.integration
+@pytest.mark.sandbox
+# The whole test is gated on the sandbox probe (see tests/conftest.py): the
+# e2e contract asserts exact per-battery means incl. code_gen == 100.0 and
+# n_meas == 64, which cannot hold when the sandbox cannot run code_gen at
+# all. Skipping the entire sweep on bwrap-incapable environments is the
+# minimal-honest option — a conditional assertion around code_gen would
+# weaken the persistence contract silently; the other batteries keep their
+# own e2e paths (CLI/engine) and locally the test always runs in full.
 def test_e2e_all_batteries_write_measurements_with_linkage(
     engine: LivebenchEngine, scratch_conn
 ) -> None:
