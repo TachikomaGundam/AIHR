@@ -44,6 +44,12 @@ Option B — CLI (if `gh` is installed and authed):
 gh repo create TachikomaGundam/AIHR --public --description "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
 ```
 
+> **PAT scope gotcha (learned at first push):** a fine-grained token MUST
+> have **Workflows: Read and write** in addition to Contents — this repo
+> ships `.github/workflows/ci.yml`, and GitHub rejects pushes containing
+> workflow paths when the token lacks that scope. Classic tokens with the
+> `repo` scope are unaffected.
+
 ## 2. Push (the remote is already added)
 
 ```bash
@@ -55,6 +61,13 @@ git push -u origin main --follow-tags
 SSH key required for `git@github.com`. If you prefer HTTPS+PAT:
 `git remote set-url origin https://github.com/TachikomaGundam/AIHR.git`
 and use a PAT as the password when prompted.
+
+> **Status 2026-09-01:** the first push was executed by the user over
+> HTTPS+PAT (`origin/main` == tag == the fastdraw-fix commit). An ed25519
+> key was generated on this machine at `~/.ssh/id_ed25519_github` and the
+> remote switched back to the SSH URL above — add the public key to
+> GitHub → Settings → SSH and GPG keys once, and future pushes need no
+> token. Verify with `ssh -T git@github.com` (expect: "Hi TachikomaGundam!").
 
 ## 3. GitHub Release v0.2.0 (web)
 
