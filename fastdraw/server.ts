@@ -11,6 +11,15 @@ import { homedir } from "node:os"
 import path from "node:path"
 import { OMO_BUILTINS, OVERRIDABLE_LIST } from "./roles.js"
 import {
+  readOmoConfig,
+  writeOmoModels,
+  isOmoName,
+  omoPortableFile,
+  type OmoBinding,
+  type OmoConfig,
+  type OmoWriteResult,
+} from "./omo.js"
+import {
   SCHEMA_VERSION,
   toPortablePath,
   harvest,
@@ -35,11 +44,15 @@ const CUSTOM_AGENTS_DIR = path.join(CONFIG_DIR, "agents")
 
 interface Assignments {
   agents: Record<string, string>
+  /** Bindings routed into the OMO config (~/.omo/omo.jsonc), keyed by
+   *  role/category name. Absent on OMO-less machines. */
+  omo?: Record<string, OmoBinding>
 }
 
 async function loadState(): Promise<Assignments> {
   try {
-    return JSON.parse(await fs.readFile(STATE_FILE, "utf-8")) as Assignments
+    const raw = JSON.parse(await fs.readFile(STATE_FILE, "utf-8")) as Partial<Assignments>
+    return { agents: raw.agents ?? {}, ...(raw.omo ? { omo: raw.omo } : {}) }
   } catch {
     return { agents: {} }
   }
@@ -280,10 +293,59 @@ function presetPreview(agents: Record<string, string>): string {
   return entries.map(([n, m]) => `  ${n.padEnd(w)}  →  ${m}`).join("\n")
 }
 
+/** OMO roles/categories as bound in the user's OMO config file, with
+ *  FastDraw-recorded overrides marked. Empty when no usable OMO config. */
+function formatOmoBlock(omoCfg: OmoConfig, state: Assignments): string {
+  if (!omoCfg.exists || !omoCfg.parseable) return ""
+  const line = (name: string): string => {
+    const rec = state.omo?.[name]
+    const shown = rec?.model ?? omoCfg.targets[name]?.model
+    return `  ${name}: ${shown ?? "[not set]"}${rec ? "  [fastdraw]" : ""}`
+  }
+  const names = Object.keys(omoCfg.targets).sort()
+  const agents = names.filter((n) => omoCfg.targets[n].kind === "agent")
+  const cats = names.filter((n) => omoCfg.targets[n].kind === "category")
+  const blocks: string[] = []
+  if (agents.length) blocks.push(`OMO Roles:\n${agents.map(line).join("\n")}`)
+  if (cats.length) blocks.push(`OMO Categories:\n${cats.map(line).join("\n")}`)
+  return blocks.join("\n\n")
+}
+
 function expandPath(p: string): string {
   if (p === "~") return homedir()
   if (p.startsWith("~/")) return path.join(homedir(), p.slice(2))
   return path.resolve(process.cwd(), p)
+}
+
+/* ── OMO routing helpers ──────────────────────────────────────────── */
+
+/** Names live in the OMO config → bind there; writing them into opencode's
+ *  cfg.agent would CREATE PHANTOM ROLES instead of rebinding the real ones. */
+function isOmoRouted(omoCfg: OmoConfig, name: string): boolean {
+  return omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, name)
+}
+
+function shadowNote(omoCfg: OmoConfig): string {
+  return omoCfg.shadowFiles.length
+    ? `\n⚠ Project OMO config(s) shadow the user file and may override these bindings: ${omoCfg.shadowFiles.join(", ")}.`
+    : ""
+}
+
+/** Fold legacy opencode-cfg bindings of OMO names into the omo section,
+ *  returning the models that still need writing into the OMO file. */
+function migrateAll(state: Assignments, omoCfg: OmoConfig): Record<string, string> | null {
+  const pending: Record<string, string> = {}
+  for (const [name, model] of Object.entries(state.agents)) {
+    if (!isOmoName(omoCfg, name)) continue
+    state.omo ??= {}
+    state.omo[name] = {
+      model,
+      original: state.omo[name]?.original ?? omoCfg.targets[name]?.model ?? null,
+    }
+    delete state.agents[name]
+    pending[name] = model
+  }
+  return Object.keys(pending).length ? pending : null
 }
 
 /* ── Plugin ───────────────────────────────────────────────────────── */
@@ -292,6 +354,56 @@ async function fastdrawServer() {
   const state = await loadState()
   const presets = await loadPresets()
   const customNames = await readCustomAgentNames()
+  let omoCfg = await readOmoConfig()
+
+  const migrated = omoCfg.exists && omoCfg.parseable ? migrateAll(state, omoCfg) : null
+  if (migrated) {
+    const res = await writeOmoModels(migrated)
+    if (res.written) await saveState(state)
+    else {
+      for (const [n, m] of Object.entries(migrated)) {
+        state.agents[n] = m
+        delete state.omo?.[n]
+      }
+    }
+  }
+
+  /** Re-read the OMO config (it is user-editable between calls). */
+  async function refreshOmo(): Promise<void> {
+    omoCfg = await readOmoConfig()
+  }
+
+  /** Record + write one OMO binding; rolls the record back on write failure. */
+  async function omoAssign(name: string, model: string): Promise<string | null> {
+    state.omo ??= {}
+    const prev = state.omo[name]
+    state.omo[name] = { model, original: prev?.original ?? omoCfg.targets[name]?.model ?? null }
+    const res = await writeOmoModels({ [name]: model })
+    if (!res.written) {
+      if (prev) state.omo[name] = prev
+      else delete state.omo[name]
+      return res.error ?? "unknown OMO write error"
+    }
+    delete state.agents[name]
+    await saveState(state)
+    return null
+  }
+
+  /** Revert one recorded OMO binding to its original model. */
+  async function omoRevert(name: string): Promise<string | null> {
+    const rec = state.omo?.[name]
+    if (!rec) return "no OMO record"
+    let err: string | null = null
+    if (rec.original) {
+      const res = await writeOmoModels({ [name]: rec.original })
+      err = res.written ? null : (res.error ?? "unknown OMO write error")
+    }
+    if (err === null) {
+      delete state.omo![name]
+      await saveState(state)
+    }
+    return err
+  }
 
   let configRef: Cfg | null = null
   /** Original cfg.agent[name].model values captured before our first mutation,
@@ -339,6 +451,15 @@ async function fastdrawServer() {
             .describe("Model ID with provider prefix (e.g. provider/model)"),
         },
         async execute(args) {
+          await refreshOmo()
+          if (isOmoRouted(omoCfg, args.agent)) {
+            const err = await omoAssign(args.agent, args.model)
+            if (err) return `**FastDraw**: ${args.agent} → ${args.model} FAILED — ${err}`
+            return (
+              `**FastDraw**: ${args.agent} → ${args.model} — bound in OMO config (${omoCfg.file}); takes effect on next start.${shadowNote(omoCfg)}\n\n` +
+              formatOmoBlock(omoCfg, state)
+            )
+          }
           if (configRef) snapshotOriginals(configRef, [args.agent])
           state.agents[args.agent] = args.model
           await saveState(state)
@@ -354,8 +475,14 @@ async function fastdrawServer() {
               ...Object.keys(state.agents),
             ]),
           ]
-          const groups = categorize(all.filter((n) => cfgAgent[n] || state.agents[n]))
-          return `**FastDraw**: ${args.agent} → ${args.model}\n\n${formatList(groups, state.agents, cfgAgent)}`
+          const groups = categorize(
+            all.filter((n) => (cfgAgent[n] || state.agents[n]) && !isOmoName(omoCfg, n)),
+          )
+          const omoBlock = formatOmoBlock(omoCfg, state)
+          return (
+            `**FastDraw**: ${args.agent} → ${args.model}\n\n` +
+            `${omoBlock ? omoBlock + "\n\n" : ""}${formatList(groups, state.agents, cfgAgent)}`
+          )
         },
       }),
 
@@ -365,6 +492,18 @@ async function fastdrawServer() {
           agent: tool.schema.string().describe("Agent name"),
         },
         async execute(args) {
+          await refreshOmo()
+          const rec = state.omo?.[args.agent]
+          if (rec) {
+            const err = await omoRevert(args.agent)
+            if (err) return `**FastDraw**: revert of ${args.agent} in OMO config FAILED — ${err}`
+            return (
+              `**FastDraw**: removed override for ${args.agent}` +
+              (rec.original
+                ? ` (reverted to ${rec.original} in ${omoCfg.file}).`
+                : ` — OMO config keeps the last FastDraw-written model (no recorded default).`)
+            )
+          }
           if (args.agent in state.agents) {
             delete state.agents[args.agent]
             await saveState(state)
@@ -387,6 +526,7 @@ async function fastdrawServer() {
         description: "FastDraw: show current model assignments for all agents",
         args: {},
         async execute() {
+          await refreshOmo()
           const cfgAgent = ((configRef as any)?.agent ?? {}) as AgentCfg
           const all = [
             ...new Set([
@@ -397,10 +537,17 @@ async function fastdrawServer() {
               ...Object.keys(cfgAgent),
             ]),
           ]
-          const groups = categorize(all)
+          const groups = categorize(all.filter((n) => !isOmoName(omoCfg, n)))
+          const omoBlock = formatOmoBlock(omoCfg, state)
+          const blocks = [
+            `**FastDraw** (${STATE_FILE})`,
+            ...(omoBlock ? [omoBlock] : []),
+            formatList(groups, state.agents, cfgAgent),
+          ]
           return (
-            `**FastDraw** (${STATE_FILE})\n\n${formatList(groups, state.agents, cfgAgent)}` +
-            `\n\nUse \`fastdraw_assign\` or TUI (\`/fastdraw\` or \`<leader>m\`) to change.`
+            blocks.join("\n\n") +
+            `\n\nUse \`fastdraw_assign\` or TUI (\`/fastdraw\` or \`<leader>m\`) to change.` +
+            shadowNote(omoCfg)
           )
         },
       }),
@@ -419,6 +566,8 @@ async function fastdrawServer() {
           // copy stale (false "no assignments to save").
           const fresh = await loadState()
           state.agents = fresh.agents
+          state.omo = fresh.omo
+          await refreshOmo()
           // Origin-aware harvest: scan every config layer in opencode's
           // precedence order, record where each binding lives (portable
           // paths), and detect cross-layer conflicts. FastDraw state is the
@@ -431,11 +580,26 @@ async function fastdrawServer() {
           }
           const h = await harvest(ctx)
           const snapshot: Record<string, Binding> = { ...h.agents }
+          // OMO roles/categories live in the OMO config, not in opencode's
+          // layers — harvest them from there so presets capture the full
+          // fleet picture and restores route back to the right file.
+          const omoPort =
+            omoCfg.exists && omoCfg.parseable
+              ? omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+              : null
+          if (omoPort) {
+            for (const [name, t] of Object.entries(omoCfg.targets)) {
+              if (t.model) snapshot[name] = { model: t.model, origin: { layer: "omo", file: omoPort } }
+            }
+          }
           for (const [name, model] of Object.entries(state.agents)) {
             snapshot[name] = {
               model,
               origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
             }
+          }
+          for (const [name, rec] of Object.entries(state.omo ?? {})) {
+            snapshot[name] = { model: rec.model, origin: omoPort ? { layer: "omo", file: omoPort } : undefined }
           }
           // Bindings opencode surfaced programmatically (config hook) that no
           // layer file records get no origin — they restore to the global
@@ -443,7 +607,7 @@ async function fastdrawServer() {
           const cfgAgent = ((configRef as any)?.agent ?? {}) as AgentCfg
           const noOrigin: string[] = []
           for (const [name, a] of Object.entries(cfgAgent)) {
-            if (name in snapshot) continue
+            if (name in snapshot || isOmoName(omoCfg, name)) continue
             if (typeof a?.model === "string" && a.model.includes("/")) {
               snapshot[name] = { model: a.model }
               noOrigin.push(name)
@@ -530,7 +694,33 @@ async function fastdrawServer() {
           for (const [n, b] of Object.entries({ ...p.omo, ...p.custom })) {
             if (n in applyAgents) presentBindings[n] = b
           }
-          const plan = await planRestore(presentBindings, mode, ctx, args.targetPath)
+          // OMO-routed names bind in the OMO config file — they must never
+          // be written into opencode config layers (that creates phantom
+          // roles). Split them out; the rest follows the restore plan.
+          await refreshOmo()
+          const omoSide: Record<string, string> = {}
+          for (const n of Object.keys(presentBindings)) {
+            if (isOmoRouted(omoCfg, n)) omoSide[n] = presentBindings[n].model
+          }
+          const omoWrite: Record<string, string> = { ...omoSide }
+          const omoReverted: string[] = []
+          for (const [n, rec] of Object.entries(state.omo ?? {})) {
+            if (n in omoSide) continue
+            if (rec.original) omoWrite[n] = rec.original
+            omoReverted.push(n)
+          }
+          const cfgApplyAgents: Record<string, string> = {}
+          for (const [n, m] of Object.entries(applyAgents)) {
+            if (!(n in omoSide)) cfgApplyAgents[n] = m
+          }
+          const cfgSideBindings: Record<string, Binding> = {}
+          for (const [n, b] of Object.entries(presentBindings)) {
+            if (!(n in omoSide)) cfgSideBindings[n] = b
+          }
+          const plan = await planRestore(cfgSideBindings, mode, ctx, args.targetPath)
+          const omoPreviewBlock = Object.keys(omoSide).length
+            ? `\n\nOMO config bindings (${omoCfg.file}):\n${presetPreview(omoSide)}`
+            : ""
           if (args.preview) {
             const lines = plan.files.map(
               (f) => `  ${f.file}${f.create ? " (new file)" : ""} → ${Object.keys(f.entries).length} binding(s)`,
@@ -538,16 +728,40 @@ async function fastdrawServer() {
             const fallbackBlock = plan.fallback.length
               ? `\n⚠ ${plan.fallback.length} role(s) have no resolvable origin on this machine and would land in the global config: ${plan.fallback.join(", ")}.`
               : ""
+            const revertedBlock = omoReverted.length
+              ? `\nOMO roles not in this preset would revert to their recorded defaults: ${omoReverted.join(", ")}.`
+              : ""
             return (
               `**FastDraw**: preview of preset "${args.name}" (mode: ${mode})${skipped.length ? `\nSkipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.` : ""}\n` +
-              `${lines.join("\n")}${fallbackBlock}`
+              `${lines.join("\n")}${fallbackBlock}${omoPreviewBlock}${revertedBlock}`
             )
           }
-          if (configRef) {
-            snapshotOriginals(configRef, Object.keys(applyAgents))
-            hotSwap(configRef, applyAgents)
+          let omoErr: string | null = null
+          let omoRes: OmoWriteResult | null = null
+          if (Object.keys(omoWrite).length || omoReverted.length) {
+            if (Object.keys(omoWrite).length) {
+              omoRes = await writeOmoModels(omoWrite)
+              if (!omoRes.written) omoErr = omoRes.error ?? "unknown OMO write error"
+            }
+            if (omoErr === null) {
+              for (const [n, m] of Object.entries(omoSide)) {
+                state.omo ??= {}
+                state.omo[n] = {
+                  model: m,
+                  original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
+                }
+              }
+              for (const n of omoReverted) delete state.omo![n]
+            }
           }
-          state.agents = applyAgents
+          if (omoErr !== null) {
+            return `**FastDraw**: load of preset "${args.name}" ABORTED — OMO config write failed: ${omoErr}. Nothing was changed.`
+          }
+          if (configRef) {
+            snapshotOriginals(configRef, Object.keys(cfgApplyAgents))
+            hotSwap(configRef, cfgApplyAgents)
+          }
+          state.agents = cfgApplyAgents
           await saveState(state)
           const outcomes = await restoreWrite(plan)
           const planLines = outcomes.map((o) => {
@@ -571,10 +785,20 @@ async function fastdrawServer() {
           const errBlock = outcomes.some((o) => o.error)
             ? "\n⚠ Restore partially failed — see ✗ lines above."
             : ""
+          const omoBlock =
+            Object.keys(omoSide).length || omoReverted.length
+              ? `\n\nOMO config ${omoRes?.file ?? omoCfg.file ?? "OMO config"}${
+                  omoRes?.backup ? ` (backup: ${omoRes.backup})` : ""
+                }:${
+                  Object.keys(omoSide).length
+                    ? `\n${presetPreview(omoSide)}`
+                    : ""
+                }${omoReverted.length ? `\nReverted to defaults: ${omoReverted.join(", ")}.` : ""} Takes effect on next start.`
+              : ""
           return (
             `**FastDraw**: preset "${args.name}" loaded (${Object.keys(applyAgents).length} agents)${warn}\n\n` +
             `${presetPreview(applyAgents)}\n\nAgents not in this preset reverted to their defaults.` +
-            `\n\nRestored (mode: ${mode}):\n${planLines.join("\n")}${fallbackBlock}${stateBlock}${errBlock}`
+            `\n\nRestored (mode: ${mode}):\n${planLines.join("\n")}${fallbackBlock}${stateBlock}${omoBlock}${errBlock}${shadowNote(omoCfg)}`
           )
         },
       }),

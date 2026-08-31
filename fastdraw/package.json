@@ -19,13 +19,14 @@
     "tui.ts",
     "roles.ts",
     "origins.ts",
+    "omo.ts",
     "install.sh",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "pretest": "esbuild server.ts --format=esm --platform=node --bundle --outfile=test/.build/server.mjs --log-level=error && esbuild origins.ts --format=esm --platform=node --bundle --outfile=test/.build/origins.mjs --log-level=error",
-    "test": "node test/preset.test.mjs && node test/preset-split.test.mjs && node test/origins.test.mjs"
+    "pretest": "esbuild server.ts --format=esm --platform=node --bundle --outfile=test/.build/server.mjs --log-level=error && esbuild origins.ts --format=esm --platform=node --bundle --outfile=test/.build/origins.mjs --log-level=error && esbuild omo.ts --format=esm --platform=node --bundle --outfile=test/.build/omo.mjs --log-level=error",
+    "test": "node test/preset.test.mjs && node test/preset-split.test.mjs && node test/origins.test.mjs && node test/omo.test.mjs && node test/omo-routing.test.mjs"
   },
   "keywords": [
     "opencode",

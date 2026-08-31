@@ -14,6 +14,16 @@ import { homedir } from "node:os"
 import path from "node:path"
 import { OMO_ROLES, OVERRIDABLE } from "./roles.js"
 import {
+  readOmoConfig,
+  writeOmoModels,
+  isOmoName,
+  omoTargetKind,
+  omoPortableFile,
+  type OmoBinding,
+  type OmoConfig,
+  type OmoWriteResult,
+} from "./omo.js"
+import {
   SCHEMA_VERSION,
   toPortablePath,
   stripJsonComments,
@@ -39,14 +49,38 @@ const CUSTOM_AGENTS_DIR = path.join(CONFIG_DIR, "agents")
 
 interface Assignments {
   agents: Record<string, string>
+  omo?: Record<string, OmoBinding>
 }
 
 async function loadState(): Promise<Assignments> {
   try {
-    return JSON.parse(await fs.readFile(STATE_FILE, "utf-8")) as Assignments
+    const raw = JSON.parse(await fs.readFile(STATE_FILE, "utf-8")) as Partial<Assignments>
+    return { agents: raw.agents ?? {}, ...(raw.omo ? { omo: raw.omo } : {}) }
   } catch {
     return { agents: {} }
   }
+}
+
+/** Assign one OMO role/category in the OMO config, recording the pre-fastdraw
+ *  model so remove/load-preset can revert. Returns an error string on failure. */
+async function omoAssignToFile(
+  omoCfg: OmoConfig,
+  name: string,
+  model: string,
+): Promise<string | null> {
+  const state = await loadState()
+  state.omo ??= {}
+  const prev = state.omo[name]
+  state.omo[name] = { model, original: prev?.original ?? omoCfg.targets[name]?.model ?? null }
+  const res = await writeOmoModels({ [name]: model })
+  if (!res.written) {
+    if (prev) state.omo[name] = prev
+    else delete state.omo[name]
+    return res.error ?? "unknown OMO write error"
+  }
+  delete state.agents[name]
+  await saveState(state)
+  return null
 }
 
 async function saveState(a: Assignments): Promise<void> {
@@ -235,12 +269,6 @@ async function readCustomAgentNames(): Promise<string[]> {
   }
 }
 
-function agentCategory(name: string): string {
-  if (OMO_ROLES.has(name)) return "OMO Roles"
-  if (OVERRIDABLE.has(name)) return "Overrideable"
-  return "Custom"
-}
-
 /* ── Build model list from providers ──────────────────────────────── */
 
 function buildModelList(api: any): { id: string; provider: string }[] {
@@ -268,66 +296,114 @@ function flowError(ui: Ui, err: unknown) {
   toast(ui, `FastDraw: ${err instanceof Error ? err.message : String(err)}`, "error")
 }
 
-/** Flow: pick agent → pick model → persist. */
+/** Flow: pick agent → pick model → persist → return to the agent list. */
 async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[]) {
   if (!allModels.length) {
     toast(ui, "FastDraw: No models configured", "warning")
     return
   }
-  const assignments = await loadState()
-  const customFromDir = await readCustomAgentNames()
+  const omoCfg = await readOmoConfig()
+  const omoRouted = (name: string): boolean =>
+    omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, name)
 
-  const allNames = new Set<string>([
-    ...OMO_ROLES,
-    ...OVERRIDABLE,
-    ...customFromDir,
-    ...Object.keys(assignments.agents),
-  ])
+  const showAgentList = async (focusName?: string): Promise<void> => {
+    const assignments = await loadState()
+    const customFromDir = await readCustomAgentNames()
 
-  const agentOpts: TuiDialogSelectOption<string>[] = [...allNames]
-    .sort()
-    .map((name) => ({
-      title: name,
-      value: name,
-      description: assignments.agents[name] ? `→ ${assignments.agents[name]}` : undefined,
-      category: agentCategory(name),
-    }))
+    const allNames = new Set<string>([
+      ...Object.keys(omoCfg.targets),
+      ...OMO_ROLES,
+      ...OVERRIDABLE,
+      ...customFromDir,
+      ...Object.keys(assignments.agents),
+      ...Object.keys(assignments.omo ?? {}),
+    ])
 
-  ui.dialog.setSize("large")
-  ui.dialog.replace(() =>
-    ui.DialogSelect<string>({
-      title: "FastDraw — Select Agent",
-      options: agentOpts,
-      onSelect: async (opt: any) => {
-        if (!opt) return
-        const agentName = opt.value
-        const current = assignments.agents[agentName] ?? ""
+    const currentModel = (name: string): string | undefined =>
+      assignments.omo?.[name]?.model ??
+      (omoRouted(name) ? (omoCfg.targets[name]?.model ?? undefined) : undefined) ??
+      assignments.agents[name]
 
-        ui.dialog.clear()
-        ui.dialog.replace(() =>
-          ui.DialogSelect<string>({
-            title: `FastDraw — Model for ${agentName}`,
-            options: allModels.map((m) => ({
-              title: m.id,
-              value: m.id,
-              category: m.provider,
-            })),
-            current: current || undefined,
-            onSelect: async (modelOpt: any) => {
-              if (!modelOpt) return
-              ui.dialog.clear()
+    const kindLabel = (name: string): string => {
+      const k = omoTargetKind(omoCfg, name)
+      if (k === "category") return "OMO Categories"
+      if (k === "agent") return "OMO Roles"
+      if (OMO_ROLES.has(name)) return "OMO Roles"
+      if (OVERRIDABLE.has(name)) return "Overrideable"
+      return "Custom"
+    }
 
-              const next = await loadState()
-              next.agents[agentName] = modelOpt.value
-              await saveState(next)
+    const agentOpts: TuiDialogSelectOption<string>[] = [...allNames]
+      .sort()
+      .map((name) => ({
+        title: name,
+        value: name,
+        description: currentModel(name) ? `→ ${currentModel(name)}` : undefined,
+        category: kindLabel(name),
+      }))
 
-              toast(ui, `${agentName} → ${modelOpt.value} (applies on restart)`, "success")
-            },
-          }),
-        )
-      },
-    }),
-  )
+    ui.dialog.setSize("large")
+    ui.dialog.replace(() =>
+      ui.DialogSelect<string>({
+        title: "FastDraw — Select Agent",
+        options: agentOpts,
+        current: focusName,
+        onSelect: async (opt: any) => {
+          if (!opt) return
+          const agentName = opt.value
+          const current = currentModel(agentName) ?? ""
+
+          ui.dialog.clear()
+          ui.dialog.replace(() =>
+            ui.DialogSelect<string>({
+              title: `FastDraw — Model for ${agentName}`,
+              options: allModels.map((m) => ({
+                title: m.id,
+                value: m.id,
+                category: m.provider,
+              })),
+              current: current || undefined,
+              onSelect: async (modelOpt: any) => {
+                if (!modelOpt) return
+                ui.dialog.clear()
+                try {
+                  if (omoRouted(agentName)) {
+                    const err = await omoAssignToFile(omoCfg, agentName, modelOpt.value)
+                    if (err) {
+                      toast(ui, `FastDraw: ${agentName} → ${modelOpt.value} FAILED — ${err}`, "error")
+                    } else {
+                      toast(
+                        ui,
+                        `${agentName} → ${modelOpt.value} — bound in ${omoCfg.file}, takes effect on next start`,
+                        "success",
+                      )
+                      if (omoCfg.shadowFiles.length) {
+                        toast(
+                          ui,
+                          `⚠ Project OMO config shadows this file: ${omoCfg.shadowFiles.join(", ")}`,
+                          "warning",
+                        )
+                      }
+                    }
+                  } else {
+                    const next = await loadState()
+                    next.agents[agentName] = modelOpt.value
+                    await saveState(next)
+                    toast(ui, `${agentName} → ${modelOpt.value} (applies on restart)`, "success")
+                  }
+                } catch (e) {
+                  flowError(ui, e)
+                }
+                await showAgentList(agentName)
+              },
+            }),
+          )
+        },
+      }),
+    )
+  }
+
+  await showAgentList()
 }
 
 /** Flow: prompt name → prompt description → save current assignments. */
@@ -354,6 +430,7 @@ function savePresetFlow(ui: Ui) {
               ui.dialog.clear()
               try {
                 const state = await loadState()
+                const omoCfg = await readOmoConfig()
                 const ctx: HarvestCtx = {
                   home: homedir(),
                   configDir: CONFIG_DIR,
@@ -362,10 +439,25 @@ function savePresetFlow(ui: Ui) {
                 }
                 const h = await harvest(ctx)
                 const snapshot: Record<string, Binding> = { ...h.agents }
+                if (omoCfg.exists && omoCfg.parseable) {
+                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+                  for (const [name, t] of Object.entries(omoCfg.targets)) {
+                    if (t.model) {
+                      snapshot[name] = { model: t.model, origin: port ? { layer: "omo", file: port } : undefined }
+                    }
+                  }
+                }
                 for (const [name, model] of Object.entries(state.agents)) {
                   snapshot[name] = {
                     model,
                     origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
+                  }
+                }
+                for (const [name, rec] of Object.entries(state.omo ?? {})) {
+                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+                  snapshot[name] = {
+                    model: rec.model,
+                    origin: omoCfg.file ? (port ? { layer: "omo", file: port } : undefined) : { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
                   }
                 }
                 if (!Object.keys(snapshot).length) {
@@ -527,6 +619,23 @@ function loadPresetFlow(ui: Ui) {
       for (const [n, b] of Object.entries({ ...p.omo, ...p.custom })) {
         if (n in applyAgents) presentBindings[n] = b
       }
+      // OMO-routed names bind in the OMO config file — never into opencode
+      // config layers (that creates phantom roles). Split before planning.
+      const omoCfg = await readOmoConfig()
+      const omoRouted = (n: string): boolean =>
+        omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, n)
+      const omoSide: Record<string, string> = {}
+      for (const n of Object.keys(presentBindings)) {
+        if (omoRouted(n)) omoSide[n] = presentBindings[n].model
+      }
+      const cfgApplyAgents: Record<string, string> = {}
+      for (const [n, m] of Object.entries(applyAgents)) {
+        if (!(n in omoSide)) cfgApplyAgents[n] = m
+      }
+      const cfgSideBindings: Record<string, Binding> = {}
+      for (const [n, b] of Object.entries(presentBindings)) {
+        if (!(n in omoSide)) cfgSideBindings[n] = b
+      }
       const mode = await new Promise<RestoreMode | null>((resolve) => {
         ui.dialog.setSize("small")
         ui.dialog.replace(() =>
@@ -561,7 +670,7 @@ function loadPresetFlow(ui: Ui) {
         targetPath = (await pickTargetFile(ui, CONFIG_DIR)) ?? undefined
         if (!targetPath) return
       }
-      const plan = await planRestore(presentBindings, mode, ctx, targetPath)
+      const plan = await planRestore(cfgSideBindings, mode, ctx, targetPath)
       const planLines = plan.files.map(
         (f) => `  ${f.file}${f.create ? " (new file)" : ""} → ${Object.keys(f.entries).length} binding(s)`,
       )
@@ -570,6 +679,9 @@ function loadPresetFlow(ui: Ui) {
         : ""
       const skippedBlock = skipped.length
         ? `\nSkipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.`
+        : ""
+      const omoBlock = Object.keys(omoSide).length
+        ? `\nOMO config bindings (${omoCfg.file}):\n${presetPreview(omoSide)}\n`
         : ""
       const modeLabel =
         mode === "path" ? `path → ${targetPath}` : mode
@@ -580,19 +692,59 @@ function loadPresetFlow(ui: Ui) {
           message:
             `${presetPreview(applyAgents)}\n\n` +
             `This replaces ALL current assignments. Agents not listed revert to defaults.\n\n` +
-            `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}\n\n` +
+            `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}${omoBlock}\n\n` +
             `Existing files are backed up as <file>.bak-<timestamp> before writing.`,
           onCancel: () => ui.dialog.clear(),
           onConfirm: async () => {
             ui.dialog.clear()
             try {
-              await saveState({ agents: applyAgents })
+              const state = await loadState()
+              const omoWrite: Record<string, string> = { ...omoSide }
+              const omoReverted: string[] = []
+              for (const [n, rec] of Object.entries(state.omo ?? {})) {
+                if (n in omoSide) continue
+                if (rec.original) omoWrite[n] = rec.original
+                omoReverted.push(n)
+              }
+              let omoRes: OmoWriteResult | null = null
+              if (Object.keys(omoWrite).length || omoReverted.length) {
+                if (Object.keys(omoWrite).length) {
+                  omoRes = await writeOmoModels(omoWrite)
+                  if (!omoRes.written) {
+                    toast(ui, `Load aborted — OMO config write failed: ${omoRes.error}`, "error")
+                    return
+                  }
+                }
+                for (const [n, m] of Object.entries(omoSide)) {
+                  state.omo ??= {}
+                  state.omo[n] = {
+                    model: m,
+                    original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
+                  }
+                }
+                for (const n of omoReverted) delete state.omo![n]
+              }
+              await saveState({
+                agents: cfgApplyAgents,
+                ...(Object.keys(state.omo ?? {}).length ? { omo: state.omo } : {}),
+              })
               const outcomes = await restoreWrite(plan)
               const failed = outcomes.filter((o) => o.error)
               if (failed.length) {
                 toast(ui, `Restore failed for ${failed.length} file(s) — backups kept`, "warning")
               }
-              toast(ui, `Preset "${name}" loaded — restart to apply`, "success")
+              toast(
+                ui,
+                `Preset "${name}" loaded${omoRes ? ` (OMO config: ${omoRes.file})` : ""} — restart to apply`,
+                "success",
+              )
+              if (omoCfg.shadowFiles.length) {
+                toast(
+                  ui,
+                  `⚠ Project OMO config shadows the user file: ${omoCfg.shadowFiles.join(", ")}`,
+                  "warning",
+                )
+              }
               if (plan.fallback.length) {
                 toast(
                   ui,

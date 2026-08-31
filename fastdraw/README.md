@@ -1,16 +1,16 @@
 # opencode-fastdraw
 
-Quick-draw model switching for [opencode](https://opencode.ai) agents. Bind any configured model to any agent — OMO roles (`sisyphus`, `oracle`, `explore`, …), built-ins (`build`, `plan`, `general`), or your own custom agents — from a TUI dialog or agent tool calls. Snapshot bindings into named **presets**, preview them before applying, export/import them as portable JSON files, and hot-swap the whole setup instantly.
+Quick-draw model switching for [opencode](https://opencode.ai) agents. Bind any configured model to any agent — OMO roles (`sisyphus`, `oracle`, `explore`, …) **and OMO task categories** (`deep`, `quick`, `ultrabrain`, …), built-ins (`build`, `plan`, `general`), or your own custom agents — from a TUI dialog or agent tool calls. Snapshot bindings into named **presets**, preview them before applying, export/import them as portable JSON files, and hot-swap the whole setup instantly.
 
 Built for heavy [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (OMO) setups, works with any opencode config.
 
 ## Features
 
-- **Assign models from the TUI** — `/fastdraw` or `<leader>m` → pick agent → pick model. Agents grouped by OMO Roles / Overrideable / Custom; models grouped by provider.
+- **Assign models from the TUI** — `/fastdraw` or `<leader>m` → pick agent → pick model. Agents grouped by OMO Roles / OMO Categories / Overrideable / Custom; models grouped by provider. After each binding you land back on the agent list with the new model shown.
 - **Presets** — save the current assignment set as a named preset; loading a preset shows a **full preview of every role's binding** before you confirm.
 - **Export / Import** — share presets as portable JSON files (`fastdraw-preset-<name>.json`), or import a whole preset store at once.
-- **Hot-apply** — the `fastdraw_*` agent tools mutate the live config immediately (agents not in a freshly loaded preset revert to their original models). TUI changes persist and apply on restart.
-- **Config-respecting** — assignments live in `~/.config/opencode/.fastdraw.json`; presets in `fastdraw-presets.json`. Your `opencode.jsonc` is never modified by assignment — the only write path is *load preset* in a restore mode (`global` / `original` / `path`), and even then every file is backed up as `<file>.bak-<timestamp>` before being touched.
+- **Hot-apply** — `fastdraw_*` tools mutate the live config immediately for opencode-side agents (agents not in a freshly loaded preset revert to their original models). OMO roles/categories bind in OMO's own config file and take effect on next start. TUI changes persist and apply on restart.
+- **Config-respecting** — assignments live in `~/.config/opencode/.fastdraw.json`; presets in `fastdraw-presets.json`. Your `opencode.jsonc` is never modified by assignment — the only write path is *load preset* in a restore mode (`global` / `original` / `path`), and even then only for custom/built-in roles. OMO roles and categories are bound in `~/.omo/omo.jsonc` (or `omo.json`, matching OMO's detection order) and every file is backed up as `<file>.bak-<timestamp>` before being touched.
 
 ## Install
 
@@ -119,11 +119,16 @@ Bindings are stored in two sections: **`omo`** (standard OMO roles — `sisyphus
 }
 ```
 
-Each binding is `{ "model": "provider/model", "origin": … }`; `origin` records where the binding came from as a portable placeholder path (`${CONFIG_DIR}`, `${PROJECT}`, `${HOME}`) so presets stay machine-portable. Legacy v1 presets — flat `"agents": { "oracle": "provider/model" }` or `{ "model": … }` values — load fine and are normalized to v2 on the next save. Import accepts either format (single export or whole store); loading a preset reports origin resolution conflicts and shows exactly where each role would be written in restore modes.
+Each binding is `{ "model": "provider/model", "origin": … }`; `origin` records where the binding came from as a portable placeholder path (`${CONFIG_DIR}`, `${PROJECT}`, `${HOME}`) so presets stay machine-portable. OMO-side bindings carry `origin.layer: "omo"` with the `~/.omo/omo.jsonc` path — on load they are always restored into the OMO config regardless of restore mode. Legacy v1 presets — flat `"agents": { "oracle": "provider/model" }` or `{ "model": … }` values — load fine and are normalized to v2 on the next save. Import accepts either format (single export or whole store); loading a preset reports origin resolution conflicts and shows exactly where each role would be written in restore modes.
 
 ## How it works
 
-opencode resolves plugins through the package's `exports` map: `"./server"` for the server runtime, `"./tui"` for the TUI process. The server plugin's `config()` hook runs after other plugins (e.g. OMO) have populated `cfg.agent`, then overlays your saved bindings on top — so FastDraw wins by load order. Tool-triggered changes mutate the same live config object, which is why `fastdraw_assign` / `fastdraw_load_preset` take effect immediately; the first-seen model of every overridden agent is snapshotted so un-override can restore it exactly. Config files on disk are touched only by *load preset* in a restore mode, which first backs each file up as `<file>.bak-<timestamp>`.
+Bindings are **routed by where the role actually lives**:
+
+- **OMO roles and categories** (`oracle`, `deep`, …) are defined in OMO's own config, not in opencode's `agent` section. FastDraw binds them by surgically editing `[opencode].agents.<role>.model` / `[opencode].categories.<cat>.model` in `~/.omo/omo.jsonc` (comments, `models[]` arrays and every sibling field preserved; the pre-fastdraw model is recorded in `.fastdraw.json` under `omo` so remove/preset-load can revert exactly). Writing these names into opencode's `cfg.agent` would just create **phantom roles** next to the real ones — FastDraw never does that. If a project-level `.omo/omo.jsonc` shadows the user file you get a warning (project configs are never auto-edited).
+- **Custom agents and opencode built-ins** (`build`, `plan`, `general`, `agents/*.md`) bind through opencode's config: the server plugin's `config()` hook overlays `~/.config/opencode/.fastdraw.json` onto `cfg.agent` after other plugins load, and tool-triggered changes mutate the same live config object, so `fastdraw_assign` / `fastdraw_load_preset` take effect immediately. The first-seen model of every overridden agent is snapshotted so un-override restores it exactly.
+
+State files written by older FastDraw versions (OMO roles sitting in the flat `agents` map) are migrated into the OMO config on first start. Config files on disk are touched only by OMO writes and by *load preset* in a restore mode, which first backs each file up as `<file>.bak-<timestamp>`.
 
 ## Development
 
