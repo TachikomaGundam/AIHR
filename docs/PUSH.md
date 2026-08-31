@@ -89,7 +89,17 @@ and use a PAT as the password when prompted.
    - `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz`
 5. Publish release.
 
-## 4. PyPI upload
+## 4. PyPI upload — **OPTIONAL, currently SKIPPED by choice**
+
+The Python engine does not need to be on PyPI: the wheel published as a
+Release asset installs directly (its own dependencies still resolve from
+PyPI as a consumer, no publishing needed):
+
+```bash
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
+```
+
+Only if you later want the bare `pip install aihr` convenience:
 
 ```bash
 # one-time tool install (home dir, not the project venv)
@@ -134,8 +144,8 @@ omit `--otp` and answer the interactive prompt.
 ## 6. Verify from the second machine
 
 ```bash
-pip index versions aihr                 # expect 0.2.0 (PyPI)
-pip install aihr                         # import hr; console script hr
+# engine (no PyPI needed — Release wheel):
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
 hr --help                                # expect all 23 commands
 npm view opencode-hr-agent               # expect 0.2.0
 npm view opencode-fastdraw               # expect 1.0.0
