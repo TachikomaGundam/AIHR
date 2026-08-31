@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from hr.calibration_models import CalibrationReport, Measurement
 
@@ -49,7 +49,12 @@ class CalibrationPersistenceMixin(Protocol):
                         try:
                             detail = json.loads(detail_value)
                         except json.JSONDecodeError:
-                            detail = detail_value
+                            # psycopg2 row boundary: evidence_json is jsonb in
+                            # the schema, so an undecodable text value is still
+                            # consumed as the Measurement detail payload.
+                            detail = cast(
+                                dict[str, Any], cast(object, detail_value)
+                            )
                     else:
                         detail = {}
                     self._recorded_measurements.append(
