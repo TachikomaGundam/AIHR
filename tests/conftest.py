@@ -40,6 +40,17 @@ import psycopg2.extensions
 import pytest
 import yaml
 
+# Deterministic help rendering for typer/rich (0.27): the console is built
+# from env captured at typer.rich_utils IMPORT time, so these must be pinned
+# before any ``hr.cli`` import. On GitHub runners GITHUB_ACTIONS forces
+# terminal mode (ANSI on, NO_COLOR ignored) and the width falls back to 80,
+# which wraps help panels and breaks flag assertions — TERMINAL_WIDTH widens
+# the box, _TYPER_FORCE_DISABLE_TERMINAL switches forced color off.
+os.environ.setdefault("TERMINAL_WIDTH", "200")
+os.environ.setdefault("COLUMNS", "200")
+os.environ.setdefault("_TYPER_FORCE_DISABLE_TERMINAL", "1")
+os.environ.setdefault("NO_COLOR", "1")
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
