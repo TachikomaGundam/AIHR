@@ -704,10 +704,45 @@ function insertBeforeClose(clean: string, braceIdx: number): number {
   return i + 1
 }
 
-/** Set role models inside the `agent` object of JSONC text. ONLY the
+const sp2 = (n: number): string => " ".repeat(n)
+
+/** One new leaf entry member: `"name": { "model": "…" }` at `indent`. */
+function entryBodyText(name: string, model: string, indent: number): string {
+  return `${sp2(indent)}${JSON.stringify(name)}: {\n${sp2(indent + 2)}"model": ${JSON.stringify(model)}\n${sp2(indent)}}`
+}
+
+/** New-entries member block (no braces), newline-prefixed, comma-joined. */
+function entriesBody(updates: Record<string, string>, indent: number): string {
+  return Object.entries(updates)
+    .map(([name, model]) => `\n${entryBodyText(name, model, indent)}`)
+    .join(",")
+}
+
+/** Nested member text for `keys` (outermost first) wrapping new model
+ *  entries, formatted for insertion into an existing container. Starts with
+ *  a newline; single-key output matches the legacy `setAgentModelsJsonc`
+ *  creation format byte for byte. */
+function chainMembersText(keys: string[], updates: Record<string, string>): string {
+  let inner = entriesBody(updates, 2 * (keys.length + 1))
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const sp = sp2(2 * (i + 1))
+    inner = `\n${sp}${JSON.stringify(keys[i])}: {${inner}\n${sp}}`
+  }
+  return inner
+}
+
+/** Set role models inside the container object addressed by a chain of
+ *  string keys from the root (e.g. `["[opencode]", "agents"]`). ONLY the
  *  touched nodes are rewritten — comments, whitespace and untouched keys
- *  are preserved verbatim. Throws when the text is not a JSON object. */
-export function setAgentModelsJsonc(text: string, updates: Record<string, string>): string {
+ *  are preserved verbatim. Missing chain levels are created (a level that
+ *  exists but holds a non-object value is replaced by an object); names
+ *  absent from the container are appended. Throws when the text is not a
+ *  JSON object or the result would not parse. */
+export function setNestedModelsJsonc(
+  text: string,
+  containerKeys: string[],
+  updates: Record<string, string>,
+): string {
   if (!Object.keys(updates).length) return text
   const pre = stripTrailingCommas(text)
   const root = parseLenient(pre)
@@ -717,44 +752,100 @@ export function setAgentModelsJsonc(text: string, updates: Record<string, string
   const { clean, orig } = stripWithMap(pre)
   const { hits, rootRbrace } = scanKeys(clean)
   if (rootRbrace < 0) throw new Error("config has no root '{'...'}' pair")
+  let rootOpen = 0
+  while (rootOpen < clean.length && WS_RE.test(clean[rootOpen])) rootOpen++
+  if (clean[rootOpen] !== "{") throw new Error("config root is not a JSON object")
 
-  const agentHit = [...hits]
-    .reverse()
-    .find((h) => h.key === "agent" && h.depth === 1 && h.colon < rootRbrace)
-  let agentObj: { s: number; e: number } | null = null
-  if (agentHit) {
-    const vs = valueSpan(clean, agentHit.colon)
-    if (clean[vs.s] === "{") agentObj = vs
+  // Walk the chain down to the deepest existing container object.
+  let scope = { s: rootOpen, e: rootRbrace + 1 }
+  let missingAt = -1
+  let replaceColon = -1
+  for (let i = 0; i < containerKeys.length; i++) {
+    const hit = [...hits]
+      .reverse()
+      .find(
+        (h) =>
+          h.key === containerKeys[i] && h.depth === i + 1 && h.colon > scope.s && h.colon < scope.e,
+      )
+    if (!hit) {
+      missingAt = i
+      break
+    }
+    const vs = valueSpan(clean, hit.colon)
+    if (clean[vs.s] !== "{") {
+      missingAt = i
+      replaceColon = hit.colon
+      break
+    }
+    scope = vs
   }
 
   const edits: { s: number; e: number; text: string }[] = []
-  const roleColons = agentObj
-    ? new Map(
-        hits
-          .filter((h) => h.depth === 2 && h.colon > agentObj!.s && h.colon < agentObj!.e)
-          .map((h) => [h.key, h.colon]),
-      )
-    : new Map<string, number>()
-
-  for (const [role, model] of Object.entries(updates)) {
-    const colon = agentObj ? roleColons.get(role) : undefined
-    if (colon !== undefined && agentObj) {
+  if (missingAt === -1) {
+    // Container exists: rewrite known entries, append unknown ones.
+    const entryDepth = containerKeys.length + 1
+    const entryColons = new Map(
+      hits
+        .filter((h) => h.depth === entryDepth && h.colon > scope.s && h.colon < scope.e)
+        .map((h) => [h.key, h.colon]),
+    )
+    const missing: [string, string][] = []
+    for (const [name, model] of Object.entries(updates)) {
+      const colon = entryColons.get(name)
+      if (colon === undefined) {
+        missing.push([name, model])
+        continue
+      }
       const vs = valueSpan(clean, colon)
-      const oldVal: unknown = parseLenient(clean.slice(vs.s, vs.e))
-      edits.push({ s: vs.s, e: vs.e, text: entryJson(oldVal, model) })
-    } else if (agentObj) {
-      const hasAny = clean.slice(agentObj.s + 1, agentObj.e - 1).trim().length > 0
-      const at = insertBeforeClose(clean, agentObj.e - 1)
-      const body = `${hasAny ? "," : ""}\n    "${role}": {\n      "model": "${model}"\n    }`
+      // Entry object with a model field → replace ONLY that value span so
+      // inner comments survive; bare strings / objects lacking the field
+      // fall back to a whole-entry rewrite.
+      const modelHit =
+        clean[vs.s] === "{"
+          ? hits
+              .filter(
+                (h) =>
+                  h.key === "model" &&
+                  h.depth === entryDepth + 1 &&
+                  h.colon > vs.s &&
+                  h.colon < vs.e,
+              )
+              .pop()
+          : undefined
+      if (modelHit) {
+        const mvs = valueSpan(clean, modelHit.colon)
+        edits.push({ s: mvs.s, e: mvs.e, text: JSON.stringify(model) })
+      } else {
+        const oldVal: unknown = parseLenient(clean.slice(vs.s, vs.e))
+        edits.push({ s: vs.s, e: vs.e, text: entryJson(oldVal, model) })
+      }
+    }
+    if (missing.length) {
+      const hasAny = clean.slice(scope.s + 1, scope.e - 1).trim().length > 0
+      const body = `${hasAny ? "," : ""}${missing
+        .map(([name, model]) => `\n${entryBodyText(name, model, 2 * entryDepth)}`)
+        .join(",")}`
+      const at = insertBeforeClose(clean, scope.e - 1)
       edits.push({ s: at, e: at, text: body })
     }
-  }
-  if (!agentObj) {
-    const body = Object.entries(updates)
-      .map(([role, model]) => `\n    "${role}": {\n      "model": "${model}"\n    }`)
-      .join(",")
-    const at = insertBeforeClose(clean, rootRbrace)
-    edits.push({ s: at, e: at, text: `,\n  "agent": {${body}\n  }` })
+  } else {
+    // Chain broken: create the remaining levels (or replace the non-object
+    // value found there) with all updates inside.
+    const rest = containerKeys.slice(missingAt)
+    if (replaceColon >= 0) {
+      const vs = valueSpan(clean, replaceColon)
+      const inner =
+        rest.length > 1 ? chainMembersText(rest.slice(1), updates) : entriesBody(updates, 2)
+      edits.push({ s: vs.s, e: vs.e, text: `{${inner}\n}` })
+    } else {
+      const hasAny = clean.slice(scope.s + 1, scope.e - 1).trim().length > 0
+      const at = insertBeforeClose(clean, scope.e - 1)
+      edits.push({
+        s: at,
+        e: at,
+        text: `${hasAny ? "," : ""}${chainMembersText(rest, updates)}`,
+      })
+    }
   }
 
   edits.sort((a, b) => b.s - a.s)
@@ -769,6 +860,12 @@ export function setAgentModelsJsonc(text: string, updates: Record<string, string
     throw new Error("config would not be a JSON object after edit")
   }
   return out
+}
+
+/** Set role models inside the root-level `agent` object. Wrapper around
+ *  `setNestedModelsJsonc` kept for opencode config editing. */
+export function setAgentModelsJsonc(text: string, updates: Record<string, string>): string {
+  return setNestedModelsJsonc(text, ["agent"], updates)
 }
 
 /** Set (or insert) the `model:` line in an agent .md frontmatter block. */

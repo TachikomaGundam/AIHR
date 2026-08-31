@@ -209,6 +209,7 @@ RELEASE_ASSETS: List[str] = [
     "fastdraw/origins.ts",
     "fastdraw/roles.ts",
     "fastdraw/tui.ts",
+    "fastdraw/omo.ts",
     "scripts/register_livebench_batteries.py",
     "scripts/register_tool_b_battery.py",
     "scripts/seed_seats.py",
