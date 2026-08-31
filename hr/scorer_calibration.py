@@ -172,13 +172,13 @@ def _bootstrap_distribution(
     seed: int,
 ) -> np.ndarray:
     """Resample UNITS (not judgments) with replacement; one statistic each."""
-    arr = np.asarray(pairs, dtype=float)
-    n = len(arr)
+    pair_list = list(pairs)
+    n = len(pair_list)
     rng = np.random.default_rng(seed)
     indices = rng.integers(0, n, size=(resamples, n))
     out = np.empty(resamples)
     for r in range(resamples):
-        out[r] = stat_fn(arr[indices[r]])
+        out[r] = stat_fn([pair_list[i] for i in indices[r].tolist()])
     return out
 
 
@@ -467,15 +467,16 @@ class ScorerCalibrationManager:
         if total < 2:
             statistic: str | None = None
             point: float | None = None
+            lo = hi = None
         else:
             statistic, stat_fn = self._select_statistic(normalized)
             point = stat_fn(normalized)
-        if statistic is not None and point is not None:
-            lo, hi = bootstrap_ci(
-                stat_fn, normalized, resamples=RESAMPLES, seed=SEED
-            )
-        else:
-            lo = hi = None
+            if point is not None:
+                lo, hi = bootstrap_ci(
+                    stat_fn, normalized, resamples=RESAMPLES, seed=SEED
+                )
+            else:
+                lo = hi = None
 
         return ScorerAgreement(
             scorer_a=scorer_a,

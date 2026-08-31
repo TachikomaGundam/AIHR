@@ -26,7 +26,7 @@ def _purpose_with_state_version(purpose: str) -> str:
     return f"{purpose}\nstate_version: {STAGE1_STATE_VERSION}"
 
 
-def parse_state_version(purpose: str) -> int | None:
+def parse_state_version(purpose: str | None) -> int | None:
     """Extract the state-version marker from a sweep purpose; None for legacy
     sweeps recorded before markers existed."""
     match = _STATE_VERSION_RE.search(purpose or "")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, TypeVar
 
 import numpy as np
 import psycopg2
@@ -25,6 +25,10 @@ from hr.recommendation_constraints import (
     ReliabilityConstraint,
     UncertaintyConstraint,
 )
+
+# Type parameter for ``_read_evidence`` so evidence readers keep their
+# declared return type instead of being erased to object.
+T = TypeVar("T")
 
 
 _REFERENCE_PRIOR = 70.0
@@ -595,7 +599,7 @@ class RecommendationEngine:
             indeterminate=tuple(indeterminate),
         )
 
-    def _read_evidence(self, reader: Callable[[], object]) -> object | None:
+    def _read_evidence(self, reader: Callable[[], T]) -> T | None:
         """Read an evidence source, degrading schema-drift failures to None.
 
         Some live DBs predate columns the contract-test schema has (e.g.

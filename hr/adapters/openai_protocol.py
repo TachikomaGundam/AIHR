@@ -83,6 +83,10 @@ def _iter_sse_lines(response: requests.Response) -> Iterable[str]:
     for raw in response.iter_lines(decode_unicode=True):
         if raw is None:
             continue
+        # decode_unicode=True yields str lines at runtime; the requests stubs
+        # type the union bytes|str, so narrow defensively (never fires).
+        if not isinstance(raw, str):
+            continue
         line = raw.rstrip("\r\n")
         if line.startswith("event:"):
             continue
