@@ -39,11 +39,28 @@ jobs:
       - run: python -m pip install ".[test]"
       - run: python -m compileall -q hr scripts itemrepo tests
       - run: ruff check hr scripts itemrepo
-      - run: basedpyright --level error hr scripts
+      - name: Type check (error-gate)
+        run: |
+          # basedpyright exits non-zero when ANY warning is present; the
+          # repo's recommended-mode warning backlog is pre-existing and
+          # tracked separately. Gate faithfully on ERRORS only (0 allowed)
+          # and fail with a printed list otherwise.
+          basedpyright --outputjson hr scripts > bp.json || true
+          python - <<'PYEOF'
+          import json, sys
+          d = json.load(open("bp.json"))
+          s = d["summary"]
+          print(f"basedpyright: {s['errorCount']} errors, {s['warningCount']} warnings")
+          if s["errorCount"]:
+              for x in d["generalDiagnostics"]:
+                  if x.get("severity") == "error":
+                      line = x.get("range", {}).get("start", {}).get("line", 0)
+                      print(f"{x.get('file','?')}:{line + 1}: {x['message'].splitlines()[0]}")
+              sys.exit(1)
+          PYEOF
       - name: Tests
         env:
-          HR_DSN: postgresql://hr:hr@localhost:5432/hr_test
-          HR_TEST_DB: "1"
+          HR_TEST_PG_DSN: postgresql://hr:hr@localhost:5432/postgres
         run: python -m pytest --cov=hr --cov-report=term-missing --cov-report=xml --cov-fail-under=80 -q
       - uses: actions/upload-artifact@v4
         if: always()
