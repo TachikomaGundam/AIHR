@@ -66,7 +66,7 @@ pip install "aihr[vision]"
 npm install -g opencode-hr-agent opencode-fastdraw
 ```
 
-`opencode-fastdraw` 是独立的模型/角色切换插件，可单独安装；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
+`opencode-fastdraw` 是独立的模型/角色切换插件，可单独安装；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/CybermechAI/hr/releases) 也附带 wheel 产物。
 
 从本仓库源码安装（source/editable）同样支持：
 
