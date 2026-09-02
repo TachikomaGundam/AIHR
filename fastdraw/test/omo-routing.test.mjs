@@ -9,6 +9,7 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 
+let pass = 0
 const TMP = await fs.mkdtemp(path.join(os.tmpdir(), "fd-route-"))
 const HOME = path.join(TMP, "home")
 process.env.HOME = HOME
@@ -79,7 +80,11 @@ const freshServer = async () => {
   assert.match(rCat, /bound in OMO config/)
   const omo = await parse(OMO_FILE)
   assert.equal(omo["[opencode]"].categories.deep.model, "prov/new-deep", "category bound in categories")
-  assert.deepEqual(omo["[opencode]"].categories.deep.models, ["prov/m1"], "models[] untouched")
+  assert.deepEqual(
+    omo["[opencode]"].categories.deep.models,
+    ["prov/new-deep"],
+    "dominant models[] normalized so models[0] cannot shadow the new binding",
+  )
   assert.equal(omo["[opencode]"].agents.deep, undefined, "category did NOT become a new agent")
 
   const rCustom = await t.fastdraw_assign.execute({ agent: "pcb-router", model: "prov/pcb" })
@@ -110,6 +115,22 @@ const freshServer = async () => {
   const st = JSON.parse(await fs.readFile(STATE, "utf-8"))
   assert.equal(st.omo.oracle, undefined, "record dropped after revert")
   ok("fastdraw_remove reverts OMO roles to their pre-fastdraw model")
+}
+
+/* 4b. remove reverts a CATEGORY exactly: original model AND the pre-
+   fastdraw dominant models[] array come back verbatim */
+{
+  const { t } = await freshServer()
+  const before = (await parse(OMO_FILE))["[opencode]"].categories.deep
+  assert.deepEqual(before.models, ["prov/new-deep"], "still normalized from the test-2 assign")
+  const r = await t.fastdraw_remove.execute({ agent: "deep" })
+  assert.match(r, /reverted to prov\/deep-orig/)
+  const omo = (await parse(OMO_FILE))["[opencode]"].categories.deep
+  assert.equal(omo.model, "prov/deep-orig")
+  assert.deepEqual(omo.models, ["prov/m1"], "dominant models[] restored to pre-fastdraw content")
+  const st = JSON.parse(await fs.readFile(STATE, "utf-8"))
+  assert.equal(st.omo.deep, undefined, "category record dropped after revert")
+  ok("fastdraw_remove restores the category's pre-fastdraw models[] array exactly")
 }
 
 /* 5. load_preset: OMO names bind via the OMO file, custom names via the
@@ -165,8 +186,9 @@ const freshServer = async () => {
 }
 
 function ok(name) {
+  pass++
   console.log(`PASS ${name}`)
 }
 
 await fs.rm(TMP, { recursive: true, force: true })
-console.log("\n6/6 tests passed")
+console.log(`\n${pass} tests passed`)

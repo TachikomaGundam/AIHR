@@ -19,6 +19,8 @@ import {
   isOmoName,
   omoTargetKind,
   omoPortableFile,
+  omoRevertSpec,
+  type ModelEntrySpec,
   type OmoBinding,
   type OmoConfig,
   type OmoWriteResult,
@@ -71,7 +73,11 @@ async function omoAssignToFile(
   const state = await loadState()
   state.omo ??= {}
   const prev = state.omo[name]
-  state.omo[name] = { model, original: prev?.original ?? omoCfg.targets[name]?.model ?? null }
+  state.omo[name] = {
+    model,
+    original: prev?.original ?? omoCfg.targets[name]?.model ?? null,
+    original_models: prev?.original_models ?? omoCfg.targets[name]?.models ?? null,
+  }
   const res = await writeOmoModels({ [name]: model })
   if (!res.written) {
     if (prev) state.omo[name] = prev
@@ -304,7 +310,7 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
   }
   const omoCfg = await readOmoConfig()
   const omoRouted = (name: string): boolean =>
-    omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, name)
+    omoCfg.parseable && isOmoName(omoCfg, name)
 
   const showAgentList = async (focusName?: string): Promise<void> => {
     const assignments = await loadState()
@@ -324,6 +330,17 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
       (omoRouted(name) ? (omoCfg.targets[name]?.model ?? undefined) : undefined) ??
       assignments.agents[name]
 
+    // A hand-edited category may still carry a stale models[] whose first
+    // entry dominates `model` at OMO runtime — surface it, mirroring
+    // fastdraw_list.
+    const shadowNote = (name: string): string => {
+      const t = omoCfg.targets[name]
+      if (t?.kind !== "category" || !t.models?.length) return ""
+      const primary = t.models[0]
+      const pm = typeof primary === "string" ? primary : (primary as { model?: string })?.model
+      return pm && pm !== t.model ? `  ⚠ shadowed: dominant models[0]=${pm}` : ""
+    }
+
     const kindLabel = (name: string): string => {
       const k = omoTargetKind(omoCfg, name)
       if (k === "category") return "OMO Categories"
@@ -338,7 +355,9 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
       .map((name) => ({
         title: name,
         value: name,
-        description: currentModel(name) ? `→ ${currentModel(name)}` : undefined,
+        description: currentModel(name)
+          ? `→ ${currentModel(name)}${shadowNote(name)}`
+          : shadowNote(name) || undefined,
         category: kindLabel(name),
       }))
 
@@ -623,7 +642,7 @@ function loadPresetFlow(ui: Ui) {
       // config layers (that creates phantom roles). Split before planning.
       const omoCfg = await readOmoConfig()
       const omoRouted = (n: string): boolean =>
-        omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, n)
+        omoCfg.parseable && isOmoName(omoCfg, n)
       const omoSide: Record<string, string> = {}
       for (const n of Object.keys(presentBindings)) {
         if (omoRouted(n)) omoSide[n] = presentBindings[n].model
@@ -699,11 +718,12 @@ function loadPresetFlow(ui: Ui) {
             ui.dialog.clear()
             try {
               const state = await loadState()
-              const omoWrite: Record<string, string> = { ...omoSide }
+              const omoWrite: Record<string, ModelEntrySpec> = { ...omoSide }
               const omoReverted: string[] = []
               for (const [n, rec] of Object.entries(state.omo ?? {})) {
                 if (n in omoSide) continue
-                if (rec.original) omoWrite[n] = rec.original
+                const upd = omoRevertSpec(omoTargetKind(omoCfg, n), rec)
+                if (upd) omoWrite[n] = upd
                 omoReverted.push(n)
               }
               let omoRes: OmoWriteResult | null = null
@@ -720,6 +740,8 @@ function loadPresetFlow(ui: Ui) {
                   state.omo[n] = {
                     model: m,
                     original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
+                    original_models:
+                      state.omo[n]?.original_models ?? omoCfg.targets[n]?.models ?? null,
                   }
                 }
                 for (const n of omoReverted) delete state.omo![n]
