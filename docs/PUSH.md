@@ -16,7 +16,7 @@ section says otherwise.
 | npm pack (opencode-fastdraw) | `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz` |
 
 Repo: `~/workspace/harness/hr` (git root), branch `main`, tag `v0.2.0` set.
-Origin is already configured as `git@github.com:CybermechAI/hr.git`.
+Origin is already configured as `git@github.com:TachikomaGundam/AIHR.git`.
 
 ---
 
@@ -32,8 +32,8 @@ sha256sum /tmp/opencode/hr-ship-artifacts/*
 
 ## 1. Create the GitHub repository
 
-Option A — web: open https://github.com/new → owner **CybermechAI**,
-name **hr**, description *"HR Agent (人事) — model evaluation and role
+Option A — web: open https://github.com/new → owner **TachikomaGundam**,
+name **AIHR**, description *"HR Agent (人事) — model evaluation and role
 assignment for oh-my-openagent"*, **Public** (default), *do NOT* initialize
 with README/.gitignore/LICENSE (all exist in the repo already).
 Create.
@@ -41,7 +41,7 @@ Create.
 Option B — CLI (if `gh` is installed and authed):
 
 ```bash
-gh repo create CybermechAI/hr --public --description "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
+gh repo create TachikomaGundam/AIHR --public --description "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
 ```
 
 > **PAT scope gotcha (learned at first push):** a fine-grained token MUST
@@ -54,12 +54,12 @@ gh repo create CybermechAI/hr --public --description "HR Agent (人事) — mode
 
 ```bash
 cd ~/workspace/harness/hr
-git remote -v          # confirm origin -> git@github.com:CybermechAI/hr.git
+git remote -v          # confirm origin -> git@github.com:TachikomaGundam/AIHR.git
 git push -u origin main --follow-tags
 ```
 
 SSH key required for `git@github.com`. If you prefer HTTPS+PAT:
-`git remote set-url origin https://github.com/CybermechAI/hr.git`
+`git remote set-url origin https://github.com/TachikomaGundam/AIHR.git`
 and use a PAT as the password when prompted.
 
 > **Status 2026-09-01:** the first push was executed by the user over
@@ -71,7 +71,7 @@ and use a PAT as the password when prompted.
 
 ## 3. GitHub Release v0.2.0 (web)
 
-1. Open https://github.com/CybermechAI/hr/releases/new
+1. Open https://github.com/TachikomaGundam/AIHR/releases/new
 2. Tag: `v0.2.0` (exists) · Target: `main` · Title: `HR Agent 0.2.0 — unified evaluator`
 3. Notes (suggested):
 
@@ -96,7 +96,7 @@ Release asset installs directly (its own dependencies still resolve from
 PyPI as a consumer, no publishing needed):
 
 ```bash
-pip install "aihr[vision] @ https://github.com/CybermechAI/hr/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
 ```
 
 Only if you later want the bare `pip install aihr` convenience:
@@ -145,12 +145,12 @@ omit `--otp` and answer the interactive prompt.
 
 ```bash
 # engine (no PyPI needed — Release wheel):
-pip install "aihr[vision] @ https://github.com/CybermechAI/hr/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
 hr --help                                # expect all 23 commands
 npm view opencode-hr-agent               # expect 0.2.0
 npm view opencode-fastdraw               # expect 1.0.0
 npm install -g opencode-hr-agent opencode-fastdraw   # or per-project
-git clone git@github.com:CybermechAI/hr.git    # history: all TachikomaGundam
+git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGundam
 ```
 
 ---

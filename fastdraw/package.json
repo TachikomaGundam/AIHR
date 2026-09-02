@@ -10,10 +10,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CybermechAI/hr.git",
+    "url": "git+https://github.com/TachikomaGundam/AIHR.git",
     "directory": "fastdraw"
   },
-  "homepage": "https://github.com/CybermechAI/hr",
+  "homepage": "https://github.com/TachikomaGundam/AIHR",
   "author": "TachikomaGundam",
   "files": [
     "server.ts",
