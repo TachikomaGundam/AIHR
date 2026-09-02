@@ -9,7 +9,7 @@ set -euo pipefail
 
 REPO="${FASTDRAW_REPO:-}"
 REF="${FASTDRAW_REF:-main}"
-# Subdirectory the plugin lives in on the repo (the hr repo keeps it in fastdraw/;
+# Subdirectory the plugin lives in on the repo (AIHR keeps it in fastdraw/;
 # set empty for a standalone fastdraw repo).
 SUBDIR="${FASTDRAW_SUBDIR-fastdraw}"
 CONFIG_DIR="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"

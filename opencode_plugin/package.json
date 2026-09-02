@@ -11,10 +11,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/CybermechAI/hr.git",
+    "url": "git+https://github.com/TachikomaGundam/AIHR.git",
     "directory": "opencode_plugin"
   },
-  "homepage": "https://github.com/CybermechAI/hr",
+  "homepage": "https://github.com/TachikomaGundam/AIHR",
   "author": "TachikomaGundam",
   "license": "MIT",
   "keywords": [

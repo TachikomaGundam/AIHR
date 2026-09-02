@@ -75,7 +75,7 @@ pip install "aihr[vision]"
 npm install -g opencode-hr-agent opencode-fastdraw
 ```
 
-`opencode-fastdraw` is a standalone model/role-switching plugin and can be installed on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/CybermechAI/hr/releases).
+`opencode-fastdraw` is a standalone model/role-switching plugin and can be installed on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases).
 
 Installing from this repository (source/editable) works identically:
 
