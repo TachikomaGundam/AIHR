@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aihr"
-version = "0.2.0"
+version = "0.2.1"
 description = "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
 readme = "README.md"
 license = "MIT"
