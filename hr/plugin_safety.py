@@ -116,8 +116,12 @@ MAX_AGE_DAYS = 30
 # HR's declared version of the FastDraw file contract (the JSON shapes
 # hr/apply.py writes: presets store, isModelMap "/" rule, boot-time state).
 # The authoritative declaration of that same contract lives in
-# fastdraw/package.json ("version"); a mismatch means FastDraw may parse or
-# write a different shape than this bridge produces, so apply refuses.
+# fastdraw/package.json ("hrContractVersion") — deliberately NOT the
+# package "version", which is free to move on every plugin release
+# (1.1.0 changed no file shapes; coupling the two made routine releases
+# break apply). A mismatch means FastDraw may parse or write a different
+# shape than this bridge produces, so apply refuses. Packages predating the
+# field fall back to "version" (they bumped the two in lockstep).
 HR_FASTDRAW_SCHEMA_VERSION = "1.0.0"
 
 
@@ -661,12 +665,15 @@ def prune_backups(
 def check_compatibility(
     plugin_package_json: Path | None = None,
 ) -> dict[str, Any]:
-    """Check that the FastDraw plugin's declared schema version matches ours.
+    """Check that the FastDraw plugin's declared file-contract version matches ours.
 
     The HR bridge declares ``HR_FASTDRAW_SCHEMA_VERSION`` (the file-contract
-    version it writes); fastdraw/package.json's ``version`` is the plugin's
-    authoritative declaration of the same contract. The check fails loudly on
-    mismatch and fails closed (refuses) when the declaration is unreadable.
+    version it writes); fastdraw/package.json's ``hrContractVersion`` is the
+    plugin's authoritative declaration of the same contract, so ordinary
+    plugin releases never trip this gate. Packages predating that field fall
+    back to ``version`` (they bumped the two in lockstep). The check fails
+    loudly on mismatch and fails closed (refuses) when the declaration is
+    unreadable.
     """
     from hr import __version__ as hr_version
 
@@ -674,13 +681,18 @@ def check_compatibility(
         plugin_package_json = Path(__file__).parent.parent / "fastdraw" / "package.json"
 
     plugin_version = "unknown"
+    declared_contract: str | None = None
     if plugin_package_json.exists():
         try:
             with open(plugin_package_json) as f:
                 package_data = json.load(f)
             plugin_version = str(package_data.get("version", "unknown"))
+            raw_contract = package_data.get("hrContractVersion")
+            declared_contract = str(raw_contract) if raw_contract is not None else None
         except (json.JSONDecodeError, OSError):
             plugin_version = "unknown"
+
+    contract_version = declared_contract if declared_contract is not None else plugin_version
 
     warnings: list[str] = []
     if plugin_version == "unknown":
@@ -688,16 +700,19 @@ def check_compatibility(
             "Could not determine FastDraw plugin version (missing or unreadable "
             "fastdraw/package.json)"
         )
-    if plugin_version != HR_FASTDRAW_SCHEMA_VERSION:
+    if contract_version != HR_FASTDRAW_SCHEMA_VERSION:
+        source = "hrContractVersion" if declared_contract is not None else "version"
         warnings.append(
-            f"FastDraw plugin version {plugin_version} does not match the schema "
-            f"version this HR build writes ({HR_FASTDRAW_SCHEMA_VERSION})"
+            f"FastDraw plugin file-contract version {contract_version} (via {source}) "
+            f"does not match the schema version this HR build writes "
+            f"({HR_FASTDRAW_SCHEMA_VERSION})"
         )
 
     return {
-        "compatible": plugin_version == HR_FASTDRAW_SCHEMA_VERSION,
+        "compatible": contract_version != "unknown" and contract_version == HR_FASTDRAW_SCHEMA_VERSION,
         "hr_version": hr_version,
         "plugin_version": plugin_version,
+        "declared_contract_version": contract_version,
         "expected_schema_version": HR_FASTDRAW_SCHEMA_VERSION,
         "warnings": warnings,
     }

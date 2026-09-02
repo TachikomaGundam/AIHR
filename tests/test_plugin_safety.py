@@ -281,6 +281,43 @@ class TestCompatibility:
             assert result["compatible"] is False
             assert any("does not match" in w for w in result["warnings"])
 
+    def test_contract_version_decouples_from_plugin_release_version(self, tmp_path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            json.dumps(
+                {
+                    "name": "opencode-fastdraw",
+                    "version": "9.9.9",
+                    "hrContractVersion": HR_FASTDRAW_SCHEMA_VERSION,
+                }
+            )
+        )
+
+        with patch("hr.__version__", "0.2.0"):
+            result = check_compatibility(plugin_package_json=pkg)
+
+            assert result["compatible"] is True
+            assert result["plugin_version"] == "9.9.9"
+            assert result["declared_contract_version"] == HR_FASTDRAW_SCHEMA_VERSION
+
+    def test_contract_mismatch_fails_even_when_release_version_matches(self, tmp_path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            json.dumps(
+                {
+                    "name": "opencode-fastdraw",
+                    "version": HR_FASTDRAW_SCHEMA_VERSION,
+                    "hrContractVersion": "2.0.0",
+                }
+            )
+        )
+
+        with patch("hr.__version__", "0.2.0"):
+            result = check_compatibility(plugin_package_json=pkg)
+
+            assert result["compatible"] is False
+            assert any("does not match" in w for w in result["warnings"])
+
     def test_check_compatibility_handles_missing_package_json(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             plugin_dir = Path(tmpdir) / "opencode_plugin"
