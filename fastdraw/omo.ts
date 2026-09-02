@@ -3,11 +3,19 @@
  *
  * OMO roles and task categories are defined in OMO's OWN config file, not in
  * opencode's `agent` section: `[opencode].agents.<role>.model` and
- * `[opencode].categories.<cat>.model`. OMO's resolution chain reads the
+ * `[opencode].categories.<cat].model`. OMO's resolution chain reads the
  * top-level `agents`/`categories` keys first, then the `[opencode]` host
  * block on top, so the host block is the highest-precedence, correct write
  * target for opencode-fleet bindings (profiles aside). Writing these names
  * into opencode `cfg.agent` instead just creates PHANTOM ROLES.
+ *
+ * CAUTION (production incident 2026-09): for CATEGORIES the `model` scalar is
+ * NOT the whole truth — when the definition also carries a `models` array,
+ * OMO's delegate-task resolution treats `models[0]` as the primary and
+ * `models.slice(1)` as the fallback chain, ignoring `model` entirely. Binding
+ * only `model` therefore silently no-ops. writeOmoModels normalizes the array
+ * (`models: [model]`) on every category write and the postcondition verifies
+ * the DOMINANT value, not just the scalar.
  *
  * File detection mirrors OMO's own order (omo.jsonc wins, omo.json fallback);
  * read and write always go through the SAME resolved file. Project-level
@@ -23,7 +31,9 @@ import {
   writeFileAtomic,
   stripJsonComments,
   setNestedModelsJsonc,
+  specModel,
   toPortablePath,
+  type ModelEntrySpec,
 } from "./origins.js"
 
 /** Static fallback when the OMO config file is absent (OMO 4.19 builtins). */
@@ -38,8 +48,20 @@ export const OMO_STATIC_CATEGORIES = [
   "writing",
 ] as const
 
+/** On a machine without any user OMO config, category names would not be
+ *  recognized and would be mis-routed into opencode's `cfg.agent` as PHANTOM
+ *  roles. Seeding the OMO builtin categories as known targets makes the first
+ *  category bind create `[opencode].categories.<cat>` in a fresh omo.jsonc. */
+function staticCategoryTargets(): Record<string, OmoTarget> {
+  const out: Record<string, OmoTarget> = {}
+  for (const c of OMO_STATIC_CATEGORIES) out[c] = { kind: "category", model: null, models: null }
+  return out
+}
+
 const AGENT_CHAIN = ["[opencode]", "agents"]
 const CATEGORY_CHAIN = ["[opencode]", "categories"]
+
+export type { ModelEntrySpec } from "./origins.js"
 
 export type OmoTargetKind = "agent" | "category"
 
@@ -49,13 +71,34 @@ export interface OmoBinding {
   /** Model the OMO config held before FastDraw first touched this name;
    *  null = the name had no model there (or none was recorded). */
   original: string | null
+  /** Category `models` array as found before FastDraw's first write (the
+   *  dominant field — see module header); recorded so revert restores the
+   *  exact pre-fastdraw entry, not just its primary model. */
+  original_models?: unknown[] | null
+}
+
+/** Write-spec restoring a binding's pre-fastdraw state: the original model
+ *  plus, for categories, the recorded dominant `models` array so the exact
+ *  entry shape comes back. Null when no original model is recorded. */
+export function omoRevertSpec(
+  kind: OmoTargetKind | null,
+  rec: OmoBinding,
+): ModelEntrySpec | null {
+  if (!rec.original) return null
+  if (kind === "category" && rec.original_models)
+    return { model: rec.original, models: rec.original_models }
+  return rec.original
 }
 
 export interface OmoTarget {
   kind: OmoTargetKind
-  /** Effective `model` main field (OMO's authoritative value); null when the
-   *  definition carries none. */
+  /** `model` scalar as written in the config. For categories this is NOT
+   *  authoritative when `models` is non-null — OMO's delegate-task path uses
+   *  `models[0]` as the effective primary. */
   model: string | null
+  /** Category `models` array when the definition carries one; null
+   *  otherwise. Non-null = this entry's `models[0]` dominates `model`. */
+  models: unknown[] | null
 }
 
 export interface OmoConfig {
@@ -115,6 +158,11 @@ function entryModel(v: unknown): string | null {
   return typeof m === "string" && m.includes("/") ? m : null
 }
 
+function entryModelsArray(v: unknown): unknown[] | null {
+  const m = asRecord(v)?.models
+  return Array.isArray(m) ? m : null
+}
+
 /** Fold one layer's agents+categories definitions into `out` (later calls
  *  win — callers pass base keys first, then the [opencode] host block). */
 function foldSection(
@@ -124,13 +172,14 @@ function foldSection(
   const agents = asRecord(cfg.agents)
   if (agents) {
     for (const [name, def] of Object.entries(agents)) {
-      out[name] = { kind: "agent", model: entryModel(def) }
+      out[name] = { kind: "agent", model: entryModel(def), models: entryModelsArray(def) }
     }
   }
   const categories = asRecord(cfg.categories)
   if (categories) {
     for (const [name, def] of Object.entries(categories)) {
-      if (!(name in out)) out[name] = { kind: "category", model: entryModel(def) }
+      if (!(name in out))
+        out[name] = { kind: "category", model: entryModel(def), models: entryModelsArray(def) }
     }
   }
 }
@@ -172,7 +221,11 @@ export async function readOmoConfig(
     shadowFiles: [],
   }
   if (!file) {
-    return { ...empty, shadowFiles: await findShadowFiles(cwd, file) }
+    return {
+      ...empty,
+      targets: staticCategoryTargets(),
+      shadowFiles: await findShadowFiles(cwd, file),
+    }
   }
   let cfg: unknown
   try {
@@ -224,9 +277,12 @@ export interface OmoWriteResult {
 /** Apply role/category model updates to the USER OMO config: names known as
  *  categories land in `[opencode].categories`, everything else in
  *  `[opencode].agents` (unknown names = builtin-role overrides there).
- *  Backs the file up first; on ANY failure the filesystem is untouched. */
+ *  Category updates ALSO normalize the dominant `models` array to
+ *  `[model]` (or write back a spec-provided array verbatim) so the binding
+ *  can never be shadowed by a legacy list — see module header. Backs the
+ *  file up first; on ANY failure the filesystem is untouched. */
 export async function writeOmoModels(
-  updates: Record<string, string>,
+  updates: Record<string, ModelEntrySpec>,
   env = process.env,
   cwd = process.cwd(),
 ): Promise<OmoWriteResult> {
@@ -243,11 +299,11 @@ export async function writeOmoModels(
       error: `cannot edit unparseable OMO config: ${file}`,
     }
   }
-  const agentUpdates: Record<string, string> = {}
-  const categoryUpdates: Record<string, string> = {}
-  for (const [name, model] of Object.entries(updates)) {
-    if (cfg.targets[name]?.kind === "category") categoryUpdates[name] = model
-    else agentUpdates[name] = model
+  const agentUpdates: Record<string, ModelEntrySpec> = {}
+  const categoryUpdates: Record<string, ModelEntrySpec> = {}
+  for (const [name, spec] of Object.entries(updates)) {
+    if (cfg.targets[name]?.kind === "category") categoryUpdates[name] = spec
+    else agentUpdates[name] = spec
   }
 
   let backup: string | null = null
@@ -258,7 +314,9 @@ export async function writeOmoModels(
       text = setNestedModelsJsonc(text, AGENT_CHAIN, agentUpdates)
     }
     if (Object.keys(categoryUpdates).length) {
-      text = setNestedModelsJsonc(text, CATEGORY_CHAIN, categoryUpdates)
+      text = setNestedModelsJsonc(text, CATEGORY_CHAIN, categoryUpdates, {
+        normalizeModelsArray: true,
+      })
     }
     verifyWritten(text, { agents: agentUpdates, categories: categoryUpdates })
     await writeFileAtomic(file, text)
@@ -272,10 +330,14 @@ export async function writeOmoModels(
 }
 
 /** Postcondition: every updated name reads back with the requested model in
- *  the [opencode] section it was routed to. Throws otherwise. */
+ *  the [opencode] section it was routed to. For categories the DOMINANT
+ *  `models` array is verified too: when the entry carries one it must equal
+ *  the write's effective chain (explicit spec array, else `[model]`) — a
+ *  matching `model` scalar with a stale array is EXACTLY the silent-no-op
+ *  this guards against. Throws otherwise. */
 function verifyWritten(
   text: string,
-  sections: { agents: Record<string, string>; categories: Record<string, string> },
+  sections: { agents: Record<string, ModelEntrySpec>; categories: Record<string, ModelEntrySpec> },
 ): void {
   const root = asRecord(JSON.parse(stripJsonComments(text)))
   const block = asRecord(root?.["[opencode]"])
@@ -283,9 +345,19 @@ function verifyWritten(
     const updates = sections[key]
     if (!Object.keys(updates).length) continue
     const section = asRecord(block?.[key])
-    for (const [name, model] of Object.entries(updates)) {
+    for (const [name, spec] of Object.entries(updates)) {
+      const model = specModel(spec)
       if (!section || !(name in section) || entryModel(section[name]) !== model) {
         throw new Error(`postcondition failed: [opencode].${key}.${name}.model != ${model}`)
+      }
+      if (key !== "categories") continue
+      const actual = entryModelsArray(section[name])
+      if (actual === null) continue
+      const expected = typeof spec === "string" ? [model] : (spec.models ?? [model])
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        throw new Error(
+          `postcondition failed: [opencode].categories.${name}.models dominates model=${model} but holds ${JSON.stringify(actual)}`,
+        )
       }
     }
   }

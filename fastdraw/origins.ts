@@ -682,14 +682,42 @@ function valueSpan(clean: string, colon: number): { s: number; e: number } {
   return { s: i, e: j }
 }
 
+/** One entry write: a bare model string, or a spec also carrying the FULL
+ *  desired `models` array (OMO's dominant field for categories — when the
+ *  array exists, `models[0]` wins over `model` at runtime, so callers that
+ *  rebind a category must keep the array consistent). `models` = explicit
+ *  replacement; leave undefined to keep/normalize whatever the file holds. */
+export type ModelEntrySpec = string | { model: string; models?: unknown[] }
+
+export function specModel(spec: ModelEntrySpec): string {
+  return typeof spec === "string" ? spec : spec.model
+}
+
+function specModels(spec: ModelEntrySpec): unknown[] | undefined {
+  return typeof spec === "string" ? undefined : spec.models
+}
+
 /** Serialize one role entry, preserving the legacy shape (bare model
- *  string) when the pre-existing value was a string. */
-function entryJson(oldVal: unknown, model: string): string {
+ *  string) when the pre-existing value was a string. `models` (whole-entry
+ *  rewrite path): explicit array replacement, else — with
+ *  `normalizeModelsArray` — collapse an existing `models[]` to `[model]` so
+ *  the dominant field can never shadow the freshly written `model`. */
+function entryJson(
+  oldVal: unknown,
+  model: string,
+  models?: unknown[],
+  normalizeModelsArray?: boolean,
+): string {
   if (typeof oldVal === "string") return JSON.stringify(model)
   const base =
     oldVal && typeof oldVal === "object" && !Array.isArray(oldVal)
       ? { ...(oldVal as Record<string, unknown>) }
       : {}
+  if (models !== undefined) {
+    if ("models" in base || models.length > 0) base.models = models
+  } else if (normalizeModelsArray && Array.isArray(base.models)) {
+    base.models = [model]
+  }
   return JSON.stringify({ ...base, model }, null, 2)
 }
 
@@ -707,14 +735,19 @@ function insertBeforeClose(clean: string, braceIdx: number): number {
 const sp2 = (n: number): string => " ".repeat(n)
 
 /** One new leaf entry member: `"name": { "model": "…" }` at `indent`. */
-function entryBodyText(name: string, model: string, indent: number): string {
-  return `${sp2(indent)}${JSON.stringify(name)}: {\n${sp2(indent + 2)}"model": ${JSON.stringify(model)}\n${sp2(indent)}}`
+function entryBodyText(name: string, spec: ModelEntrySpec, indent: number): string {
+  const model = specModel(spec)
+  const models = specModels(spec)
+  const inner = models
+    ? `${sp2(indent + 2)}"model": ${JSON.stringify(model)},\n${sp2(indent + 2)}"models": ${JSON.stringify(models)}\n`
+    : `${sp2(indent + 2)}"model": ${JSON.stringify(model)}\n`
+  return `${sp2(indent)}${JSON.stringify(name)}: {\n${inner}${sp2(indent)}}`
 }
 
 /** New-entries member block (no braces), newline-prefixed, comma-joined. */
-function entriesBody(updates: Record<string, string>, indent: number): string {
+function entriesBody(updates: Record<string, ModelEntrySpec>, indent: number): string {
   return Object.entries(updates)
-    .map(([name, model]) => `\n${entryBodyText(name, model, indent)}`)
+    .map(([name, spec]) => `\n${entryBodyText(name, spec, indent)}`)
     .join(",")
 }
 
@@ -722,7 +755,7 @@ function entriesBody(updates: Record<string, string>, indent: number): string {
  *  entries, formatted for insertion into an existing container. Starts with
  *  a newline; single-key output matches the legacy `setAgentModelsJsonc`
  *  creation format byte for byte. */
-function chainMembersText(keys: string[], updates: Record<string, string>): string {
+function chainMembersText(keys: string[], updates: Record<string, ModelEntrySpec>): string {
   let inner = entriesBody(updates, 2 * (keys.length + 1))
   for (let i = keys.length - 1; i >= 0; i--) {
     const sp = sp2(2 * (i + 1))
@@ -737,11 +770,19 @@ function chainMembersText(keys: string[], updates: Record<string, string>): stri
  *  are preserved verbatim. Missing chain levels are created (a level that
  *  exists but holds a non-object value is replaced by an object); names
  *  absent from the container are appended. Throws when the text is not a
- *  JSON object or the result would not parse. */
+ *  JSON object or the result would not parse.
+ *
+ *  `normalizeModelsArray`: an entry's existing `"models"` array is OMO's
+ *  dominant field for categories (`models[0]` beats `model` at runtime), so
+ *  rebinding without touching it silently fails. When set, every updated
+ *  entry whose `models` value is an array gets that array collapsed to
+ *  `[model]` — unless the spec itself carries an explicit `models` array,
+ *  which is written verbatim (restore path). */
 export function setNestedModelsJsonc(
   text: string,
   containerKeys: string[],
-  updates: Record<string, string>,
+  updates: Record<string, ModelEntrySpec>,
+  opts?: { normalizeModelsArray?: boolean },
 ): string {
   if (!Object.keys(updates).length) return text
   const pre = stripTrailingCommas(text)
@@ -789,41 +830,66 @@ export function setNestedModelsJsonc(
         .filter((h) => h.depth === entryDepth && h.colon > scope.s && h.colon < scope.e)
         .map((h) => [h.key, h.colon]),
     )
-    const missing: [string, string][] = []
-    for (const [name, model] of Object.entries(updates)) {
+    const missing: [string, ModelEntrySpec][] = []
+    for (const [name, spec] of Object.entries(updates)) {
+      const model = specModel(spec)
+      const models = specModels(spec)
       const colon = entryColons.get(name)
       if (colon === undefined) {
-        missing.push([name, model])
+        missing.push([name, spec])
         continue
       }
       const vs = valueSpan(clean, colon)
       // Entry object with a model field → replace ONLY that value span so
       // inner comments survive; bare strings / objects lacking the field
       // fall back to a whole-entry rewrite.
-      const modelHit =
+      const entryKeyHit = (key: string) =>
         clean[vs.s] === "{"
           ? hits
               .filter(
                 (h) =>
-                  h.key === "model" &&
+                  h.key === key &&
                   h.depth === entryDepth + 1 &&
                   h.colon > vs.s &&
                   h.colon < vs.e,
               )
               .pop()
           : undefined
+      const modelHit = entryKeyHit("model")
       if (modelHit) {
         const mvs = valueSpan(clean, modelHit.colon)
         edits.push({ s: mvs.s, e: mvs.e, text: JSON.stringify(model) })
+        const modelsHit = entryKeyHit("models")
+        if (modelsHit) {
+          const avs = valueSpan(clean, modelsHit.colon)
+          if (Array.isArray(models)) {
+            edits.push({ s: avs.s, e: avs.e, text: JSON.stringify(models) })
+          } else if (opts?.normalizeModelsArray && clean[avs.s] === "[") {
+            edits.push({ s: avs.s, e: avs.e, text: `[${JSON.stringify(model)}]` })
+          }
+        } else if (Array.isArray(models)) {
+          const at = insertBeforeClose(clean, vs.e - 1)
+          const pad = sp2(2 * (entryDepth + 1))
+          edits.push({ s: at, e: at, text: `,\n${pad}"models": ${JSON.stringify(models)}` })
+        }
       } else {
         const oldVal: unknown = parseLenient(clean.slice(vs.s, vs.e))
-        edits.push({ s: vs.s, e: vs.e, text: entryJson(oldVal, model) })
+        edits.push({
+          s: vs.s,
+          e: vs.e,
+          text: entryJson(
+            oldVal,
+            model,
+            Array.isArray(models) ? models : undefined,
+            opts?.normalizeModelsArray,
+          ),
+        })
       }
     }
     if (missing.length) {
       const hasAny = clean.slice(scope.s + 1, scope.e - 1).trim().length > 0
       const body = `${hasAny ? "," : ""}${missing
-        .map(([name, model]) => `\n${entryBodyText(name, model, 2 * entryDepth)}`)
+        .map(([name, s]) => `\n${entryBodyText(name, s, 2 * entryDepth)}`)
         .join(",")}`
       const at = insertBeforeClose(clean, scope.e - 1)
       edits.push({ s: at, e: at, text: body })

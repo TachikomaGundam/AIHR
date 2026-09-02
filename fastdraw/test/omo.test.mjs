@@ -24,6 +24,7 @@ const {
   isOmoName,
   omoTargetKind,
   omoPortableFile,
+  OMO_STATIC_CATEGORIES,
 } = omo
 
 let pass = 0
@@ -217,12 +218,15 @@ const OMO_FIXTURE = `{
   assert.equal(prec.targets.dup.kind, "agent", "agent kind wins on name collision")
   assert.equal(prec.targets.dup.model, "prov/block-agent", "[opencode] block beats base keys")
 
-  // missing file entirely
+  // missing file entirely: builtin categories are seeded as unbound targets
+  // (so category routing works on a fresh machine), nothing else leaks in
   await fs.rm(OMO_FILE)
   const none = await readOmoConfig({ HOME: path.join(TMP, "nohome") }, HOME)
   assert.equal(none.exists, false)
   assert.equal(none.file, null)
-  assert.deepEqual(none.targets, {})
+  assert.deepEqual(none.targets.deep, { kind: "category", model: null, models: null })
+  assert.equal(Object.keys(none.targets).length, OMO_STATIC_CATEGORIES.length)
+  assert.ok(OMO_STATIC_CATEGORIES.every((c) => none.targets[c]?.kind === "category"))
   ok("readOmoConfig: detection order, precedence, collision, error states")
 }
 
@@ -260,10 +264,54 @@ const OMO_FIXTURE = `{
   assert.equal(j["[opencode]"].categories.deep.model, "prov/new-deep", "category → categories")
   assert.deepEqual(
     j["[opencode]"].categories.deep.models,
-    ["prov/keep1", { model: "prov/keep2" }],
-    "category models[] untouched",
+    ["prov/new-deep"],
+    "category models[] normalized to [model] (models[0] dominates at runtime)",
   )
   ok("writeOmoModels: routes by kind, backs up, preserves comments and siblings")
+}
+
+/* 8b. category rebind normalizes the DOMINANT models[] — a stale array is
+    the 2026-09 production bug: OMO delegate-task uses models[0], ignores
+    `model`. Explicit spec.models (revert path) restores the array verbatim. */
+{
+  await w(OMO_FILE, OMO_FIXTURE)
+  const res = await writeOmoModels({ deep: "prov/rebind" }, { HOME }, HOME)
+  assert.equal(res.written, true, res.error)
+  let j = await parse(OMO_FILE)
+  assert.deepEqual(j["[opencode]"].categories.deep.models, ["prov/rebind"])
+  assert.deepEqual(
+    j["[opencode]"].categories.deep.fallback_models ?? null,
+    null,
+    "unrelated sibling fields of categories untouched",
+  )
+  assert.equal(j["[opencode]"].categories.quick.model, "prov/old-quick", "untouched category intact")
+  assert.equal(
+    j["[opencode]"].categories.quick.models,
+    undefined,
+    "category without models[] gains none",
+  )
+
+  const restore = await writeOmoModels(
+    { deep: { model: "prov/keep1", models: ["prov/keep1", { model: "prov/keep2" }] } },
+    { HOME },
+    HOME,
+  )
+  assert.equal(restore.written, true, restore.error)
+  j = await parse(OMO_FILE)
+  assert.equal(j["[opencode]"].categories.deep.model, "prov/keep1")
+  assert.deepEqual(j["[opencode]"].categories.deep.models, ["prov/keep1", { model: "prov/keep2" }])
+
+  // agent entries are NOT normalized (no dominant-array semantics)
+  await w(OMO_FILE, OMO_FIXTURE)
+  const ag = await writeOmoModels({ sisyphus: "prov/agent-new" }, { HOME }, HOME)
+  assert.equal(ag.written, true, ag.error)
+  j = await parse(OMO_FILE)
+  assert.deepEqual(
+    j["[opencode]"].agents.sisyphus.fallback_models,
+    ["prov/fb1", "prov/fb2"],
+    "agent fallback_models untouched",
+  )
+  ok("writeOmoModels: category models[] normalized; explicit spec.models restores verbatim; agents untouched")
 }
 
 /* 9. writeOmoModels: creates a missing file with only the needed skeleton */
@@ -276,6 +324,25 @@ const OMO_FIXTURE = `{
   assert.equal(j["[opencode]"].agents.oracle.model, "prov/x")
   assert.equal(res.file, path.join(freshHome, ".omo", "omo.jsonc"), "created as omo.jsonc")
   ok("writeOmoModels: fresh-file creation lands in [opencode].agents")
+}
+
+/* 9b. fresh machine (no OMO config at all): builtin category names are
+    known targets, so a category bind creates [opencode].categories —
+    never the agents section (phantom-role trap of the pre-1.1 wiring) */
+{
+  const freshHome = path.join(TMP, "fresh2")
+  const cfgFresh = await readOmoConfig({ HOME: freshHome }, freshHome)
+  assert.equal(cfgFresh.exists, false)
+  assert.equal(cfgFresh.targets.deep?.kind, "category", "builtin category seeded without a file")
+  assert.equal(cfgFresh.targets.oracle, undefined, "role names still need a real config")
+
+  const res = await writeOmoModels({ deep: "prov/cat-bind" }, { HOME: freshHome }, freshHome)
+  assert.equal(res.written, true, res.error)
+  const j = await parse(path.join(freshHome, ".omo", "omo.jsonc"))
+  assert.equal(j["[opencode]"].categories.deep.model, "prov/cat-bind")
+  assert.equal(j["[opencode]"].categories.deep.models, undefined, "created entry has no dominant array — model is authoritative")
+  assert.equal(j["[opencode]"].agents, undefined, "no agents skeleton written")
+  ok("writeOmoModels: fresh-machine category bind routes to categories, not phantom agents")
 }
 
 /* 10. writeOmoModels failure semantics: unparseable file refuses to write;
@@ -307,4 +374,4 @@ const OMO_FIXTURE = `{
 }
 
 await fs.rm(TMP, { recursive: true, force: true })
-console.log(`\n${pass}/10 tests passed`)
+console.log(`\n${pass} tests passed`)

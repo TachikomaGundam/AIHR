@@ -15,6 +15,8 @@ import {
   writeOmoModels,
   isOmoName,
   omoPortableFile,
+  omoRevertSpec,
+  omoTargetKind,
   type OmoBinding,
   type OmoConfig,
   type OmoWriteResult,
@@ -33,6 +35,7 @@ import {
   type Binding,
   type HarvestCtx,
   type HarvestEnv,
+  type ModelEntrySpec,
 } from "./origins.js"
 
 const CONFIG_DIR = path.join(homedir(), ".config", "opencode")
@@ -299,8 +302,15 @@ function formatOmoBlock(omoCfg: OmoConfig, state: Assignments): string {
   if (!omoCfg.exists || !omoCfg.parseable) return ""
   const line = (name: string): string => {
     const rec = state.omo?.[name]
-    const shown = rec?.model ?? omoCfg.targets[name]?.model
-    return `  ${name}: ${shown ?? "[not set]"}${rec ? "  [fastdraw]" : ""}`
+    const t = omoCfg.targets[name]
+    const shown = rec?.model ?? t?.model
+    let shadow = ""
+    if (t?.kind === "category" && t.models?.length) {
+      const primary = t.models[0]
+      const pm = typeof primary === "string" ? primary : (primary as { model?: string })?.model
+      if (pm && pm !== t.model) shadow = `  ⚠ shadowed: dominant models[0]=${pm}`
+    }
+    return `  ${name}: ${shown ?? "[not set]"}${rec ? "  [fastdraw]" : ""}${shadow}`
   }
   const names = Object.keys(omoCfg.targets).sort()
   const agents = names.filter((n) => omoCfg.targets[n].kind === "agent")
@@ -320,9 +330,11 @@ function expandPath(p: string): string {
 /* ── OMO routing helpers ──────────────────────────────────────────── */
 
 /** Names live in the OMO config → bind there; writing them into opencode's
- *  cfg.agent would CREATE PHANTOM ROLES instead of rebinding the real ones. */
+ *  cfg.agent would CREATE PHANTOM ROLES instead of rebinding the real ones.
+ *  An absent file still routes: builtin categories are seeded as targets and
+ *  the first write creates omo.jsonc. */
 function isOmoRouted(omoCfg: OmoConfig, name: string): boolean {
-  return omoCfg.exists && omoCfg.parseable && isOmoName(omoCfg, name)
+  return omoCfg.parseable && isOmoName(omoCfg, name)
 }
 
 function shadowNote(omoCfg: OmoConfig): string {
@@ -341,6 +353,7 @@ function migrateAll(state: Assignments, omoCfg: OmoConfig): Record<string, strin
     state.omo[name] = {
       model,
       original: state.omo[name]?.original ?? omoCfg.targets[name]?.model ?? null,
+      original_models: state.omo[name]?.original_models ?? omoCfg.targets[name]?.models ?? null,
     }
     delete state.agents[name]
     pending[name] = model
@@ -356,7 +369,7 @@ async function fastdrawServer() {
   const customNames = await readCustomAgentNames()
   let omoCfg = await readOmoConfig()
 
-  const migrated = omoCfg.exists && omoCfg.parseable ? migrateAll(state, omoCfg) : null
+  const migrated = omoCfg.parseable ? migrateAll(state, omoCfg) : null
   if (migrated) {
     const res = await writeOmoModels(migrated)
     if (res.written) await saveState(state)
@@ -377,7 +390,11 @@ async function fastdrawServer() {
   async function omoAssign(name: string, model: string): Promise<string | null> {
     state.omo ??= {}
     const prev = state.omo[name]
-    state.omo[name] = { model, original: prev?.original ?? omoCfg.targets[name]?.model ?? null }
+    state.omo[name] = {
+      model,
+      original: prev?.original ?? omoCfg.targets[name]?.model ?? null,
+      original_models: prev?.original_models ?? omoCfg.targets[name]?.models ?? null,
+    }
     const res = await writeOmoModels({ [name]: model })
     if (!res.written) {
       if (prev) state.omo[name] = prev
@@ -389,13 +406,15 @@ async function fastdrawServer() {
     return null
   }
 
-  /** Revert one recorded OMO binding to its original model. */
+  /** Revert one recorded OMO binding to its original state (categories also
+   *  recover their pre-fastdraw `models` array when recorded). */
   async function omoRevert(name: string): Promise<string | null> {
     const rec = state.omo?.[name]
     if (!rec) return "no OMO record"
     let err: string | null = null
-    if (rec.original) {
-      const res = await writeOmoModels({ [name]: rec.original })
+    const upd = omoRevertSpec(omoTargetKind(omoCfg, name), rec)
+    if (upd) {
+      const res = await writeOmoModels({ [name]: upd })
       err = res.written ? null : (res.error ?? "unknown OMO write error")
     }
     if (err === null) {
@@ -702,11 +721,12 @@ async function fastdrawServer() {
           for (const n of Object.keys(presentBindings)) {
             if (isOmoRouted(omoCfg, n)) omoSide[n] = presentBindings[n].model
           }
-          const omoWrite: Record<string, string> = { ...omoSide }
+          const omoWrite: Record<string, ModelEntrySpec> = { ...omoSide }
           const omoReverted: string[] = []
           for (const [n, rec] of Object.entries(state.omo ?? {})) {
             if (n in omoSide) continue
-            if (rec.original) omoWrite[n] = rec.original
+            const upd = omoRevertSpec(omoTargetKind(omoCfg, n), rec)
+            if (upd) omoWrite[n] = upd
             omoReverted.push(n)
           }
           const cfgApplyAgents: Record<string, string> = {}
@@ -749,6 +769,8 @@ async function fastdrawServer() {
                 state.omo[n] = {
                   model: m,
                   original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
+                  original_models:
+                    state.omo[n]?.original_models ?? omoCfg.targets[n]?.models ?? null,
                 }
               }
               for (const n of omoReverted) delete state.omo![n]
