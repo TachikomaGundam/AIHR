@@ -1,6 +1,6 @@
 {
   "name": "opencode-fastdraw",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Quick-draw model switching for opencode agents — bind models to roles/agents from the TUI, snapshot them as presets, preview, share, and hot-swap instantly",
   "type": "module",
   "exports": {

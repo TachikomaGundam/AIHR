@@ -4,11 +4,14 @@
 #   FASTDRAW_REPO=user/repo bash install.sh
 #
 # Env overrides:
-#   FASTDRAW_REPO=user/repo   FASTDRAW_REF=tag-or-branch   OPENCODE_CONFIG_DIR=/path
+#   FASTDRAW_REPO=user/repo FASTDRAW_REF=tag-or-branch FASTDRAW_SUBDIR=fastdraw OPENCODE_CONFIG_DIR=/path
 set -euo pipefail
 
 REPO="${FASTDRAW_REPO:-}"
 REF="${FASTDRAW_REF:-main}"
+# Subdirectory the plugin lives in on the repo (AIHR keeps it in fastdraw/;
+# set empty for a standalone fastdraw repo).
+SUBDIR="${FASTDRAW_SUBDIR-fastdraw}"
 CONFIG_DIR="${OPENCODE_CONFIG_DIR:-$HOME/.config/opencode}"
 PKG_DIR="$CONFIG_DIR/plugins/fastdraw"
 
@@ -23,11 +26,13 @@ warn() { printf '\033[1;33m!\033[0m %s\n' "$*"; }
 
 info "Installing FastDraw from github.com/$REPO@$REF"
 mkdir -p "$PKG_DIR"
-# server.ts / tui.ts import ./roles.js and ./origins.js (TypeScript source
-# resolved by opencode's bundler) — every file must be fetched or the plugin
-# fails module resolution at first load.
-for f in server.ts tui.ts roles.ts origins.ts package.json; do
-  curl -fsSL "https://raw.githubusercontent.com/$REPO/$REF/$f" -o "$PKG_DIR/$f"
+# server.ts / tui.ts import ./roles.js, ./origins.js and ./omo.js (TypeScript
+# source resolved by opencode's bundler) — every file must be fetched or the
+# plugin fails module resolution at first load.
+FETCH_BASE="https://raw.githubusercontent.com/$REPO/$REF"
+[ -n "$SUBDIR" ] && FETCH_BASE="$FETCH_BASE/$SUBDIR"
+for f in server.ts tui.ts roles.ts origins.ts omo.ts package.json; do
+  curl -fsSL "$FETCH_BASE/$f" -o "$PKG_DIR/$f"
   ok "fetched $f"
 done
 
