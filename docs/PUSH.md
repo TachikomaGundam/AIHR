@@ -18,6 +18,14 @@ section says otherwise.
 Repo: `~/workspace/harness/hr` (git root), branch `main`, tag `v0.2.0` set.
 Origin is already configured as `git@github.com:TachikomaGundam/AIHR.git`.
 
+> **Published state (verified 2026-09-02 against the registries):**
+> PyPI `aihr` **0.2.0** (uploaded 2026-08-31) · npm `opencode-hr-agent`
+> **0.2.0** · npm `opencode-fastdraw` **1.1.0** (2026-09-02; the 1.1.0
+> release changed only the plugin JS, so no new engine build was due) ·
+> git tag `v0.2.0`. In-tree engine version is **0.2.1** — committed and
+> built to `/tmp/opencode/hr-ship-artifacts/aihr-0.2.1-*` (twine check
+> PASSED) but NOT yet on PyPI: this machine holds no PyPI token (§4).
+
 ---
 
 ## 0. Preflight (30 s)
@@ -89,25 +97,23 @@ and use a PAT as the password when prompted.
    - `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz`
 5. Publish release.
 
-## 4. PyPI upload — **OPTIONAL, currently SKIPPED by choice**
+## 4. PyPI upload — PRIMARY engine channel (README front page)
 
-The Python engine does not need to be on PyPI: the wheel published as a
-Release asset installs directly (its own dependencies still resolve from
-PyPI as a consumer, no publishing needed):
+The engine ships on PyPI as **`aihr`**; `pip install "aihr[vision]"` is the
+install path the README advertises, so every engine release must land on
+PyPI. The GitHub Release wheel (§3) stays as a mirror for direct-URL
+installs:
 
 ```bash
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
 ```
 
-Only if you later want the bare `pip install aihr` convenience:
+Upload procedure (`twine` already installed at `~/.local/bin/twine` via
+`python3 -m pip install --user twine`):
 
 ```bash
-# one-time tool install (home dir, not the project venv)
-python3 -m pip install --user twine
-# or: pipx install twine
-
 cd /tmp/opencode/hr-ship-artifacts
-twine upload aihr-0.2.0-py3-none-any.whl aihr-0.2.0.tar.gz
+twine upload aihr-<VERSION>-py3-none-any.whl aihr-<VERSION>.tar.gz
 # prompts: username -> __token__   (literally the underscore token)
 #          password -> your PyPI API token (project: aihr)
 ```
@@ -115,7 +121,7 @@ twine upload aihr-0.2.0-py3-none-any.whl aihr-0.2.0.tar.gz
 Non-interactive alternative (token still never stored in the repo):
 
 ```bash
-TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode/hr-ship-artifacts/aihr-0.2.0-*
+TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode/hr-ship-artifacts/aihr-<VERSION>-*
 ```
 
 ## 5. npm publish (two packages)
@@ -144,9 +150,11 @@ omit `--otp` and answer the interactive prompt.
 ## 6. Verify from the second machine
 
 ```bash
-# engine (no PyPI needed — Release wheel):
-pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
+# engine (primary — PyPI):
+pip install "aihr[vision]"
 hr --help                                # expect all 23 commands
+# engine (mirror — Release wheel, no PyPI required):
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
 npm view opencode-hr-agent               # expect 0.2.0
 npm view opencode-fastdraw               # expect 1.0.0
 npm install -g opencode-hr-agent opencode-fastdraw   # or per-project
