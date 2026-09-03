@@ -793,13 +793,13 @@ class _EmptyCursor:
     def __init__(self) -> None:
         self.description = []
 
-    def execute(self, sql, params=None):  # noqa: ANN001, ANN201
+    def execute(self, sql, params=None):
         self.sql = sql
 
     def fetchall(self) -> list:
         return []
 
-    def __enter__(self):  # noqa: ANN204
+    def __enter__(self):
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -807,7 +807,7 @@ class _EmptyCursor:
 
 
 class _EmptyConn:
-    def cursor(self, cursor_factory=None):  # noqa: ANN001, ANN201
+    def cursor(self, cursor_factory=None):
         return _EmptyCursor()
 
     def close(self) -> None:
