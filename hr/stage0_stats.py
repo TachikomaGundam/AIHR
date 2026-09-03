@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+
+log = logging.getLogger(__name__)
 
 
 
@@ -25,31 +28,87 @@ def _bootstrap_separation_from_state(
 ) -> dict[str, list[dict]]:
     """Run paired bootstrap separation within each battery.
 
+    Per battery, every model pair is aligned on the intersection of item keys
+    present in BOTH models' per-item dicts. Each side is flattened in
+    ``sorted(shared_keys)`` order and truncated per item to the first
+    k = min(len(a[item]), len(b[item])) scores. Pairing is POSITIONAL in
+    append order, not round-index aligned: stage0 records scores, not
+    (round, score) tuples, so mid-list holes pair the first-k scores of each
+    item against each other — the same pairing philosophy HEAD used (its
+    flatten was already positional), and no anytime-valid claim rides stage0's
+    heuristic separation.
+
+    Flattening in sorted item order (vs HEAD's dict-insertion order) is a
+    deliberate trade-off: results become resume-stable — hr/stage1_resume.py
+    rebuilds measurements ``ORDER BY item_id`` — at the cost of a possible
+    p-value shift for fixtures whose insertion order was not already sorted.
+    ACCEPTED.
+
+    Pairs with no shared usable items are SKIPPED with a warning and emit no
+    row (never raise, never zip mismatched shapes). Models present as MISSING
+    keys and models present as empty {} dicts are treated alike: they share
+    no items with anyone, so every pair involving them is skipped. A battery
+    with zero surviving pairs still yields its key with an empty list.
+
     Returns: dict of battery_code -> list of {model_a, model_b, p_separated, p_weak, p_tie}.
     """
     from hr.stats.bootstrap import classify, paired_bootstrap_separation
 
     result: dict[str, list[dict]] = {}
-    per_battery: dict[str, dict[str, list[float]]] = {}
-    # Group scores by per (battery, model) — mean over items per round.
+    # battery_code -> model_id -> item_key -> [scores across repetitions]
+    per_battery: dict[str, dict[str, dict[str, list[float]]]] = {}
     for key_str, per_item in state.measurements_by_model_battery.items():
         model_id, battery = key_str.split("|", 1)
-        per_battery.setdefault(battery, {})
-        # Per-model scores: average over all item scores in this battery.
-        all_scores: list[float] = []
-        for item_scores in per_item.values():
-            all_scores.extend(item_scores)
-        if not all_scores:
-            continue
-        per_battery[battery][model_id] = all_scores
+        # Register the battery even when the model contributes nothing, so a
+        # battery with zero surviving pairs still yields its key ([] pairs).
+        per_battery.setdefault(battery, {})[model_id] = per_item
 
-    for battery_code, model_scores in per_battery.items():
+    for battery_code, model_item_dicts in per_battery.items():
         pairs: list[dict] = []
-        model_ids = sorted(model_scores.keys())
+        model_ids = sorted(model_item_dicts.keys())
         for i, ma in enumerate(model_ids):
             for mb in model_ids[i + 1 :]:
-                sa = model_scores[ma]
-                sb = model_scores[mb]
+                a_items = model_item_dicts[ma]
+                b_items = model_item_dicts[mb]
+                common_keys = sorted(set(a_items) & set(b_items))
+                if len(common_keys) < 1:
+                    log.warning(
+                        "skipping separation pair %s vs %s on %s: no shared items (%d vs %d)",
+                        ma,
+                        mb,
+                        battery_code,
+                        len(a_items),
+                        len(b_items),
+                    )
+                    continue
+                sa: list[float] = []
+                sb: list[float] = []
+                for item in common_keys:
+                    # Positional truncation: pair only the first
+                    # min(len_a, len_b) scores of each shared item.
+                    k = min(len(a_items[item]), len(b_items[item]))
+                    sa.extend(a_items[item][:k])
+                    sb.extend(b_items[item][:k])
+                if not sa:
+                    log.warning(
+                        "skipping separation pair %s vs %s on %s: shared items have no paired scores (%d vs %d)",
+                        ma,
+                        mb,
+                        battery_code,
+                        len(a_items),
+                        len(b_items),
+                    )
+                    continue
+                if len(sa) != len(sb):  # defensive: unreachable by construction above
+                    log.warning(
+                        "skipping separation pair %s vs %s on %s: unequal aligned lengths (%d vs %d)",
+                        ma,
+                        mb,
+                        battery_code,
+                        len(sa),
+                        len(sb),
+                    )
+                    continue
                 # Use both directions to compute weak / separated / tie.
                 p_a = paired_bootstrap_separation(sa, sb)
                 p_b = paired_bootstrap_separation(sb, sa)
