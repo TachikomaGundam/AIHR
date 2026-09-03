@@ -103,11 +103,22 @@ def test_run_sweep_end_to_end_no_db(fleet_env) -> None:  # noqa: F811 (fixture p
     assert state.total_calls == expected_calls
     # Tokens = calls × (tokens_in + tokens_out)
     assert state.total_tokens == expected_calls * 150
-    # Every battery has measurements recorded per model.
+    # T1 skip-write semantics (audit bug 4): the stub registry only knows
+    # unit_test@1.0, which routes tool_b. Every other battery resolves to an
+    # unregistered grader, so call_and_grade returns scored=False
+    # (grader_error) and those fake zeros must NOT enter measurements.
+    for model in small_models:
+        tool_b = state.measurements_by_model_battery[f"{model}|tool_b"]
+        assert len(tool_b) == STAGE0_SUBSET_SIZES["tool_b"]
+        assert all(scores == [1.0, 1.0] for scores in tool_b.values())
     for battery in STAGE0_BATTERIES:
+        if battery == "tool_b":
+            continue
         for model in small_models:
             key = f"{model}|{battery}"
-            assert key in state.measurements_by_model_battery
+            assert key not in state.measurements_by_model_battery, (
+                f"{key}: unscored (grader_error) calls must not be recorded"
+            )
 
 def test_run_sweep_hits_token_cap(fleet_env) -> None:  # noqa: F811 (fixture param shadows re-export)
     """Sweep should stop when token cap is reached."""
