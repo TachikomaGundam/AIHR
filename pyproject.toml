@@ -48,6 +48,7 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "basedpyright~=1.39",
+    "hypothesis~=6.167",
     "pytest~=9.1",
     "pytest-cov~=7.1",
     "pytest-timeout~=2.4",
