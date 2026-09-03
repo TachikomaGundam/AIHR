@@ -30,7 +30,6 @@ from hr.stage0 import (
     compute_pool_hash,  # noqa: F401 (re-export; consumed by sibling test modules)
     run_sweep,  # noqa: F401 (re-export; consumed by sibling test modules)
     select_subsets,  # noqa: F401 (re-export; consumed by sibling test modules)
-    should_exclude_zero,  # noqa: F401 (re-export; consumed by sibling test modules)
     _bootstrap_separation_from_state,  # noqa: F401 (re-export; consumed by sibling test modules)
     _ensure_provider_model_records,  # noqa: F401 (re-export; consumed by sibling test modules)
     _print_matrix,  # noqa: F401 (re-export; consumed by sibling test modules)

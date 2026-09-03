@@ -20,24 +20,6 @@ def _key(model_id: str, battery: str) -> str:
     return f"{model_id}|{battery}"
 
 
-def should_exclude_zero(infra_failure: str | None) -> bool:
-    """Whether a 0-score caused by infra failure should be excluded from stats.
-
-    Stage 0 policy: only exclude if corroboration exists. For full rigor we
-    defer to the stats module's ``should_exclude_zero``. Here we return
-    conservatively (exclude only retryable classes).
-    """
-    if infra_failure is None:
-        return False
-    from hr.scheduler.taxonomy import FailureCode, retryable
-
-    try:
-        failure_code = FailureCode(infra_failure)
-    except ValueError:
-        return False
-    return retryable(failure_code)
-
-
 def _bootstrap_separation_from_state(
     state: SweepState,
 ) -> dict[str, list[dict]]:
