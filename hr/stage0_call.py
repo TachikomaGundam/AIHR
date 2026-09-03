@@ -47,6 +47,10 @@ class SingleCallResult:
     error: str | None = None
     response_text: str | None = None
     thinking_text: str | None = None
+    #: False when no score-bearing observation was produced (infra failure,
+    #: no routing, grader lookup/grading error). Consumers must not persist
+    #: or aggregate such results as measurements (audit bug 4).
+    scored: bool = True
 
 
 def call_and_grade(
@@ -99,6 +103,7 @@ def call_and_grade(
             latency_ms=0,
             infra_failure=infra,
             error=str(e),
+            scored=False,
         )
 
     # Grade.
@@ -113,6 +118,7 @@ def call_and_grade(
             tokens_in=getattr(resp, "tokens_in", 0) or 0,
             tokens_out=getattr(resp, "tokens_out", 0) or 0,
             latency_ms=getattr(resp, "latency_ms", 0) or 0,
+            scored=False,
         )
     grader_spec, _builder = routing
     try:
@@ -125,6 +131,7 @@ def call_and_grade(
             tokens_in=getattr(resp, "tokens_in", 0) or 0,
             tokens_out=getattr(resp, "tokens_out", 0) or 0,
             latency_ms=getattr(resp, "latency_ms", 0) or 0,
+            scored=False,
         )
     params = _build_grading_params(envelope)
     try:
@@ -137,6 +144,7 @@ def call_and_grade(
             tokens_in=getattr(resp, "tokens_in", 0) or 0,
             tokens_out=getattr(resp, "tokens_out", 0) or 0,
             latency_ms=getattr(resp, "latency_ms", 0) or 0,
+            scored=False,
         )
     return True, SingleCallResult(
         score=float(g.score),

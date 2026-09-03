@@ -31,7 +31,14 @@ def _run_sweep_loop(
     sweep_id: str,
     record_to_db: bool,
 ) -> None:
-    """Core nested loop: models × batteries × rounds."""
+    """Core nested loop: models × batteries × rounds.
+
+    Infra-failed and unscored (no-routing / grader-error) calls are not
+    score-bearing observations: they produce no measurement row, no
+    in-memory measurement, and no per-round score. Historical contaminated
+    rows remain untouched pending a separate cleanup decision
+    (audit HANDOFF-2026-09-02 C7).
+    """
     active_subsets = {b: subsets[b] for b in batteries if b in subsets}
     for model_id in models:
         if state.stopped_at_cap:
@@ -61,6 +68,7 @@ def _run_sweep_loop(
                     )
                 round_total_tokens = 0
                 round_infra_ok = True
+                round_unscored = False
                 for rep, env in enumerate(items, start=1):
                     ok, result = call_and_grade(adapter, model_id, env, item_repo, registry)
                     state.total_calls += 1
@@ -76,28 +84,32 @@ def _run_sweep_loop(
                                 kind=result.infra_failure or "unknown",
                                 details=result.detail or {},
                             )
-                    if record_to_db and conn is not None:
-                        scorer_name, scorer_version = resolve_scorer_identity(
-                            env.type.value
-                        )
-                        _insert_measurement(
-                            conn,
-                            measurement_id=f"m-{uuid.uuid4()}",
-                            run_id=round_id,
-                            item_id=env.item_key,
-                            repetition=rep,
-                            score=result.score,
-                            tokens_in=result.tokens_in,
-                            tokens_out=result.tokens_out,
-                            latency_ms=result.latency_ms,
-                            response_text=result.response_text,
-                            thinking_text=result.thinking_text,
-                            scorer_name=scorer_name,
-                            scorer_version=scorer_version,
-                        )
-                    key_str = _key(model_id, battery_code)
-                    per_item = state.measurements_by_model_battery.setdefault(key_str, {})
-                    per_item.setdefault(env.item_key, []).append(result.score)
+                    unscored = (not ok) or (not result.scored)
+                    if unscored:
+                        round_unscored = True
+                    else:
+                        if record_to_db and conn is not None:
+                            scorer_name, scorer_version = resolve_scorer_identity(
+                                env.type.value
+                            )
+                            _insert_measurement(
+                                conn,
+                                measurement_id=f"m-{uuid.uuid4()}",
+                                run_id=round_id,
+                                item_id=env.item_key,
+                                repetition=rep,
+                                score=result.score,
+                                tokens_in=result.tokens_in,
+                                tokens_out=result.tokens_out,
+                                latency_ms=result.latency_ms,
+                                response_text=result.response_text,
+                                thinking_text=result.thinking_text,
+                                scorer_name=scorer_name,
+                                scorer_version=scorer_version,
+                            )
+                        key_str = _key(model_id, battery_code)
+                        per_item = state.measurements_by_model_battery.setdefault(key_str, {})
+                        per_item.setdefault(env.item_key, []).append(result.score)
 
                     if state.total_tokens >= token_cap:
                         state.stopped_at_cap = True
@@ -108,8 +120,17 @@ def _run_sweep_loop(
                         break
                 # Update the run row with final token totals.
                 if record_to_db and conn is not None:
-                    status = "scored" if round_infra_ok else "inconclusive"
-                    failure_reason = None if round_infra_ok else "infra_failure_during_execution"
+                    status = (
+                        "scored"
+                        if (round_infra_ok and not round_unscored)
+                        else "inconclusive"
+                    )
+                    if not round_infra_ok:
+                        failure_reason = "infra_failure_during_execution"
+                    elif round_unscored:
+                        failure_reason = "unscored_call_during_execution"
+                    else:
+                        failure_reason = None
                     with conn.cursor() as cur:
                         cur.execute(
                     "UPDATE hr.run SET finished_at = %s, total_tokens = %s, "
