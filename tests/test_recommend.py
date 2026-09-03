@@ -780,3 +780,96 @@ def test_get_latency_stats_uses_linear_interpolation_percentiles() -> None:
     assert stats["model-a"]["p50"] == 1.5
     assert stats["model-a"]["p95"] == pytest.approx(2.85)
     assert stats == {"model-a": {"p50": 1.5, "p95": pytest.approx(2.85)}}
+
+
+# ---------------------------------------------------------------------------
+# T6 (audit bug 10): custom seats injected via a seats.local.yaml overlay are
+# not covered by the measured SEAT_CODES, so seat_assignments() never returns
+# a row for them; the table builder used to crash with a raw KeyError.
+# ---------------------------------------------------------------------------
+
+
+class _EmptyCursor:
+    def __init__(self) -> None:
+        self.description = []
+
+    def execute(self, sql, params=None):  # noqa: ANN001, ANN201
+        self.sql = sql
+
+    def fetchall(self) -> list:
+        return []
+
+    def __enter__(self):  # noqa: ANN204
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        pass
+
+
+class _EmptyConn:
+    def cursor(self, cursor_factory=None):  # noqa: ANN001, ANN201
+        return _EmptyCursor()
+
+    def close(self) -> None:
+        pass
+
+
+def test_seat_recommendations_custom_overlay_seat_renders_no_data_row(
+    hr_sandbox: dict,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Given a seats.local.yaml overlay appending an unmeasured seat,
+    When building the seat recommendation table,
+    Then it renders a no-data row at the seat-table position (no KeyError),
+    warns, and every built-in seat keeps its existing row."""
+    import logging
+    import yaml
+
+    from hr.recommend import load_seat_specs
+    from hr.seats.health_gates import SEAT_HEALTH_GATE
+    from tests.conftest import materialize_templates
+
+    materialize_templates(hr_sandbox)
+    builtin = load_seat_specs()
+    assert len(builtin) == 18
+    selected = builtin + [{"seat_code": "my_custom_seat", "domain": "test"}]
+    # local overlay wins and lists are replaced, so the overlay carries the
+    # built-in 18 plus the appended custom seat
+    (hr_sandbox["configs"] / "seats.local.yaml").write_text(
+        yaml.safe_dump({"seats": selected}), encoding="utf-8"
+    )
+    assert load_seat_specs() == selected
+
+    monkeypatch.setattr("hr.recommend.get_connection", lambda: _EmptyConn())
+    engine = RecommendationEngine()
+    try:
+        with caplog.at_level(logging.WARNING, logger="hr.recommend"):
+            report = engine.seat_recommendations(load_seat_specs())
+    finally:
+        engine.close()
+
+    rows = [
+        line
+        for line in report.splitlines()
+        if line.startswith("| ") and not line.startswith("| seat")
+    ]
+    # (b) custom seat renders a no-data row at its seat-table position (last)
+    assert rows[-1] == "| my_custom_seat | test | — | no-data |"
+    # (d) built-in seats still render, in seat-table order, unchanged
+    assert [row.split("|")[1].strip() for row in rows] == [
+        str(seat["seat_code"]) for seat in selected
+    ]
+    for seat in builtin:
+        expected = (
+            f"| {seat['seat_code']} | {seat.get('domain', '—')} | — "
+            f"| {SEAT_HEALTH_GATE[str(seat['seat_code'])]} |"
+        )
+        assert expected in rows
+    # (c) a WARNING was logged naming the uncovered seat
+    assert any(
+        record.levelno == logging.WARNING
+        and "my_custom_seat" in record.getMessage()
+        and "SEAT_CODES" in record.getMessage()
+        for record in caplog.records
+    )
