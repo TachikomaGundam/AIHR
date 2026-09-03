@@ -46,17 +46,10 @@ def _fetch(conn, sql: str, params: tuple | None = None) -> list[tuple]:
 
 
 def latest_sweep_id(conn) -> str:
+    """Newest sweep by wall clock; contaminated-sweep selection fix (audit bug 6)."""
     rows = _fetch(
         conn,
-        """
-        SELECT s.sweep_id
-          FROM hr.sweep s
-          JOIN hr.run r ON r.sweep_id = s.sweep_id
-          LEFT JOIN hr.measurement m ON m.run_id = r.run_id
-         GROUP BY s.sweep_id, s.created_at
-         ORDER BY COUNT(m.measurement_id) DESC, s.created_at DESC
-         LIMIT 1
-        """,
+        "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1",
     )
     if not rows:
         raise ValueError("no sweeps found in hr.sweep")
