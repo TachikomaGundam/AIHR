@@ -68,6 +68,12 @@ def _run_finals_loop(
     Resume support: if `already_recorded` is non-empty (sweep_id already has
     measurements in DB), we seed `n_rounds_done[battery]` from the max recorded
     round per (model, battery) in the DB and only run subsequent rounds.
+
+    Infra-failed and unscored (no-routing / grader-error) calls are not
+    score-bearing observations: they produce no measurement row, no in-memory
+    measurement, and no per-round score, and an all-unscored round changes no
+    stopper state. Historical contaminated rows remain untouched pending a
+    separate cleanup decision (audit HANDOFF-2026-09-02 C7).
     """
     # Initialize stoppers per battery.
     for battery in batteries:
@@ -173,6 +179,7 @@ def _run_finals_loop(
             # Run round_num for ALL finalists in this battery.
             round_scores_for_stopper: list[float] = []
             complete_scores_by_model: dict[str, list[float]] = {}
+            complete_score_keys_by_model: dict[str, list[tuple[str, int]]] = {}
             for model_id in finalists:
                 if state.stopped_at_cap:
                     break
@@ -192,15 +199,18 @@ def _run_finals_loop(
                     )
                 round_total_tokens = 0
                 round_infra_ok = True
+                round_unscored = False
                 mb_key = _key(model_id, battery)
                 state.measurements_by_model_battery.setdefault(mb_key, {})
                 round_scores_for_model: list[float] = []
+                round_score_keys: list[tuple[str, int]] = []
                 for rep, env in enumerate(items, start=1):
                     recorded_score = already_recorded.get(
                         (model_id, battery, round_num, env.item_key, rep)
                     )
                     if recorded_score is not None:
                         round_scores_for_model.append(recorded_score)
+                        round_score_keys.append((env.item_key, rep))
                         continue
                     ok, result = call_and_grade(adapter, model_id, env, item_repo, registry)
                     state.total_calls += 1
@@ -216,24 +226,29 @@ def _run_finals_loop(
                                 kind=result.infra_failure or "unknown",
                                 details=result.detail or {},
                             )
-                    if record_to_db and conn is not None:
-                        _insert_measurement(
-                            conn,
-                            measurement_id=f"m-{uuid.uuid4()}",
-                            run_id=round_id,
-                            item_id=env.item_key,
-                            repetition=rep,
-                            score=result.score,
-                            tokens_in=result.tokens_in,
-                            tokens_out=result.tokens_out,
-                            latency_ms=result.latency_ms,
-                            response_text=result.response_text,
-                            thinking_text=result.thinking_text,
-                        )
-                    state.measurements_by_model_battery[mb_key].setdefault(env.item_key, []).append(
-                        result.score
-                    )
-                    round_scores_for_model.append(result.score)
+                    unscored = (not ok) or (not result.scored)
+                    if unscored:
+                        round_unscored = True
+                    else:
+                        if record_to_db and conn is not None:
+                            _insert_measurement(
+                                conn,
+                                measurement_id=f"m-{uuid.uuid4()}",
+                                run_id=round_id,
+                                item_id=env.item_key,
+                                repetition=rep,
+                                score=result.score,
+                                tokens_in=result.tokens_in,
+                                tokens_out=result.tokens_out,
+                                latency_ms=result.latency_ms,
+                                response_text=result.response_text,
+                                thinking_text=result.thinking_text,
+                            )
+                        state.measurements_by_model_battery[mb_key].setdefault(
+                            env.item_key, []
+                        ).append(result.score)
+                        round_scores_for_model.append(result.score)
+                        round_score_keys.append((env.item_key, rep))
 
                     # Token cap check.
                     if state.total_tokens >= token_cap:
@@ -245,8 +260,17 @@ def _run_finals_loop(
                         break
                 # Update run row with total tokens.
                 if record_to_db and conn is not None:
-                    status = "scored" if round_infra_ok else "inconclusive"
-                    failure_reason = None if round_infra_ok else "infra_failure_during_execution"
+                    status = (
+                        "scored"
+                        if (round_infra_ok and not round_unscored)
+                        else "inconclusive"
+                    )
+                    if not round_infra_ok:
+                        failure_reason = "infra_failure_during_execution"
+                    elif round_unscored:
+                        failure_reason = "unscored_call_during_execution"
+                    else:
+                        failure_reason = None
                     with conn.cursor() as cur:
                         cur.execute(
                 "UPDATE hr.run SET total_tokens = %s, infra_ok = %s, "
@@ -262,29 +286,40 @@ def _run_finals_loop(
                         )
                     conn.commit()
                 # Aggregate this model's round scores into battery-wide stopper bucket.
-                round_scores_for_stopper.extend(round_scores_for_model)
-                state.model_stoppers[mb_key].add_round(round_scores_for_model)
-                complete_scores_by_model[model_id] = round_scores_for_model
+                # An empty round (all calls unscored) is not score-bearing and
+                # must not advance any stopper (SequentialStopper.add_round([])
+                # bumps n_rounds unconditionally).
+                if round_scores_for_model:
+                    round_scores_for_stopper.extend(round_scores_for_model)
+                    state.model_stoppers[mb_key].add_round(round_scores_for_model)
+                    complete_scores_by_model[model_id] = round_scores_for_model
+                    complete_score_keys_by_model[model_id] = round_score_keys
 
                 if state.stopped_at_cap:
                     break
 
             # After this round for all finalists, push the aggregate scores to the stopper.
-            state.stoppers[battery].add_round(round_scores_for_stopper)
+            if round_scores_for_stopper:
+                state.stoppers[battery].add_round(round_scores_for_stopper)
             if not state.stopped_at_cap:
                 for model_a, model_b in combinations(finalists, 2):
-                    scores_a = complete_scores_by_model.get(model_a, [])
-                    scores_b = complete_scores_by_model.get(model_b, [])
-                    if len(scores_a) != len(scores_b):
-                        # Incomplete pair round (e.g. token cap interrupted the
-                        # second model): EXCLUDE it from the sequence. Only
-                        # complete rounds may enter an anytime-valid sequence;
-                        # a partial round is never aggregated, never a winner.
+                    keys_a = complete_score_keys_by_model.get(model_a)
+                    keys_b = complete_score_keys_by_model.get(model_b)
+                    if not keys_a or not keys_b:
+                        # A model produced no scored observation this round:
+                        # never feed a partial round into the pair sequence.
                         continue
+                    shared = sorted(set(keys_a) & set(keys_b))
+                    if not shared:
+                        # Disjoint item sets: there is no shared (item_key, rep)
+                        # to pair positionally — skip, sequence state unchanged.
+                        continue
+                    scores_a = dict(zip(complete_score_keys_by_model[model_a], complete_scores_by_model[model_a]))
+                    scores_b = dict(zip(complete_score_keys_by_model[model_b], complete_scores_by_model[model_b]))
                     normalized_diffs = [
-                        normalize_bounded_score(a, max_score=STAGE1_SCORE_SCALE)
-                        - normalize_bounded_score(b, max_score=STAGE1_SCORE_SCALE)
-                        for a, b in zip(scores_a, scores_b)
+                        normalize_bounded_score(scores_a[key], max_score=STAGE1_SCORE_SCALE)
+                        - normalize_bounded_score(scores_b[key], max_score=STAGE1_SCORE_SCALE)
+                        for key in shared
                     ]
                     state.pair_stoppers[_pair_key(model_a, model_b, battery)].add_round(
                         normalized_diffs
