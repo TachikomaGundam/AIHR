@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, TypeVar
@@ -25,6 +26,8 @@ from hr.recommendation_constraints import (
     ReliabilityConstraint,
     UncertaintyConstraint,
 )
+
+log = logging.getLogger(__name__)
 
 # Type parameter for ``_read_evidence`` so evidence readers keep their
 # declared return type instead of being erased to object.
@@ -788,7 +791,15 @@ class RecommendationEngine:
         ]
         for seat in selected_seats:
             seat_code = str(seat["seat_code"])
-            assignment = by_seat[seat_code]
+            assignment = by_seat.get(seat_code)
+            if assignment is None:
+                log.warning(
+                    "seat %r is not covered by measured SEAT_CODES "
+                    "(custom seat via overlay?); emitting no-data row",
+                    seat_code,
+                )
+                lines.append(f"| {seat_code} | {seat.get('domain', '—')} | — | no-data |")
+                continue
             model = assignment["primary"] or "—"
             lines.append(
                 f"| {seat_code} | {seat.get('domain', '—')} | {model} | "
