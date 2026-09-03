@@ -6,7 +6,6 @@ from tests.test_cli import (
     _COUNT_SQL_KEY,
     _DISTINCT_MODEL_SQL_KEY,
     _KeyedConn,
-    _LATEST_SQL_KEY,
     _MEASUREMENT_SQL_KEY,
     _MODEL_SQL_KEY,
     _SEAT_SQL_KEY,
@@ -18,9 +17,14 @@ from tests.test_cli import (
     runner
 )
 
+# tests.test_cli._LATEST_SQL_KEY pins the pre-T3 JOIN/COUNT SQL; the shared
+# fixture must stay untouched, so this module keys the single-table
+# latest_sweep_id query from hr/decision.py locally.
+_LATEST_SQL_NEW = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1"
+
 def test_verdict_latest_flag_uses_latest_sweep(monkeypatch):
     router = {
-        _LATEST_SQL_KEY: [("s9",)],
+        _LATEST_SQL_NEW: [("s9",)],
         _AVG_SQL_KEY: [],
         _DISTINCT_MODEL_SQL_KEY: [],
         _MEASUREMENT_SQL_KEY: [],
@@ -97,7 +101,7 @@ def test_status_dispatch_via_fake_conn(monkeypatch):
         ("stage1-x", datetime(2026, 1, 2), 156, 13, 8288, 5513),
     ]
     router = {
-        _LATEST_SQL_KEY: [("stage1-x",)],
+        _LATEST_SQL_NEW: [("stage1-x",)],
         _SWEEPS_SQL_KEY: rows,
         _AVG_SQL_KEY: [("m_a", "reasoning", 0.9)],
         _DISTINCT_MODEL_SQL_KEY: [("m_a",)],
@@ -121,7 +125,7 @@ def test_status_dispatch_marks_retired_models(monkeypatch):
         ("stage1-x", datetime(2026, 1, 2), 156, 13, 8288, 5513),
     ]
     router = {
-        _LATEST_SQL_KEY: [("stage1-x",)],
+        _LATEST_SQL_NEW: [("stage1-x",)],
         _SWEEPS_SQL_KEY: rows,
         _AVG_SQL_KEY: [("m_dead", "reasoning", 0.9)],
         _DISTINCT_MODEL_SQL_KEY: [("m_dead",)],
@@ -156,7 +160,7 @@ def test_build_status_report_function_smoke():
     from datetime import datetime
 
     router = {
-        _LATEST_SQL_KEY: [("s0",)],
+        _LATEST_SQL_NEW: [("s0",)],
         _SWEEPS_SQL_KEY: [("s0", datetime(2026, 1, 1), 1, 1, 1, 1)],
         _AVG_SQL_KEY: [],
         _DISTINCT_MODEL_SQL_KEY: [],
