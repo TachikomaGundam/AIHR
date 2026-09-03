@@ -18,6 +18,7 @@ column referenced by the covered SQL exists on the live schema.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 import psycopg2
 import psycopg2.extensions
@@ -104,7 +105,8 @@ def _seed_all(conn: psycopg2.extensions.connection) -> None:
         seed_item_pool(conn, item_id, domain="reasoning", meta={"tier": 3})
         seed_measurement(conn, f"meas-{item_id}", "run-b1", item_id, score=0.5, tokens_out=400)
 
-    # -- sw-b: a smaller sweep (latest_sweep_id ordering) -------------------
+    # -- sw-b: a smaller sweep (newest by created_at in the latest_sweep_id
+    #    selection test below) -----------------------------------------------
     seed_run(conn, "run-b2", "sw-b", MODEL_B, batteries["reasoning"])
     seed_measurement(conn, "meas-n1", "run-b2", "m1", repetition=2, score=0.6)
 
@@ -185,13 +187,45 @@ def db_conn(scratch_db: tuple[str, str]) -> psycopg2.extensions.connection:
 # ---------------------------------------------------------------------------
 
 
-def test_latest_sweep_id_returns_sweep_with_most_measurements(
+def _pin_sweep_created_at(
+    conn: psycopg2.extensions.connection, newest: str
+) -> None:
+    """Pin hr.sweep.created_at deterministically for latest_sweep_id tests.
+
+    One UPDATE covers EVERY seeded sweep (sw-a, sw-b, sw-cal, sw-bank,
+    sw-seat all carry NOW() defaults): the newest-by-created_at query is
+    single-table, so it also sees run-less sweeps the old run/measurement
+    INNER JOIN excluded, and their NOW() defaults would outrank a backdated
+    sweep. All sweeps become strictly earlier except ``newest``, which is set
+    to the wall-clock maximum.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hr.sweep SET created_at = %s",
+            (datetime(2026, 1, 1, tzinfo=timezone.utc),),
+        )
+        cur.execute(
+            "UPDATE hr.sweep SET created_at = %s WHERE sweep_id = %s",
+            (datetime(2026, 12, 31, tzinfo=timezone.utc), newest),
+        )
+    conn.commit()
+
+
+def test_latest_sweep_id_returns_newest_by_created_at(
     db_conn: psycopg2.extensions.connection,
 ) -> None:
-    assert decision.latest_sweep_id(db_conn) == "sw-a"
-    assert decision.measurement_count(db_conn, "sw-a") == 12
-    assert decision.measurement_count(db_conn, "sw-b") == 1
-    assert decision.measurement_count(db_conn, "sw-none") == 0
+    try:
+        # sw-a holds the MOST measurements (12 vs 1); sw-b is the NEWEST by
+        # wall clock. Contaminated-sweep selection must not win by count.
+        _pin_sweep_created_at(db_conn, newest="sw-b")
+        assert decision.latest_sweep_id(db_conn) == "sw-b"
+        assert decision.measurement_count(db_conn, "sw-a") == 12
+        assert decision.measurement_count(db_conn, "sw-b") == 1
+        assert decision.measurement_count(db_conn, "sw-none") == 0
+    finally:
+        # Module-scoped DB: restore so later tests still resolve sw-a as the
+        # latest sweep (test_recommend_engine_round_trip asserts this).
+        _pin_sweep_created_at(db_conn, newest="sw-a")
 
 
 def test_capability_means_and_battery_codes(

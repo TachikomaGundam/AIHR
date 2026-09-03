@@ -124,13 +124,55 @@ def test_build_sweeps_report_with_fake_conn():
     assert "stage1-x" in report and "stage0-y" in report
     assert "stage1-x (largest, latest)" in report
 
-def test_latest_sweep_id_picks_most_measurements():
-    conn = _FakeConn([("stage1-x",)])
+class _CapturingCursor:
+    def __init__(self, conn: "_CapturingConn") -> None:
+        self._conn = conn
+
+    def execute(self, sql, params=None):
+        self._conn.executed.append((sql, params))
+
+    def fetchall(self):
+        return self._conn.rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        pass
+
+class _CapturingConn:
+    """Local SQL-capturing fake conn (offline tier of audit bug 6).
+
+    The shared _FakeConn cannot assert executed SQL: _FakeCursor.execute
+    stashes .sql on the cursor, but _FakeConn.cursor() never retains the
+    cursor, so conn.queries stays empty. This fake records every statement.
+    """
+
+    def __init__(self, rows):
+        self.rows = rows
+        self.executed = []
+
+    def cursor(self):
+        return _CapturingCursor(self)
+
+    def close(self):
+        pass
+
+def _normalize_sql(sql: str) -> str:
+    return " ".join(sql.split())
+
+def test_latest_sweep_id_sql_is_single_table_newest_by_created_at():
+    conn = _CapturingConn([("stage1-x",)])
     assert latest_sweep_id(conn) == "stage1-x"
+    assert len(conn.executed) == 1
+    sql = _normalize_sql(conn.executed[0][0])
+    assert "ORDER BY created_at DESC LIMIT 1" in sql
+    for join_or_count in ("hr.run", "hr.measurement", "JOIN", "COUNT", "GROUP BY"):
+        assert join_or_count not in sql
 
 def test_latest_sweep_id_no_rows_raises():
-    with pytest.raises(ValueError):
-        latest_sweep_id(_FakeConn([]))
+    with pytest.raises(ValueError, match="no sweeps found in hr.sweep"):
+        latest_sweep_id(_CapturingConn([]))
 
 def test_sweeps_dispatch_via_fake_conn(monkeypatch):
     from datetime import datetime
