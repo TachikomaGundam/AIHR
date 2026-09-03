@@ -45,6 +45,64 @@ class TestAuthAndProjectSources:
         assert result.exit_code == 0, result.output
         assert "bailian-token-plan/qwen3.7-max (in scope) (auth: yes)" in result.output
 
+    def test_auth_v2_api_key_provider_in_presence_set(self, hr_sandbox):
+        """Parity: a provider whose api key lives ONLY in auth-v2.json is in
+        the discover presence set (the legacy reader missed it entirely)."""
+        sandbox = hr_sandbox
+        data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+        data_dir.mkdir(parents=True)
+        (data_dir / "auth-v2.json").write_text(
+            json.dumps({"accounts": {"acme-v2": {"type": "api", "key": "sk-v2"}}}),
+            encoding="utf-8",
+        )
+
+        from hr.discover import read_auth_providers
+
+        assert read_auth_providers() == {"acme-v2"}
+
+    def test_hybrid_store_presence_file_level_key_provider_level(self, hr_sandbox):
+        """Non-empty auth-v2.json (provider A) shadows auth.json for PRESENCE
+        (file-level, unchanged) while provider_api_key() still resolves
+        provider B from the legacy file (provider-level fallback)."""
+        from hr.opencode_auth import provider_api_key
+
+        sandbox = hr_sandbox
+        data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+        data_dir.mkdir(parents=True)
+        (data_dir / "auth-v2.json").write_text(
+            json.dumps({"accounts": {"acme-v2": {"type": "api", "key": "sk-v2"}}}),
+            encoding="utf-8",
+        )
+        (data_dir / "auth.json").write_text(
+            json.dumps({"legacy-b": {"key": "sk-legacy-b"}}),
+            encoding="utf-8",
+        )
+
+        from hr.discover import read_auth_providers
+
+        assert read_auth_providers() == {"acme-v2"}
+        assert provider_api_key("legacy-b") == "sk-legacy-b"
+
+    def test_malformed_auth_v2_falls_through_to_legacy_key(self, hr_sandbox):
+        """A malformed auth-v2.json must NEVER raise: presence falls back to
+        auth.json (file-level) and provider_api_key() resolves the legacy
+        entry for the provider."""
+        from hr.opencode_auth import provider_api_key
+
+        sandbox = hr_sandbox
+        data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+        data_dir.mkdir(parents=True)
+        (data_dir / "auth-v2.json").write_text("{not json", encoding="utf-8")
+        (data_dir / "auth.json").write_text(
+            json.dumps({"provX": {"key": "sk-legacy"}}),
+            encoding="utf-8",
+        )
+
+        from hr.discover import read_auth_providers
+
+        assert read_auth_providers() == {"provX"}
+        assert provider_api_key("provX") == "sk-legacy"
+
     def test_legacy_auth_json_fallback_marks_provider(self, tmp_path, monkeypatch):
         """auth-v2.json absent -> legacy auth.json top-level provider keys."""
         config_dir = tmp_path / "opencode"

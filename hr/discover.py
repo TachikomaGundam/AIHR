@@ -31,62 +31,21 @@ written from the discover path.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from pathlib import Path
 
 from hr import fleet
+from hr.opencode_auth import providers_with_credentials
 
 
 def read_auth_providers() -> set[str]:
     """Provider ids with a credential in auth-v2.json (fallback auth.json).
 
-    Paths resolve at CALL time (``Path.home()``), so tests can redirect
-    HOME. auth-v2.json marks presence via its ``accounts`` / ``active``
-    maps; the legacy auth.json marks a provider by a top-level key.
+    Delegates to :func:`hr.opencode_auth.providers_with_credentials`
+    (auth-v2.json file-level rule, legacy auth.json fallback). Public
+    name/signature/return unchanged; paths resolve at call time so tests
+    can redirect HOME.
     """
-    data_dir = Path.home() / ".local" / "share" / "opencode"
-    auth_v2 = _read_auth_file(data_dir / "auth-v2.json")
-    if auth_v2:
-        present: set[str] = set()
-        for section in ("accounts", "active"):
-            entries = auth_v2.get(section)
-            if isinstance(entries, dict):
-                present.update(
-                    pid for pid, payload in entries.items()
-                    if _entry_has_credential(payload)
-                )
-        return present
-    auth = _read_auth_file(data_dir / "auth.json")
-    return {
-        pid for pid, payload in auth.items() if isinstance(payload, dict)
-    }
-
-
-def _read_auth_file(path: Path) -> dict:
-    """Read one auth file ({} when missing or unparseable)."""
-    if not path.exists():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return {}
-    return data if isinstance(data, dict) else {}
-
-
-def _entry_has_credential(payload: object) -> bool:
-    """Whether an auth entry carries usable key material (api key or oauth)."""
-    if isinstance(payload, list):
-        return any(_entry_has_credential(item) for item in payload)
-    if isinstance(payload, dict):
-        if str(payload.get("type", "")) == "api":
-            return bool(str(payload.get("key", "")).strip())
-        if isinstance(payload.get("key"), str) and payload["key"].strip():
-            return True
-        if isinstance(payload.get("token"), str) and payload["token"].strip():
-            return True
-        return bool(payload)  # e.g. oauth payloads keep pin-header/auth fields
-    return False
+    return providers_with_credentials()
 
 
 def scope_providers() -> frozenset[str]:

@@ -172,3 +172,34 @@ class TestBaseUrlChain:
             base_url_override="https://override.invalid//",
         )
         assert ep.url == "https://override.invalid/chat/completions"
+
+
+# ---------------------------------------------------------------------------
+# lazy default paths (resolved at call time, never frozen at import)
+# ---------------------------------------------------------------------------
+class TestLazyDefaultPaths:
+    def test_bare_adapter_reads_home_redirected_defaults(self, hr_sandbox, monkeypatch):
+        """A bare ``OpenAICompatAdapter()`` resolves the models cache + auth
+        from the CURRENT HOME: files placed under the sandbox home are read
+        (frozen-at-import defaults ignored them → RED at HEAD)."""
+        monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+        sandbox = hr_sandbox
+        _write_fleet(sandbox)
+        cache = sandbox["home"] / ".cache" / "opencode"
+        cache.mkdir(parents=True)
+        (cache / "models.json").write_text(
+            json.dumps({"acme": {"api": "https://lazy.invalid", "models": {"m1": {}}}}),
+            encoding="utf-8",
+        )
+        data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+        data_dir.mkdir(parents=True)
+        (data_dir / "auth.json").write_text(
+            json.dumps({"acme": {"key": "sk-lazy"}}),
+            encoding="utf-8",
+        )
+
+        adapter = OpenAICompatAdapter()
+        ep = adapter._resolve_endpoint_cached("acme/m1")
+
+        assert ep.url == "https://lazy.invalid/chat/completions"
+        assert ep.headers["Authorization"] == "Bearer sk-lazy"

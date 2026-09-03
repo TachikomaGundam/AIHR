@@ -86,6 +86,9 @@ class AnthropicCompatAdapter:
         return data.get("provider", {}).get(name, {})
 
     def _read_auth_key(self, provider: str) -> str:
+        # Injected-path only, v2-blind by design: constructor-injected auth
+        # files are test fakes; the production path above resolves through
+        # get_provider_config, which reads auth-v2.json first.
         path = self._auth_json
         if path is None or not path.exists():
             return ""
@@ -139,8 +142,8 @@ class AnthropicCompatAdapter:
                 f"provider {provider!r} has no configured {', '.join(missing)} "
                 f"(for model {model_id!r}): declare options baseURL/apiKey in "
                 "the opencode config provider block, a 'gateway_urls:' entry "
-                "in configs/fleet.yaml, and/or an auth.json entry for the "
-                "provider"
+                "in configs/fleet.yaml, and/or an auth-v2.json/auth.json "
+                "entry for the provider"
             )
         headers = {
             "Content-Type": "application/json",

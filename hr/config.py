@@ -7,7 +7,6 @@ compose file; runtime paths never rely on hardcoded machine locations.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 import tomllib
@@ -22,6 +21,8 @@ from hr.config_resources import config_path as config_path
 from hr.config_resources import hr_home as hr_home
 from hr.config_resources import load_yaml as load_yaml
 from hr.config_resources import opencode_config_dir as opencode_config_dir
+from hr.config_resources import opencode_data_dir as opencode_data_dir
+from hr.opencode_auth import provider_api_key as provider_api_key
 
 # ---------------------------------------------------------------------------
 # Unified layer
@@ -170,16 +171,9 @@ def db_dsn() -> str:
 # ---------------------------------------------------------------------------
 
 def _auth_json_path() -> Path:
-    """auth.json location — resolved at call time so HOME env changes count."""
-    return Path.home() / ".local" / "share" / "opencode" / "auth.json"
-
-
-def _read_auth_json() -> dict:
-    """Read and parse opencode's auth.json."""
-    auth_json = _auth_json_path()
-    if not auth_json.exists():
-        return {}
-    return json.loads(auth_json.read_text(encoding="utf-8"))
+    """Legacy auth.json location — resolved at call time so HOME redirects
+    count; auth-v2.json lives beside it under the same data dir."""
+    return opencode_data_dir() / "auth.json"
 
 
 class ProviderConfig(BaseModel):
@@ -219,7 +213,8 @@ def get_provider_config(provider: str) -> ProviderConfig:
     (merged global + project via :mod:`hr.opencfg`), else its
     ``gateway_urls`` entry in ``configs/fleet.yaml``.
     API key: the provider block's ``options.apiKey``, else the matching
-    ``auth.json`` entry.
+    credential read from the auth files (auth-v2.json entry first, then the
+    legacy ``auth.json`` entry — :func:`hr.opencode_auth.provider_api_key`).
 
     There are no provider-name special cases: a provider with none of these
     sources configured is an explicit error naming exactly where to declare
@@ -236,9 +231,7 @@ def get_provider_config(provider: str) -> ProviderConfig:
     if not base_url:
         base_url = gateway_urls().get(provider, "")
     if not api_key:
-        auth_entry = _read_auth_json().get(provider)
-        if isinstance(auth_entry, dict) and isinstance(auth_entry.get("key"), str):
-            api_key = auth_entry["key"].strip()
+        api_key = provider_api_key(provider) or ""
     if not base_url or not api_key:
         missing = [
             label
@@ -249,7 +242,7 @@ def get_provider_config(provider: str) -> ProviderConfig:
             f"provider {provider!r} has no configured {', '.join(missing)}: "
             "declare options baseURL/apiKey in the opencode config provider "
             "block, a 'gateway_urls:' entry in configs/fleet.yaml, and/or an "
-            "auth.json entry for the provider"
+            "auth-v2.json/auth.json entry for the provider"
         )
     return ProviderConfig(base_url=base_url.rstrip("/"), api_key=api_key)
 
