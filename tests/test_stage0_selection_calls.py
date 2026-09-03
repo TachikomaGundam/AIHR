@@ -12,9 +12,7 @@ from tests.test_stage0 import (
     call_and_grade,
     compute_pool_hash,
     fleet_models,
-    pytest,
-    select_subsets,
-    should_exclude_zero
+    select_subsets
 )
 
 def test_provider_model_records_use_configured_provider_names(monkeypatch) -> None:
@@ -43,19 +41,6 @@ def test_provider_model_records_use_configured_provider_names(monkeypatch) -> No
     assert result == {"gateway/model-a": "gateway"}
     assert providers == [("gateway", "Gateway")]
     assert models == [("gateway/model-a", "gateway", "model-a")]
-
-@pytest.mark.parametrize(
-    ("failure", "expected"),
-    [
-        ("RATE_LIMIT", True),
-        ("TIMEOUT", True),
-        ("CONTENT_FILTER", False),
-        ("not-a-failure-code", False),
-    ],
-)
-def test_zero_exclusion_parses_failure_codes(failure: str, expected: bool) -> None:
-    # Given / When / Then
-    assert should_exclude_zero(failure) is expected
 
 def test_reasoning_subset_size_and_determinism() -> None:
     """Pick 20 reasoning items with ~3-4 per tier across t1-t6."""

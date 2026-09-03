@@ -51,7 +51,6 @@ from hr.stage0_stats import (
     _bootstrap_separation_from_state,
     _print_matrix,
     print_separation_matrix,
-    should_exclude_zero,
 )
 
 __all__ = (
@@ -91,7 +90,6 @@ __all__ = (
     "select_subsets",
     "select_tool_subset",
     "select_vision_subset",
-    "should_exclude_zero",
 )
 
 

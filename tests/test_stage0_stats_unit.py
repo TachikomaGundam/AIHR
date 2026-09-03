@@ -16,7 +16,6 @@ from hr.stage0_stats import (
     _key,
     _print_matrix,
     print_separation_matrix,
-    should_exclude_zero,
 )
 
 
@@ -60,25 +59,6 @@ def test_sweep_state_defaults() -> None:
 
 def test_key_joins_model_and_battery() -> None:
     assert _key("m1", "reasoning") == "m1|reasoning"
-
-
-@pytest.mark.parametrize(
-    ("infra", "expected"),
-    [
-        (None, False),
-        ("RATE_LIMIT", True),
-        ("SERVER_5XX", True),
-        ("TIMEOUT", True),
-        ("GATEWAY_4XX", True),
-        ("EMPTY_RESPONSE", False),  # terminal
-        ("SCHEMA_INVALID", False),
-        ("CONTENT_FILTER", False),
-        ("UNKNOWN", False),
-        ("NOT_A_REAL_CODE", False),  # unknown string -> not retryable
-    ],
-)
-def test_should_exclude_zero_policy(infra: str | None, expected: bool) -> None:
-    assert should_exclude_zero(infra) is expected
 
 
 def test_bootstrap_separation_separated_with_real_stats() -> None:
