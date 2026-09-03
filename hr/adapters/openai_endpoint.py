@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from pathlib import Path
 
 from hr.adapters.base import AdapterError
 from hr.adapters.fleet import VALID_TYPES, provider_type
+from hr.opencode_auth import provider_api_key
 
 
 @dataclass(frozen=True)
@@ -110,17 +112,36 @@ def _api_base_from_gateway_urls(provider: str) -> str | None:
 
 
 def _api_key_from_auth(provider: str, auth_path: str) -> str:
+    """API key for ``provider`` from the opencode auth files.
+
+    Resolution is provider-level, auth-v2 first: if ``auth-v2.json`` exists
+    BESIDE ``auth_path`` (same data dir) and yields a usable api key for the
+    provider, that wins; otherwise the provider entry in ``auth_path``
+    itself (the legacy auth.json). An oauth ``token`` never qualifies. The
+    injected-``auth_path`` signature is preserved so tests keep injecting
+    fakes; both files are named in every error.
+    """
+    v2_key = provider_api_key(provider, data_dir=Path(auth_path).parent)
+    if v2_key is not None:
+        return v2_key
     try:
         with open(auth_path, encoding="utf-8") as auth_file:
             auth = json.load(auth_file)
     except OSError as exc:
-        raise AdapterError(f"Cannot read auth.json at {auth_path}: {exc}") from exc
+        raise AdapterError(
+            f"Cannot read auth.json at {auth_path} (no usable auth-v2.json "
+            f"key beside it): {exc}"
+        ) from exc
     entry = auth.get(provider)
     if not isinstance(entry, dict):
-        raise AdapterError(f"No auth entry for provider '{provider}' in {auth_path}")
+        raise AdapterError(
+            f"No auth entry for provider '{provider}' in auth-v2.json beside "
+            f"{auth_path} or in {auth_path}"
+        )
     key = entry.get("key")
     if not isinstance(key, str) or not key:
         raise AdapterError(
-            f"Auth entry for '{provider}' in {auth_path} has no 'key' field"
+            f"Auth entry for '{provider}' in {auth_path} has no 'key' field "
+            f"(auth-v2.json beside it yielded no key either)"
         )
     return key.strip()

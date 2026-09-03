@@ -4,10 +4,13 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
 
+from hr.config_resources import home_dir as _home_dir
+from hr.config_resources import opencode_data_dir as _opencode_data_dir
 from hr.graders.base import ModelResponse
 from hr.scheduler.taxonomy import classify_failure, retryable
 
@@ -30,22 +33,37 @@ from .openai_protocol import (
 
 log = logging.getLogger(__name__)
 
-DEFAULT_CONFIG = os.path.expanduser("~/.cache/opencode/models.json")
-DEFAULT_AUTH = os.path.expanduser("~/.local/share/opencode/auth.json")
 MAX_RETRIES = 6
+
+
+def default_models_cache_path() -> Path:
+    """OpenCode models cache: XDG_CACHE_HOME if set, else HOME/.cache.
+
+    Resolved at call time (never frozen at import) so HOME / XDG_CACHE_HOME
+    redirections always count.
+    """
+    base = Path(os.environ.get("XDG_CACHE_HOME", str(_home_dir() / ".cache")))
+    return base / "opencode" / "models.json"
+
+
+def default_auth_path() -> Path:
+    """Legacy opencode auth.json under the HOME data dir (call-time)."""
+    return _opencode_data_dir() / "auth.json"
 
 
 def _resolve_endpoint(
     model_id: str,
     *,
-    config_path: str = DEFAULT_CONFIG,
-    auth_path: str = DEFAULT_AUTH,
+    config_path: str | None = None,
+    auth_path: str | None = None,
     base_url_override: str | None = None,
 ) -> _Endpoint:
     return _resolve_endpoint_impl(
         model_id,
-        config_path=config_path,
-        auth_path=auth_path,
+        config_path=(
+            str(default_models_cache_path()) if config_path is None else config_path
+        ),
+        auth_path=str(default_auth_path()) if auth_path is None else auth_path,
         base_url_override=base_url_override,
     )
 
@@ -53,12 +71,18 @@ def _resolve_endpoint(
 class OpenAICompatAdapter(Adapter):
     def __init__(
         self,
-        opencode_config_path: str = DEFAULT_CONFIG,
-        auth_json_path: str = DEFAULT_AUTH,
+        opencode_config_path: str | None = None,
+        auth_json_path: str | None = None,
         base_url_override: str | None = None,
     ) -> None:
-        self._config_path = opencode_config_path
-        self._auth_path = auth_json_path
+        self._config_path = (
+            str(default_models_cache_path())
+            if opencode_config_path is None
+            else opencode_config_path
+        )
+        self._auth_path = (
+            str(default_auth_path()) if auth_json_path is None else auth_json_path
+        )
         self._base_override = base_url_override
         self._endpoint_cache: dict[str, _Endpoint] = {}
 

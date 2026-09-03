@@ -317,3 +317,35 @@ def test_stream_uses_each_request_timeout(fake_config) -> None:
 
     # Then: the request carries that timeout instead of a cached default.
     assert client.timeout == 37
+
+
+# ---------------------------------------------------------------------------
+# Default path resolution (openai-compat lazy defaults)
+# ---------------------------------------------------------------------------
+def test_default_models_cache_path_prefers_xdg_cache_home(tmp_path, monkeypatch):
+    """XDG_CACHE_HOME wins over HOME for the models cache (env precedence
+    kept); the auth path always follows the HOME data dir."""
+    from hr.adapters.openai_compat import default_auth_path, default_models_cache_path
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    assert default_models_cache_path() == (
+        tmp_path / "xdg" / "opencode" / "models.json"
+    )
+    assert default_auth_path() == (
+        tmp_path / "home" / ".local" / "share" / "opencode" / "auth.json"
+    )
+
+
+def test_default_models_cache_path_falls_back_to_home_cache(tmp_path, monkeypatch):
+    """Without XDG_CACHE_HOME the cache lives under ``HOME/.cache`` (no
+    Windows-specific conventions: HOME-first by documented limitation)."""
+    from hr.adapters.openai_compat import default_models_cache_path
+
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    assert default_models_cache_path() == (
+        tmp_path / "home" / ".cache" / "opencode" / "models.json"
+    )

@@ -4,6 +4,7 @@ db_dsn() only ever builds a connection string — nothing here connects.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -239,3 +240,63 @@ def test_opencode_config_dir_override(tmp_path, monkeypatch):
 def test_opencode_config_dir_default_under_home(monkeypatch):
     monkeypatch.delenv("OPENCODE_CONFIG_DIR", raising=False)
     assert config.opencode_config_dir() == Path.home() / ".config" / "opencode"
+
+
+def test_home_dir_redirects_with_home_env(tmp_path, monkeypatch):
+    """Hermeticity contract: a HOME env redirect moves home_dir() at CALL time
+    (never frozen at import), and opencode_data_dir() follows it."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert config_resources.home_dir() == tmp_path
+    assert config_resources.opencode_data_dir() == (
+        tmp_path / ".local" / "share" / "opencode"
+    )
+
+
+def test_get_provider_config_resolves_key_from_auth_v2_only(hr_sandbox):
+    """A key placed ONLY in auth-v2.json must resolve through
+    get_provider_config (the legacy reader consults auth.json only, so
+    this was RED before the auth-v2-first rewire)."""
+    sandbox = hr_sandbox
+    (sandbox["configs"] / "fleet.yaml").write_text(
+        "gateway_urls:\n  provX: https://example.invalid/gw\n",
+        encoding="utf-8",
+    )
+    data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+    data_dir.mkdir(parents=True)
+    (data_dir / "auth-v2.json").write_text(
+        json.dumps({"accounts": {"provX": {"type": "api", "key": " sk-v2-only \n"}}}),
+        encoding="utf-8",
+    )
+
+    cfg = config.get_provider_config("provX")
+
+    assert cfg.base_url == "https://example.invalid/gw"
+    assert cfg.api_key == "sk-v2-only"
+
+
+def test_oauth_token_present_but_never_an_api_key(hr_sandbox):
+    """An auth-v2 oauth-only entry marks the provider PRESENT while
+    provider_api_key() stays None and get_provider_config raises a
+    ValueError naming BOTH auth files."""
+    from hr.opencode_auth import provider_api_key, providers_with_credentials
+
+    sandbox = hr_sandbox
+    (sandbox["configs"] / "fleet.yaml").write_text(
+        "gateway_urls:\n  provX: https://example.invalid/gw\n",
+        encoding="utf-8",
+    )
+    data_dir = sandbox["home"] / ".local" / "share" / "opencode"
+    data_dir.mkdir(parents=True)
+    (data_dir / "auth-v2.json").write_text(
+        json.dumps({"accounts": {"provX": {"type": "oauth", "token": "tk-oauth"}}}),
+        encoding="utf-8",
+    )
+
+    assert "provX" in providers_with_credentials()
+    assert provider_api_key("provX") is None
+
+    with pytest.raises(ValueError) as exc:
+        config.get_provider_config("provX")
+    msg = str(exc.value)
+    assert "auth-v2.json" in msg
+    assert "auth.json" in msg

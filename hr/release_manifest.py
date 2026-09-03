@@ -71,6 +71,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/health.py",                        # HealthReport + sweep_health (cli_app, apply.py, ranker)
     "hr/models.py",                        # pydantic model/view dataclasses (cli_inventory)
     "hr/opencfg.py",                       # opencode config parsing (deployment_manager)
+    "hr/opencode_auth.py",                 # credential reads (config/discover/adapters; stdlib-only leaf)
     "hr/plugin_safety.py",                 # backup/rollback primitives (deployment_manager)
     "hr/assign/ranker.py",                 # imported by hr.decision
     "hr/seats/health_gates.py",            # imported by ranker

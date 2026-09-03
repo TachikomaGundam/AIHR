@@ -66,8 +66,25 @@ def load_yaml(name: str) -> dict:
     return data
 
 
+def home_dir() -> Path:
+    """HOME-respecting user home: ``$HOME`` when set, else ``Path.home()``.
+
+    Resolved at call time, so redirected ``HOME`` env always wins — the
+    hermeticity contract sandboxed tests rely on.
+    """
+    env = os.environ.get("HOME")
+    if env:
+        return Path(env)
+    return Path.home()
+
+
+def opencode_data_dir() -> Path:
+    """opencode's per-user data dir (auth files) under the resolved HOME."""
+    return home_dir() / ".local" / "share" / "opencode"
+
+
 def opencode_config_dir() -> Path:
     env = os.environ.get("OPENCODE_CONFIG_DIR")
     if env:
         return Path(env).expanduser().resolve()
-    return Path.home() / ".config" / "opencode"
+    return home_dir() / ".config" / "opencode"
