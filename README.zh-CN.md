@@ -62,11 +62,20 @@ Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`�
 # Python 引擎（仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow）
 pip install "aihr[vision]"
 
-# OpenCode 插件 —— 一条命令装两个
-npm install -g opencode-hr-agent opencode-fastdraw
+# OpenCode 插件 —— 推荐做法：先设置用户级 npm 前缀，全局安装就永远不需要 root
+# （如果你用 nvm，它的前缀本来就是用户级的，这两行可以跳过）：
+npm config set prefix ~/.npm-global
+export PATH="$HOME/.npm-global/bin:$PATH"
+# 然后按精确版本锁定安装两个插件（带引号：规避 zsh 对 @ 的特殊处理）：
+npm install -g "opencode-hr-agent@0.2.1" "opencode-fastdraw"
 ```
 
 `opencode-fastdraw` 是独立的模型/角色切换插件，可单独安装；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
+
+- **为什么要用户级前缀：** 没有它，裸 `-g` 安装会因 `EACCES` 失败，进而诱导复制粘贴式的 sudo 提权；用户级前缀彻底绕开这条路径。
+- **为什么要精确锁版本：** 不锁版本的 `-g` 安装会静默自动更新，可能把未发布的代码拉下来作用于你的 `~/.npmrc` 与 `HR_HOME`；锁定版本让安装面可审计。
+
+安全模型与信任假设：docs/PLUGIN_SECURITY.md
 
 从本仓库源码安装（source/editable）同样支持：
 
