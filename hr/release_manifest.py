@@ -204,6 +204,7 @@ RELEASE_ASSETS: List[str] = [
     "configs/thresholds.yaml",
     "opencode_plugin/package.json",
     "opencode_plugin/server.ts",
+    "opencode_plugin/hr-invocation.ts",
     "fastdraw/package.json",
     "fastdraw/server.ts",
     "fastdraw/install.sh",
