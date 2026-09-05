@@ -108,7 +108,8 @@ const MISSING_HR_MODULE = /No module named ["']?hr["']?/
  * (d) fallback preserving the legacy `HR command failed: ` prefix.
  */
 export function classifyHrError(err: unknown, hrHome: string): string {
-  const shape = err as HrErrorShape
+  // null/undefined throws must still classify, never crash the plugin (Metis-derived hardening, todo 3 flag)
+  const shape = (err ?? {}) as HrErrorShape
   const syscall = shape.syscall
 
   if (
