@@ -358,4 +358,9 @@ test("classifyHrError (d): fallback preserves the legacy prefix for Errors and n
     assert.equal(hr.classifyHrError("plain string", "/tmp/hrhome"), fallback("plain string"));
     assert.equal(hr.classifyHrError({ note: "shapeless" }, "/tmp/hrhome"), fallback("[object Object]"));
   });
+
+  await t.test("null/undefined throws classify to (d), never crash (todo 3 flag hardening)", () => {
+    assert.equal(hr.classifyHrError(null, "/tmp/hrhome"), fallback("null"));
+    assert.equal(hr.classifyHrError(undefined, "/tmp/hrhome"), fallback("undefined"));
+  });
 });
