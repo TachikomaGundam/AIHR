@@ -114,7 +114,7 @@ PyPI. The GitHub Release wheel (§3) stays as a mirror for direct-URL
 installs:
 
 ```bash
-pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.1/aihr-0.2.1-py3-none-any.whl"
 ```
 
 Upload procedure (`twine` already installed at `~/.local/bin/twine` via
@@ -133,21 +133,21 @@ Non-interactive alternative (token still never stored in the repo):
 TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode/hr-ship-artifacts/aihr-<VERSION>-*
 ```
 
-## 5. npm publish (two packages)
+## 5. npm publish (two packages): executed by the human maintainer
 
 ```bash
 cd ~/workspace/harness/hr
 
-# --- opencode-hr-agent 0.2.0 (unscoped) ---
-cd opencode_plugin
+# --- opencode-hr-agent 0.2.1 (unscoped) ---
+# Every npm step for this package runs OUTSIDE opencode_plugin/ (checklist
+# item 1 below): stay in the repo root and pass the folder as an argument.
 npm login                 # add NPM_OTP=... to env if you use a TOTP app
-npm publish --access public --otp "$NPM_OTP"
-cd ..
+npm publish ./opencode_plugin --access public --otp "$NPM_OTP"   # maintainer only
 
-# --- opencode-fastdraw 1.0.0 (unscoped) ---
+# --- opencode-fastdraw 1.1.0 (unscoped) ---
 cd fastdraw
 npm login
-npm publish --access public --otp "$NPM_OTP"
+npm publish --access public --otp "$NPM_OTP"   # maintainer only
 cd ..
 ```
 
@@ -156,6 +156,25 @@ Both names are unscoped — confirm you own them in npm. The `files` lists in
 paths — verified at pack time). If you use a hardware key instead of TOTP,
 omit `--otp` and answer the interactive prompt.
 
+Pre-publish checklist (agents may prepare items 1-3; items 4-5 are the human
+maintainer's call):
+
+1. Test out-of-package: `npm --prefix "$RUNNER_TEMP/pkg" run test` against the
+   CI-style copy the node test lane builds (`mkdir -p "$RUNNER_TEMP/pkg"`, then
+   copy `package.json`, `server.ts`, `hr-invocation.ts` and `test/` into it;
+   see `.github/workflows/ci.yml`). NEVER run `npm` inside `opencode_plugin/`:
+   its gitignored package-local `.npmrc` would load into npm's env view.
+2. Content check: `npm pack --dry-run` in a /tmp copy (same pattern as item 1).
+   The packed content MUST equal exactly {package.json, server.ts,
+   hr-invocation.ts}, nothing more, nothing less.
+3. Manifest assert via `node -e`: `dependencies` is empty AND no lifecycle
+   scripts exist except `test` (pretest, posttest and prepare are FORBIDDEN).
+4. Publish execution is RESERVED to the human maintainer: agents prepare, never publish.
+5. Tag decision (user-side): this repo has NO version->tag convention; the
+   existing `v0.2.1` tag points to an engine-only release, not to this
+   package. For the next release prefer either `v0.2.2` or a per-package tag
+   like `opencode-hr-agent@0.2.1`; agents never tag.
+
 ## 6. Verify from the second machine
 
 ```bash
@@ -163,12 +182,20 @@ omit `--otp` and answer the interactive prompt.
 pip install "aihr[vision]"
 hr --help                                # expect all 23 commands
 # engine (mirror — Release wheel, no PyPI required):
-pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.0/aihr-0.2.0-py3-none-any.whl"
-npm view opencode-hr-agent               # expect 0.2.0
-npm view opencode-fastdraw               # expect 1.0.0
-npm install -g opencode-hr-agent opencode-fastdraw   # or per-project
+pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.1/aihr-0.2.1-py3-none-any.whl"
+npm view opencode-hr-agent               # expect 0.2.1
+npm view opencode-fastdraw               # expect 1.1.0
+npm config set prefix ~/.npm-global      # user-level prefix first, sudo-free (as in README)
+export PATH="$HOME/.npm-global/bin:$PATH"
+npm install -g "opencode-hr-agent@0.2.1" "opencode-fastdraw"   # or per-project
 git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGundam
 ```
+
+> **Takeover posture:** npm's `allow-same-user` default is `true`, so the same
+> account can still overwrite an already-published tarball of the same version;
+> same-user takeover therefore remains possible. Publishing under a scoped org
+> with per-package access grants is stronger isolation. Note only: no registry
+> config change is implied or made here.
 
 ---
 
@@ -179,6 +206,7 @@ git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGun
   you configure locally (template: `configs/hr.toml.example`).
 - Do not re-upload if a publish partially fails without checking
   https://pypi.org/p/aihr / https://www.npmjs.com/package/... first —
-  `twine upload`/`npm publish` of the same version are rejects, not re-runs.
+  `twine upload`/`npm publish` of the same version are rejects, not re-runs;
+  the human maintainer reviews registry state before any retry.
 - PyPI test index (TestPyPI) needs a different token/scoped project; this
   guide targets production PyPI directly.
