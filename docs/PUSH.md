@@ -20,19 +20,20 @@ and `v0.2.1` set. Origin is already configured as
 `git@github.com:TachikomaGundam/AIHR.git`.
 
 > **Published state (verified 2026-09-05 against the registries):**
-> PyPI `aihr` **0.2.0** (uploaded 2026-08-31) · npm `opencode-hr-agent`
-> **0.2.0** · npm `opencode-fastdraw` **1.1.0** (2026-09-02; the 1.1.0
-> release changed only the plugin JS, so no new engine build was due).
+> **PyPI `aihr` 0.2.1 — UPLOADED and registry-verified** (latest; wheel +
+> sdist sha256 byte-identical to the locally validated artifacts) ·
+> npm `opencode-hr-agent` **0.2.0** · npm `opencode-fastdraw` **1.1.0**
+> (2026-09-02; the 1.1.0 release changed only the plugin JS, so no new
+> engine build was due).
 >
 > **0.2.1** (audit-queue P0/P1 fixes + FastDraw contract decouple) is
 > committed & pushed (`a750773`), CI green on 3.12+3.14, tagged `v0.2.1`,
-> and published as a **GitHub Release with wheel+sdist assets** (mirror
-> channel): <https://github.com/TachikomaGundam/AIHR/releases/tag/v0.2.1>.
-> Fresh 0.2.1 artifacts (built at `a750773`, twine check PASSED, verified
-> to contain the fixes) live in `/tmp/opencode/hr-ship-artifacts/`; the
-> stale 09-02 pre-audit build was moved to `stale-0902/`. **PyPI still
-> shows 0.2.0**: the `twine upload` (§4) awaits a project token from the
-> user. This machine's engine install was refreshed to 0.2.1.
+> published on PyPI (§4), and mirrored as a **GitHub Release with
+> wheel+sdist assets**: <https://github.com/TachikomaGundam/AIHR/releases/tag/v0.2.1>.
+> Shipped artifacts (built at `a750773`, twine check PASSED, verified to
+> contain the fixes) live in `/tmp/opencode/hr-ship-artifacts/`; the stale
+> 09-02 pre-audit build was moved to `stale-0902/`. This machine's engine
+> install is `aihr 0.2.1` (editable → repo).
 
 ---
 
