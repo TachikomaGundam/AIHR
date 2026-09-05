@@ -70,3 +70,29 @@ jobs:
       - name: Universality gate
         run: bash scripts/check_universal.sh
       - run: python -m pip wheel --no-deps --wheel-dir dist .
+
+  node-tests:
+    needs: []
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+    steps:
+      - uses: actions/checkout@v4
+      # No cache: key — the plugin lane needs no install at all and the
+      # fastdraw lane installs uncached (its lockfile churns with the
+      # @opencode-ai/plugin devDep; caching buys nothing here).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Plugin lane (zero-install, repo-external copy)
+        run: |
+          # Explicit-file copy: never `cp -r opencode_plugin` — that would
+          # drag the package-local .npmrc into the runner env view.
+          mkdir -p "$RUNNER_TEMP/pkg"
+          cp opencode_plugin/package.json opencode_plugin/server.ts opencode_plugin/hr-invocation.ts "$RUNNER_TEMP/pkg/"
+          cp -r opencode_plugin/test "$RUNNER_TEMP/pkg/"
+          cd "$RUNNER_TEMP/pkg" && node --test test/*.test.mjs
+      - name: Fastdraw lane (local gate green on 2026-09-05 — see .omo/evidence/hr-agent-021/task-5.txt)
+        run: cd fastdraw && npm ci && npm test
