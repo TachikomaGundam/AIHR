@@ -144,7 +144,7 @@ cd ~/workspace/harness/hr
 npm login                 # add NPM_OTP=... to env if you use a TOTP app
 npm publish ./opencode_plugin --access public --otp "$NPM_OTP"   # maintainer only
 
-# --- opencode-fastdraw 1.1.0 (unscoped) ---
+# --- opencode-fastdraw 1.1.1 (unscoped) ---
 cd fastdraw
 npm login
 npm publish --access public --otp "$NPM_OTP"   # maintainer only
@@ -184,10 +184,16 @@ hr --help                                # expect all 23 commands
 # engine (mirror — Release wheel, no PyPI required):
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.1/aihr-0.2.1-py3-none-any.whl"
 npm view opencode-hr-agent               # expect 0.2.1
-npm view opencode-fastdraw               # expect 1.1.0
-npm config set prefix ~/.npm-global      # user-level prefix first, sudo-free (as in README)
-export PATH="$HOME/.npm-global/bin:$PATH"
-npm install -g "opencode-hr-agent@0.2.1" "opencode-fastdraw"   # or per-project
+npm view opencode-fastdraw               # expect 1.1.1
+# Plugins are loaded via opencode config arrays, NOT `npm install -g` (opencode
+# never scans the global npm prefix). On this machine add to
+# ~/.config/opencode/opencode.json "plugin":
+#     "opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"
+# and to ~/.config/opencode/tui.json "plugin":
+#     "opencode-fastdraw@1.1.1"
+# Restart opencode; expect hr_* + fastdraw_* agent tools, /fastdraw + <leader>m in TUI.
+# (Machine-readable discovery-contract proof recipe: see docs/PLUGIN_SECURITY.md notes
+#  or ops/dev-env-pitfalls wiki page — /experimental/tool/ids probe.)
 git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGundam
 ```
 
