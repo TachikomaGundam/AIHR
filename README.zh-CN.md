@@ -81,6 +81,12 @@ OpenCode 插件发布在 npm 上，但**加载走 opencode 自己的配置，而
 
 - **为什么要精确锁版本：** `"plugin"` 数组同样接受 `@latest` 与语义化版本范围，但浮动版本会让每次 opencode 启动都下载并执行新代码，且这些代码能访问你的 `~/.npmrc` 与 `HR_HOME`；锁定版本让运行面可审计、可复现。
 - **为什么要两个文件：** 只写 `opencode.json` 时 agent 工具正常但 `/fastdraw` 与 `<leader>m` 会静默消失；只写 `tui.json` 则相反。`fastdraw/install.sh` 会自动注册两处。
+- **可选的 HR 工作流层：** `/hr-workflow` 斜杠技能与 `hr` 子代理是配置文件而非插件代码——权威副本版本化在 `opencode-config/` 下，复制即装：
+  ```bash
+  mkdir -p ~/.config/opencode/skills ~/.config/opencode/agents
+  cp <AIHR>/opencode-config/skills/hr-workflow.md ~/.config/opencode/skills/
+  cp <AIHR>/opencode-config/agents/hr.md         ~/.config/opencode/agents/
+  ```
 - **发布这两个包的维护者**仍需要 npm 本身；建议用户级前缀（`npm config set prefix ~/.npm-global`，用 nvm 则跳过），让 `npm login`/`npm publish` 永远不需要 sudo。
 
 安全模型与信任假设：docs/PLUGIN_SECURITY.md

@@ -1,6 +1,6 @@
 # HR 工作流文档（中文版）
 
-> 原文：`~/.config/opencode/skills/hr-workflow.md`（英文，供 opencode 加载）
+> 原文：`opencode-config/skills/hr-workflow.md`（英文，仓库内权威副本；安装时复制到 `~/.config/opencode/skills/` 供 opencode 加载）
 > 本文：人类可读的简体中文镜像，内容与英文原文一致。
 
 ---
