@@ -56,24 +56,32 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 
 ## Install
 
-Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）；OpenCode 插件发布于 npm：
+Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）：
 
 ```bash
 # Python 引擎（仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow）
 pip install "aihr[vision]"
-
-# OpenCode 插件 —— 推荐做法：先设置用户级 npm 前缀，全局安装就永远不需要 root
-# （如果你用 nvm，它的前缀本来就是用户级的，这两行可以跳过）：
-npm config set prefix ~/.npm-global
-export PATH="$HOME/.npm-global/bin:$PATH"
-# 然后按精确版本锁定安装两个插件（带引号：规避 zsh 对 @ 的特殊处理）：
-npm install -g "opencode-hr-agent@0.2.1" "opencode-fastdraw"
 ```
 
-`opencode-fastdraw` 是独立的模型/角色切换插件，可单独安装；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
+OpenCode 插件发布在 npm 上，但**加载走 opencode 自己的配置，而不是 `npm install -g`**。opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都按精确版本声明：
 
-- **为什么要用户级前缀：** 没有它，裸 `-g` 安装会因 `EACCES` 失败，进而诱导复制粘贴式的 sudo 提权；用户级前缀彻底绕开这条路径。
-- **为什么要精确锁版本：** 不锁版本的 `-g` 安装会静默自动更新，可能把未发布的代码拉下来作用于你的 `~/.npmrc` 与 `HR_HOME`；锁定版本让安装面可审计。
+```jsonc
+// ~/.config/opencode/opencode.json（或 .jsonc）—— 服务端半边：hr_* / fastdraw_* agent 工具
+{ "plugin": ["opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"] }
+```
+
+```json
+// ~/.config/opencode/tui.json —— FastDraw TUI 半边：/fastdraw 命令 + <leader>m 键位
+{ "plugin": ["opencode-fastdraw@1.1.1"] }
+```
+
+重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
+
+`opencode-fastdraw` 是独立的模型/角色切换插件，可单独声明；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
+
+- **为什么要精确锁版本：** `"plugin"` 数组同样接受 `@latest` 与语义化版本范围，但浮动版本会让每次 opencode 启动都下载并执行新代码，且这些代码能访问你的 `~/.npmrc` 与 `HR_HOME`；锁定版本让运行面可审计、可复现。
+- **为什么要两个文件：** 只写 `opencode.json` 时 agent 工具正常但 `/fastdraw` 与 `<leader>m` 会静默消失；只写 `tui.json` 则相反。`fastdraw/install.sh` 会自动注册两处。
+- **发布这两个包的维护者**仍需要 npm 本身；建议用户级前缀（`npm config set prefix ~/.npm-global`，用 nvm 则跳过），让 `npm login`/`npm publish` 永远不需要 sudo。
 
 安全模型与信任假设：docs/PLUGIN_SECURITY.md
 

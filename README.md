@@ -65,25 +65,32 @@ The database stores sweeps, runs, measurements, infra incidents, separations, an
 
 ## Install
 
-The engine ships on PyPI as **`aihr`** (import package `hr`, console script `hr`); the OpenCode plugins ship on npm:
+The engine ships on PyPI as **`aihr`** (import package `hr`, console script `hr`):
 
 ```bash
 # Python engine (add [vision] only if you need the vision item generators)
 pip install "aihr[vision]"
-
-# OpenCode plugins — recommended: set up a user-level npm prefix first, so a
-# global install never needs root (skip these two lines if you use nvm; its
-# prefix is already user-level):
-npm config set prefix ~/.npm-global
-export PATH="$HOME/.npm-global/bin:$PATH"
-# then install both plugins with an exact version pin (quotes: zsh @-safety):
-npm install -g "opencode-hr-agent@0.2.1" "opencode-fastdraw"
 ```
 
-`opencode-fastdraw` is a standalone model/role-switching plugin and can be installed on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases).
+The OpenCode plugins ship on npm, but they are **loaded through opencode's own config — not `npm install -g`**. Opencode discovers plugins only from its config files' `"plugin"` arrays (and its plugin directories); npm entries are downloaded and cached by opencode itself at startup. The global npm prefix is never scanned, so a `-g` install is invisible to opencode. Declare exact versions in **both** files:
 
-- **Why the user-level prefix:** without one, a bare `-g` install fails with `EACCES` and invites copy-pasted sudo escalation; the prefix route avoids that path entirely.
-- **Why the exact pin:** a floating `-g` install auto-updates silently and can pull unpublished code to run against your `~/.npmrc` and `HR_HOME`; an exact pin keeps the installed surface auditable.
+```jsonc
+// ~/.config/opencode/opencode.json (or .jsonc) — server half: hr_* / fastdraw_* agent tools
+{ "plugin": ["opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"] }
+```
+
+```json
+// ~/.config/opencode/tui.json — FastDraw TUI half: /fastdraw command + <leader>m keybind
+{ "plugin": ["opencode-fastdraw@1.1.1"] }
+```
+
+Restart opencode, then verify: ask for `hr_status` / `fastdraw_list` (agent tools) and `/fastdraw` (TUI command).
+
+`opencode-fastdraw` is a standalone model/role-switching plugin and can be declared on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases).
+
+- **Why the exact pins:** the `"plugin"` array also accepts `@latest` and semver ranges, but a floating spec makes every opencode startup download and execute new code with access to your `~/.npmrc` and `HR_HOME`; exact pins keep the running surface auditable and reproducible.
+- **Why two files:** with only the `opencode.json` entry the agent tools work but `/fastdraw` and `<leader>m` silently vanish; with only `tui.json` it is the mirror image. `fastdraw/install.sh` registers both automatically.
+- **Maintainers publishing these packages** still need npm itself; a user-level prefix (`npm config set prefix ~/.npm-global`, skip under nvm) keeps `npm login`/`npm publish` sudo-free.
 
 Security model & trust assumptions: docs/PLUGIN_SECURITY.md
 
