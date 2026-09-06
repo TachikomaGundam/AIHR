@@ -90,6 +90,12 @@ Restart opencode, then verify: ask for `hr_status` / `fastdraw_list` (agent tool
 
 - **Why the exact pins:** the `"plugin"` array also accepts `@latest` and semver ranges, but a floating spec makes every opencode startup download and execute new code with access to your `~/.npmrc` and `HR_HOME`; exact pins keep the running surface auditable and reproducible.
 - **Why two files:** with only the `opencode.json` entry the agent tools work but `/fastdraw` and `<leader>m` silently vanish; with only `tui.json` it is the mirror image. `fastdraw/install.sh` registers both automatically.
+- **Optional HR-workflow layer:** the `/hr-workflow` slash skill and the `hr` sub-agent are config files, not plugin code — they are versioned under `opencode-config/` and install by copying:
+  ```bash
+  mkdir -p ~/.config/opencode/skills ~/.config/opencode/agents
+  cp <AIHR>/opencode-config/skills/hr-workflow.md ~/.config/opencode/skills/
+  cp <AIHR>/opencode-config/agents/hr.md         ~/.config/opencode/agents/
+  ```
 - **Maintainers publishing these packages** still need npm itself; a user-level prefix (`npm config set prefix ~/.npm-global`, skip under nvm) keeps `npm login`/`npm publish` sudo-free.
 
 Security model & trust assumptions: docs/PLUGIN_SECURITY.md
@@ -250,6 +256,7 @@ harness/hr/               # repo root (pip install -e .)
   docs/                   # bilingual documentation (en/, zh-CN/)
   exports/                # generated artifacts (gitignored)
   fastdraw/               # npm subpackage: FastDraw server, TUI, preset management
+  opencode-config/        # canonical copies of the hr-workflow skill + hr agent (copy into ~/.config/opencode/)
   hr/                     # Python package: the CLI and all business logic
     adapters/             # provider adapters (anthropic-compat, openai-compat) + fleet routing
     bench/                # benchmark batteries + stage0/stage1 sweep engines
