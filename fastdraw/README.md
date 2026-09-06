@@ -27,22 +27,21 @@ Every install method below writes to BOTH. When registering manually, add the sa
 
 ### 1. npm (recommended)
 
-```bash
-# once, from the opencode config dir (or let opencode auto-install on first start)
-cd ~/.config/opencode && bun add opencode-fastdraw
-```
-
-Then add to `plugin` in **both** files:
+Add a **pinned** version to `plugin` in **both** files — opencode installs and caches the package itself at startup; there is no separate install step, and `npm install -g` is *not* a discovery path (opencode never scans the global npm prefix):
 
 ```jsonc
 // ~/.config/opencode/opencode.jsonc
-{ "plugin": ["opencode-fastdraw", /* …your other plugins… */] }
+{ "plugin": ["opencode-fastdraw@1.1.1", /* …your other plugins… */] }
 ```
 
 ```json
 // ~/.config/opencode/tui.json
-{ "plugin": ["opencode-fastdraw"] }
+{ "plugin": ["opencode-fastdraw@1.1.1"] }
 ```
+
+Pin the exact version: a floating spec (`opencode-fastdraw`, `@latest`) makes every startup re-resolve and execute potentially new code. Optional pre-warm for a first offline start: `cd ~/.config/opencode && bun add opencode-fastdraw@1.1.1`.
+
+<!-- package-version: keep the two snippets above in sync with package.json "version" at every release -->
 
 **Restart opencode after installing.** The `/fastdraw` command and `<leader>m` binding appear in the TUI; the `fastdraw_*` tools become available to agents.
 
