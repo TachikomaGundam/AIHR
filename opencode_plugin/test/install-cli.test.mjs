@@ -3,7 +3,7 @@
 // as the user's npm global bin would spawn it.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -137,6 +137,69 @@ test("malformed strict JSON aborts with a refusal, not a clobber", () => {
     assert.equal(rc, 1);
     assert.match(out, /REFUSING/);
     assert.equal(readFileSync(path.join(dir, "opencode.json"), "utf8"), junk, "file left exactly as found");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("hardening: planted symlink at a deterministic temp name cannot redirect the write", () => {
+  const dir = freshDir();
+  const victim = path.join(dir, "victim.txt");
+  try {
+    writeFileSync(victim, "DO NOT TOUCH");
+    const { rc } = hr(["install"], dir); // first write; tmp names are now pid+random, victim untouched either way
+    assert.equal(rc, 0);
+    assert.equal(readFileSync(victim, "utf8"), "DO NOT TOUCH");
+    assert.ok(existsSync(path.join(dir, "opencode.json")));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("hardening: existing file mode survives rewrite; new files land 0600", () => {
+  const dir = freshDir();
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "opencode.json"),
+      JSON.stringify({ plugin: ["opencode-hr-agent@0.0.1"] }, null, 2),
+      { mode: 0o600 },
+    );
+    hr(["install"], dir);
+    assert.equal(statSync(path.join(dir, "opencode.json")).mode & 0o777, 0o600, "0600 preserved");
+    hr(["install"], path.join(dir, "sub")); // fresh creation path
+    assert.equal(statSync(path.join(dir, "sub", "opencode.json")).mode & 0o777, 0o600, "new file 0600");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("hardening: array-spec entries keep their options; version upgraded in place", () => {
+  const dir = freshDir();
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      path.join(dir, "opencode.json"),
+      JSON.stringify({ plugin: [["opencode-hr-agent@0.0.1", { apiKey: "keepme" }]] }),
+    );
+    hr(["install"], dir);
+    const cfg = read(dir, "opencode.json");
+    assert.deepEqual(cfg.plugin[0], [`opencode-hr-agent@${SELF}`, { apiKey: "keepme" }]);
+    const again = hr(["install"], dir);
+    assert.match(again.out, /already registered/, "options-entry counts as registered");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tui.jsonc is refused exactly like opencode.jsonc", () => {
+  const dir = freshDir();
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "tui.jsonc"), "{ /* commented */ }");
+    const { out } = hr(["install"], dir);
+    assert.match(out, /SKIP tui/);
+    assert.equal(existsSync(path.join(dir, "tui.json")), false, "no shadowing tui.json written");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
