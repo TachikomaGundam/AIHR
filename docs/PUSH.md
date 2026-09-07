@@ -188,7 +188,6 @@ maintainer's call):
 # engine (primary — PyPI):
 pip install "aihr[vision]"
 hr --help                                # expect all 24 commands
-hr setup --no-npm                        # expect: both config files registered OK (or honest MISS lines)
 # engine (mirror — Release wheel, no PyPI required):
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.2/aihr-0.2.2-py3-none-any.whl"
 npm view opencode-hr-agent               # expect 0.2.2
@@ -196,6 +195,7 @@ npm view opencode-fastdraw               # expect 1.1.1
 # One-shot plugin bootstrap (installs the pinned pair via npm AND registers
 # both opencode config files):
 hr setup
+hr setup --no-npm                        # re-run registration only; expect already-registered OK
 # Fallback (config-only, no npm): add to ~/.config/opencode/opencode.json
 # "plugin": "opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1" and to
 # ~/.config/opencode/tui.json "plugin": "opencode-fastdraw@1.1.1" — a bare
