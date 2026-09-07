@@ -56,26 +56,28 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 
 ## Install
 
-Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）：
+Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）。两条命令引导整个技术栈——引擎、npm 插件、opencode 注册：
 
 ```bash
 # Python 引擎（仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow）
 pip install "aihr[vision]"
+# 经 npm 安装锁版插件对 + opencode 配置注册，一条命令，可重复执行
+hr setup
 ```
 
-OpenCode 插件发布在 npm 上，但**加载走 opencode 自己的配置，而不是 `npm install -g`**。opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都按精确版本声明：
+`hr setup` 先用 npm 全局安装锁版的插件对，再把注册工作交给 `opencode-hr-agent` 自带的 `opencode-hr` 命令行。它从不需要提权（npm 全局目录不可写时会指向下面的用户级 prefix 方案；带注释的配置文件绝不改写，而是打印需要你粘贴的确切行），重复运行安全，`opencode-hr status` 可查看注册状态。重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
+
+手动注册（回退方案——例如 PATH 上没有 npm，或你偏好纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都按精确版本声明：
 
 ```jsonc
 // ~/.config/opencode/opencode.json（或 .jsonc）—— 服务端半边：hr_* / fastdraw_* agent 工具
-{ "plugin": ["opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"] }
+{ "plugin": ["opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1"] }
 ```
 
 ```json
 // ~/.config/opencode/tui.json —— FastDraw TUI 半边：/fastdraw 命令 + <leader>m 键位
 { "plugin": ["opencode-fastdraw@1.1.1"] }
 ```
-
-重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
 
 `opencode-fastdraw` 是独立的模型/角色切换插件，可单独声明；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
 
