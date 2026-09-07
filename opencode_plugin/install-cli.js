@@ -5,7 +5,8 @@
 // setup: no hand-editing JSON. Lives up to the plugin's security posture:
 // node built-ins only, no network, no shell, no lifecycle scripts.
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { chmodSync, mkdirSync, readFileSync, renameSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,9 +29,9 @@ function configDir() {
 
 function target(kind) {
   const dir = configDir();
-  const json = path.join(dir, "opencode.json");
-  const jsonc = path.join(dir, "opencode.jsonc");
-  if (kind === "tui") return path.join(dir, "tui.json");
+  const base = kind === "tui" ? "tui" : "opencode";
+  const json = path.join(dir, `${base}.json`);
+  const jsonc = path.join(dir, `${base}.jsonc`);
   // Never parse/rewrite JSONC by machine; point the human at the one line to add.
   if (existsSync(jsonc) && !existsSync(json)) return { refuse: jsonc };
   return json;
@@ -61,10 +62,17 @@ function mergePlugins(list, wanted) {
     if (idx === -1) {
       out.push(spec);
       changed.push(`+ ${spec}`);
-    } else if (out[idx] !== spec) {
-      const old = out[idx];
+      continue;
+    }
+    const cur = out[idx];
+    const curSpec = Array.isArray(cur) ? cur[0] : cur;
+    if (curSpec === spec) continue; // right version; keep user's options entry intact
+    if (Array.isArray(cur)) {
+      cur[0] = spec; // upgrade in place, preserve attached options object
+      changed.push(`~ ${curSpec} -> ${spec} (options kept)`);
+    } else {
       out[idx] = spec;
-      changed.push(`~ ${old} -> ${spec}`);
+      changed.push(`~ ${curSpec} -> ${spec}`);
     }
   }
   return { out, changed };
@@ -72,9 +80,27 @@ function mergePlugins(list, wanted) {
 
 function writeAtomic(file, data) {
   mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.opencode-hr.tmp`;
-  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
-  renameSync(tmp, file);
+  let mode = 0o600;
+  try {
+    mode = statSync(file).mode & 0o777;
+  } catch {
+    /* new file: keep 0600 — opencode configs may hold provider keys */
+  }
+  // O_EXCL (wx): a pre-planted symlink or file at the temp path fails closed
+  // instead of being followed; random suffix makes collisions non-deterministic.
+  const tmp = `${file}.${process.pid}.${randomBytes(4).toString("hex")}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n", { mode, flag: "wx" });
+    chmodSync(tmp, mode);
+    renameSync(tmp, file);
+  } catch (err) {
+    try {
+      chmodSync(file, mode);
+    } catch {
+      /* best-effort mode restore; rename already preserved it in the common case */
+    }
+    throw err;
+  }
 }
 
 function install() {

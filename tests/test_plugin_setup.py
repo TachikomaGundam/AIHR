@@ -120,3 +120,20 @@ def test_status_miss_propagates_rc(tmp_path: Path, monkeypatch: pytest.MonkeyPat
         {(str(tmp_path / "npm-global" / "bin" / "opencode-hr"), "status"): CommandResult(1, "MISS tui.json missing: opencode-fastdraw", "")},
     )
     assert run_setup(runner=runner) == 1
+
+
+def test_timeout_becomes_clean_rc124_not_traceback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import subprocess
+
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/npm" if name == "npm" else None)
+
+    class HangRunner(FakeRunner):
+        def __call__(self, argv, timeout):
+            self.calls.append(list(argv))
+            raise subprocess.TimeoutExpired(argv, timeout)
+
+    assert run_setup(runner=HangRunner({})) == 1
+    out = capsys.readouterr().out
+    assert "timed out" in out and "Traceback" not in out

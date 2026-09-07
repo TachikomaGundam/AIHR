@@ -69,9 +69,16 @@ def _tail(text: str, limit: int = 3) -> str:
     return " | ".join(lines[-limit:]) if lines else "(no output)"
 
 
+def _call(runner: Runner, argv: list[str], timeout: int) -> CommandResult:
+    try:
+        return runner(argv, timeout)
+    except subprocess.TimeoutExpired:
+        return CommandResult(124, "", f"timed out after {timeout}s: {' '.join(argv)}")
+
+
 def _find_registrar(runner: Runner) -> Optional[str]:
     """Locate the opencode-hr CLI: npm global bin first, then PATH."""
-    prefix = runner(["npm", "prefix", "-g"], _CLI_TIMEOUT_S)
+    prefix = _call(runner, ["npm", "prefix", "-g"], _CLI_TIMEOUT_S)
     if prefix.rc == 0 and prefix.stdout.strip():
         candidate = Path(prefix.stdout.strip()) / "bin" / REGISTRAR_BIN
         if candidate.exists():
@@ -93,7 +100,7 @@ def run_setup(runner: Runner = default_runner, install_npm: bool = True) -> int:
 
     if install_npm:
         say(f"installing plugins: {' '.join(plugin_specs())}")
-        res = runner(["npm", "install", "-g", *plugin_specs()], _NPM_TIMEOUT_S)
+        res = _call(runner, ["npm", "install", "-g", *plugin_specs()], _NPM_TIMEOUT_S)
         if res.rc != 0:
             if _is_eacces(res.stderr):
                 say("npm rejected the global install (directory not writable).")
@@ -110,14 +117,14 @@ def run_setup(runner: Runner = default_runner, install_npm: bool = True) -> int:
         say("  npm install -g opencode-hr-agent@latest   then re-run: hr setup --no-npm")
         return 1
 
-    res = runner([registrar, "install"], _CLI_TIMEOUT_S)
+    res = _call(runner, [registrar, "install"], _CLI_TIMEOUT_S)
     for line in (res.stdout or res.stderr).splitlines():
         if line.strip():
             say(line)
     if res.rc != 0:
         return res.rc
 
-    check = runner([registrar, "status"], _CLI_TIMEOUT_S)
+    check = _call(runner, [registrar, "status"], _CLI_TIMEOUT_S)
     if check.rc != 0:
         for line in (check.stdout or check.stderr).splitlines():
             if line.strip():
