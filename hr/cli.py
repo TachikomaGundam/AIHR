@@ -28,6 +28,7 @@ from .cli_selection import _pick_models_interactive, _selection_indices
 from .cli_report_commands import calibrate, health, sweeps, verdict
 from .cli_knowledge import publish, recommend, reference, research
 from .cli_apply import apply, status
+from .cli_setup import setup
 from .deployment_manager import register_release_commands
 
 register_release_commands(app)
@@ -56,6 +57,7 @@ __all__ = [
     "seat_assignments",
     "seat_rows",
     "seed",
+    "setup",
     "status",
     "sweeps",
     "verdict",
