@@ -23,7 +23,7 @@ from tests.test_cli import (
 )
 
 class TestTyperWiring:
-    def test_app_has_exactly_13_commands(self):
+    def test_app_has_exactly_14_commands(self):
         from typer.main import get_command
 
         cmd = get_command(app)

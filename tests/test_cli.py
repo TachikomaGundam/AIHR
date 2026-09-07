@@ -34,6 +34,7 @@ COMMANDS = {
     "research",
     "publish",
     "recommend",
+    "setup",
     "status",
     "apply",
     "apply-preview",
