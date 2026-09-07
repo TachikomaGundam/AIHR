@@ -138,7 +138,7 @@ TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode
 ```bash
 cd ~/workspace/harness/hr
 
-# --- opencode-hr-agent 0.2.1 (unscoped) ---
+# --- opencode-hr-agent 0.2.2 (unscoped) ---
 # Every npm step for this package runs OUTSIDE opencode_plugin/ (checklist
 # item 1 below): stay in the repo root and pass the folder as an argument.
 npm login                 # add NPM_OTP=... to env if you use a TOTP app
@@ -161,36 +161,45 @@ maintainer's call):
 
 1. Test out-of-package: `npm --prefix "$RUNNER_TEMP/pkg" run test` against the
    CI-style copy the node test lane builds (`mkdir -p "$RUNNER_TEMP/pkg"`, then
-   copy `package.json`, `server.ts`, `hr-invocation.ts` and `test/` into it;
+   copy `package.json`, `server.ts`, `hr-invocation.ts`, `install-cli.js`
+   and `test/` into it (plus `fastdraw/package.json` two levels up — drift guard);
    see `.github/workflows/ci.yml`). NEVER run `npm` inside `opencode_plugin/`:
    its gitignored package-local `.npmrc` would load into npm's env view.
 2. Content check: `npm pack --dry-run` in a /tmp copy (same pattern as item 1).
    The packed content MUST equal exactly {package.json, server.ts,
-   hr-invocation.ts}, nothing more, nothing less.
-3. Manifest assert via `node -e`: `dependencies` is empty AND no lifecycle
-   scripts exist except `test` (pretest, posttest and prepare are FORBIDDEN).
+   hr-invocation.ts, install-cli.js}, nothing more, nothing less. The `bin`
+   entry (`opencode-hr`) must resolve: `npm i -g ./<tgz> --prefix /tmp/x && /tmp/x/bin/opencode-hr status`.
+3. Manifest asserts via `node -e`: `dependencies` is empty AND no lifecycle
+   scripts exist except `test` (pretest, posttest and prepare are FORBIDDEN);
+   version triple in sync — `opencode_plugin/package.json` ==
+   `hr/cli_setup.py` PLUGIN_PINS == README pins, and the fastdraw pins in
+   `hr/cli_setup.py` + `install-cli.js` == `fastdraw/package.json` (CI enforces
+   via tests/test_plugin_setup.py + opencode_plugin/test/install-cli.test.mjs).
 4. Publish execution is RESERVED to the human maintainer: agents prepare, never publish.
 5. Tag decision (user-side): this repo has NO version->tag convention; the
    existing `v0.2.1` tag points to an engine-only release, not to this
    package. For the next release prefer either `v0.2.2` or a per-package tag
-   like `opencode-hr-agent@0.2.1`; agents never tag.
+   like `opencode-hr-agent@0.2.2` (this is the convention adopted since 0.2.1);
+   agents never tag.
 
 ## 6. Verify from the second machine
 
 ```bash
 # engine (primary — PyPI):
 pip install "aihr[vision]"
-hr --help                                # expect all 23 commands
+hr --help                                # expect all 24 commands
+hr setup --no-npm                        # expect: both config files registered OK (or honest MISS lines)
 # engine (mirror — Release wheel, no PyPI required):
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.1/aihr-0.2.1-py3-none-any.whl"
-npm view opencode-hr-agent               # expect 0.2.1
+npm view opencode-hr-agent               # expect 0.2.2
 npm view opencode-fastdraw               # expect 1.1.1
-# Plugins are loaded via opencode config arrays, NOT `npm install -g` (opencode
-# never scans the global npm prefix). On this machine add to
-# ~/.config/opencode/opencode.json "plugin":
-#     "opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"
-# and to ~/.config/opencode/tui.json "plugin":
-#     "opencode-fastdraw@1.1.1"
+# One-shot plugin bootstrap (installs the pinned pair via npm AND registers
+# both opencode config files):
+hr setup
+# Fallback (config-only, no npm): add to ~/.config/opencode/opencode.json
+# "plugin": "opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1" and to
+# ~/.config/opencode/tui.json "plugin": "opencode-fastdraw@1.1.1" — a bare
+# `npm install -g` alone is NEVER visible to opencode (prefix not scanned).
 # Restart opencode; expect hr_* + fastdraw_* agent tools, /fastdraw + <leader>m in TUI.
 # (Machine-readable discovery-contract proof recipe: see docs/PLUGIN_SECURITY.md notes
 #  or ops/dev-env-pitfalls wiki page — /experimental/tool/ids probe.)

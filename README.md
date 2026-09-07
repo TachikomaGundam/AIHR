@@ -65,26 +65,28 @@ The database stores sweeps, runs, measurements, infra incidents, separations, an
 
 ## Install
 
-The engine ships on PyPI as **`aihr`** (import package `hr`, console script `hr`):
+The engine ships on PyPI as **`aihr`** (import package `hr`, console script `hr`). Two commands bootstrap the whole stack — engine, npm plugins, and opencode registration:
 
 ```bash
 # Python engine (add [vision] only if you need the vision item generators)
 pip install "aihr[vision]"
+# plugin pair via npm + opencode config registration, one shot, idempotent
+hr setup
 ```
 
-The OpenCode plugins ship on npm, but they are **loaded through opencode's own config — not `npm install -g`**. Opencode discovers plugins only from its config files' `"plugin"` arrays (and its plugin directories); npm entries are downloaded and cached by opencode itself at startup. The global npm prefix is never scanned, so a `-g` install is invisible to opencode. Declare exact versions in **both** files:
+`hr setup` installs the pinned plugin pair globally with npm, then delegates registration to the `opencode-hr` CLI that ships inside `opencode-hr-agent`. It never needs elevated privileges (a non-writable npm global directory gets pointed at the user-level prefix recipe below; configs with comments are never rewritten — it prints the exact lines to paste), re-running it is safe, and `opencode-hr status` shows what is registered. Restart opencode, then verify: ask for `hr_status` / `fastdraw_list` (agent tools) and `/fastdraw` (TUI command).
+
+Manual registration (fallback — e.g. no npm on PATH, or you prefer config-only): opencode loads plugins **only from its config files' `"plugin"` arrays** (and its plugin directories), downloading and caching npm entries itself at startup. The global npm prefix is never scanned, so a bare `npm install -g` is invisible to opencode. Declare exact versions in **both** files:
 
 ```jsonc
 // ~/.config/opencode/opencode.json (or .jsonc) — server half: hr_* / fastdraw_* agent tools
-{ "plugin": ["opencode-hr-agent@0.2.1", "opencode-fastdraw@1.1.1"] }
+{ "plugin": ["opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1"] }
 ```
 
 ```json
 // ~/.config/opencode/tui.json — FastDraw TUI half: /fastdraw command + <leader>m keybind
 { "plugin": ["opencode-fastdraw@1.1.1"] }
 ```
-
-Restart opencode, then verify: ask for `hr_status` / `fastdraw_list` (agent tools) and `/fastdraw` (TUI command).
 
 `opencode-fastdraw` is a standalone model/role-switching plugin and can be declared on its own. `opencode-hr-agent` bridges the OpenCode tool surface to the `hr` CLI, so it requires the Python engine above. Wheel artifacts are also attached to each [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases).
 
