@@ -1,0 +1,152 @@
+#!/usr/bin/env node
+// opencode-hr install — one-shot, idempotent registration of the HR plugin
+// pair into OpenCode's user config. Ships inside opencode-hr-agent so that
+// `npm install -g opencode-hr-agent && opencode-hr install` is the whole
+// setup: no hand-editing JSON. Lives up to the plugin's security posture:
+// node built-ins only, no network, no shell, no lifecycle scripts.
+
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "node:fs";
+import { homedir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SELF_VERSION = JSON.parse(
+  readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "package.json"), "utf8"),
+).version;
+
+// Companion pins travel with this package's release; bump together (docs/PUSH.md §5).
+const PLUGINS = {
+  server: [`opencode-hr-agent@${SELF_VERSION}`, "opencode-fastdraw@1.1.1"],
+  tui: ["opencode-fastdraw@1.1.1"],
+};
+
+function configDir() {
+  const flag = process.argv.indexOf("--config-dir");
+  if (flag !== -1 && process.argv[flag + 1]) return path.resolve(process.argv[flag + 1]);
+  return process.env.OPENCODE_CONFIG_DIR ?? path.join(homedir(), ".config", "opencode");
+}
+
+function target(kind) {
+  const dir = configDir();
+  const json = path.join(dir, "opencode.json");
+  const jsonc = path.join(dir, "opencode.jsonc");
+  if (kind === "tui") return path.join(dir, "tui.json");
+  // Never parse/rewrite JSONC by machine; point the human at the one line to add.
+  if (existsSync(jsonc) && !existsSync(json)) return { refuse: jsonc };
+  return json;
+}
+
+function readConfig(file) {
+  if (!existsSync(file)) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    throw new Error(`REFUSING to touch ${file}: not strict JSON (comments?). Add the plugin entries by hand instead:\n  ${JSON.stringify(PLUGINS)}`);
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`REFUSING to touch ${file}: top level is not an object`);
+  }
+  return parsed;
+}
+
+const nameOf = (spec) => (Array.isArray(spec) ? spec[0] : spec).replace(/@[^@/]+$/, "");
+
+function mergePlugins(list, wanted) {
+  const out = Array.isArray(list) ? [...list] : [];
+  const changed = [];
+  for (const spec of wanted) {
+    const name = nameOf(spec);
+    const idx = out.findIndex((s) => nameOf(s) === name);
+    if (idx === -1) {
+      out.push(spec);
+      changed.push(`+ ${spec}`);
+    } else if (out[idx] !== spec) {
+      const old = out[idx];
+      out[idx] = spec;
+      changed.push(`~ ${old} -> ${spec}`);
+    }
+  }
+  return { out, changed };
+}
+
+function writeAtomic(file, data) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  const tmp = `${file}.opencode-hr.tmp`;
+  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
+  renameSync(tmp, file);
+}
+
+function install() {
+  let touched = 0;
+  for (const [kind, targetFile] of [["server", target("server")], ["tui", target("tui")]]) {
+    if (typeof targetFile === "object" && targetFile.refuse) {
+      console.log(`SKIP ${kind}: ${targetFile.refuse} is JSONC (has comments) — add manually:\n  "plugin": ${JSON.stringify(PLUGINS[kind === "server" ? "server" : "tui"])}`);
+      continue;
+    }
+    const cfg = readConfig(targetFile);
+    const { out, changed } = mergePlugins(cfg.plugin, kind === "server" ? PLUGINS.server : PLUGINS.tui);
+    if (!changed.length) {
+      console.log(`OK   ${targetFile} (already registered)`);
+      continue;
+    }
+    cfg.plugin = out;
+    writeAtomic(targetFile, cfg);
+    for (const c of changed) console.log(`${c.startsWith("+") ? "ADD " : "SET "} ${targetFile}\n     ${c}`);
+    touched++;
+  }
+  console.log(
+    touched
+      ? "\nRestart opencode, then expect hr_* + fastdraw_* tools (and /fastdraw in the TUI).\nUninstall with: opencode-hr uninstall"
+      : "\nNothing to change — both files already declare the pinned plugins.",
+  );
+  return 0;
+}
+
+function status() {
+  let bad = 0;
+  for (const [kind, file] of [["server", target("server")], ["tui", target("tui")]]) {
+    if (typeof file === "object" && file.refuse) {
+      console.log(`JSONC ${kind} config: ${file.refuse} (check plugin array by eye)`);
+      continue;
+    }
+    const cfg = existsSync(file) ? readConfig(file) : {};
+    const have = (Array.isArray(cfg.plugin) ? cfg.plugin : []).map(nameOf);
+    const missing = (kind === "server" ? PLUGINS.server : PLUGINS.tui).map(nameOf).filter((n) => !have.includes(n));
+    console.log(`${missing.length ? "MISS " : "OK   "} ${file}${missing.length ? ` missing: ${missing.join(", ")}` : ""}`);
+    if (missing.length) bad = 1;
+  }
+  return bad;
+}
+
+function uninstall() {
+  for (const [kind, file] of [["server", target("server")], ["tui", target("tui")]]) {
+    if (typeof file === "object" && file.refuse) {
+      console.log(`SKIP ${kind}: ${file.refuse} — remove entries by hand`);
+      continue;
+    }
+    if (!existsSync(file)) continue;
+    const cfg = readConfig(file);
+    if (!Array.isArray(cfg.plugin)) continue;
+    const names = [...PLUGINS.server, ...PLUGINS.tui].map(nameOf);
+    const before = cfg.plugin.length;
+    cfg.plugin = cfg.plugin.filter((s) => !names.includes(nameOf(s)));
+    if (cfg.plugin.length !== before) {
+      writeAtomic(file, cfg);
+      console.log(`DEL  ${file} (-${before - cfg.plugin.length})`);
+    } else {
+      console.log(`OK   ${file} (nothing to remove)`);
+    }
+  }
+  console.log("\nNote: opencode keeps installed copies under ~/.cache/opencode/packages; delete there if you also want the code gone.");
+  return 0;
+}
+
+const cmd = process.argv[2] ?? "install";
+try {
+  const rc = cmd === "install" ? install() : cmd === "status" ? status() : cmd === "uninstall" ? uninstall() : (console.log("usage: opencode-hr [install|status|uninstall]"), 2);
+  process.exitCode = rc;
+} catch (err) {
+  console.error(`opencode-hr ${cmd} failed: ${err instanceof Error ? err.message : String(err)}`);
+  process.exitCode = 1;
+}
