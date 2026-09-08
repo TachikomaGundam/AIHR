@@ -14,7 +14,7 @@ The package exposes two privileged actions, each contained:
    an attacker who can write those can already run code as you.
 2. **At operator invocation (the `opencode-hr` bin):** writing the two
    user-owned opencode config files (`opencode.json`, `tui.json`) to register
-   plugin pins. It runs ONLY when a human executes `opencode-hr …` (or `hr
+   plugin entries. It runs ONLY when a human executes `opencode-hr …` (or `hr
    setup` chains it); nothing in the package lifecycle triggers it
    automatically (§4). Containment details: §7.
 
@@ -38,9 +38,13 @@ see `hr/plugin_safety.py`), out of scope here.
 
 Zero runtime npm dependencies — the peer `@opencode-ai/plugin` is a
 types/tool-surface module provided by OpenCode at runtime; no bundled code
-ships. Install with an exact version pin: `npm install -g
-"opencode-hr-agent@<version>"` (quote it for zsh); a floating
-`-g` install auto-updates silently. The `-g` install exists to place the
+ships. One-click installs (`hr setup`) resolve `opencode-hr-agent@latest` and
+the registrar writes `@latest` entries into the two config files: floating
+specs trade startup-time reproducibility for never running a stale pin, and
+`hr setup` prints the concrete resolved versions right after install so every
+run is auditable after the fact. If you prefer a frozen running surface,
+install and declare an exact version instead: `npm install -g
+"opencode-hr-agent@<version>"` (quote it for zsh). The `-g` install exists to place the
 `opencode-hr` registrar CLI on PATH — opencode itself loads the plugin only
 via its config `"plugin"` arrays (which `opencode-hr install` / `hr setup`
 write; see README Install), never by scanning the global prefix.

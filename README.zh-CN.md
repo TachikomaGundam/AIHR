@@ -65,23 +65,23 @@ pip install "aihr[vision]"
 hr setup
 ```
 
-`hr setup` 先用 npm 全局安装锁版的插件对，再把注册工作交给 `opencode-hr-agent` 自带的 `opencode-hr` 命令行。它从不需要提权（npm 全局目录不可写时会指向下面的用户级 prefix 方案；带注释的配置文件绝不改写，而是打印需要你粘贴的确切行），重复运行安全，`opencode-hr status` 可查看注册状态。重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
+`hr setup` 先用 npm 以 `@latest` 全局安装插件对，再把注册工作交给 `opencode-hr-agent` 自带的 `opencode-hr` 命令行。它从不需要提权（npm 全局目录不可写时会指向下面的用户级 prefix 方案；带注释的配置文件绝不改写，而是打印需要你粘贴的确切行），重复运行安全，`opencode-hr status` 可查看注册状态。npm 安装完成后它会跑 `npm ls -g` 打印 `@latest` 实际解析到的具体版本，让每次安装事后可审计。重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
 
-手动注册（回退方案——例如 PATH 上没有 npm，或你偏好纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都按精确版本声明：
+手动注册（回退方案——例如 PATH 上没有 npm，或你偏好纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都声明插件：
 
 ```jsonc
 // ~/.config/opencode/opencode.json（或 .jsonc）—— 服务端半边：hr_* / fastdraw_* agent 工具
-{ "plugin": ["opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1"] }
+{ "plugin": ["opencode-hr-agent@latest", "opencode-fastdraw@latest"] }
 ```
 
 ```json
 // ~/.config/opencode/tui.json —— FastDraw TUI 半边：/fastdraw 命令 + <leader>m 键位
-{ "plugin": ["opencode-fastdraw@1.1.1"] }
+{ "plugin": ["opencode-fastdraw@latest"] }
 ```
 
 `opencode-fastdraw` 是独立的模型/角色切换插件，可单独声明；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
 
-- **为什么要精确锁版本：** `"plugin"` 数组同样接受 `@latest` 与语义化版本范围，但浮动版本会让每次 opencode 启动都下载并执行新代码，且这些代码能访问你的 `~/.npmrc` 与 `HR_HOME`；锁定版本让运行面可审计、可复现。
+- **为什么默认 `@latest`：** 一键安装绝不该带着过期锁版本——写死的具体版本会悄然腐烂，且正是新机部署时版本漂移坑的根源。`@latest` 始终解析到最新已发布版本，且 `hr setup` 会打印实际落定的具体版本，运行面仍可事后审计。若你更想冻结运行面（每次 opencode 启动重新解析 `@latest` 可能拉取能访问你 `~/.npmrc` 与 `HR_HOME` 的新代码），把上面两个文件里的 `@latest` 换成具体精确版本即可。
 - **为什么要两个文件：** 只写 `opencode.json` 时 agent 工具正常但 `/fastdraw` 与 `<leader>m` 会静默消失；只写 `tui.json` 则相反。`fastdraw/install.sh` 会自动注册两处。
 - **可选的 HR 工作流层：** `/hr-workflow` 斜杠技能与 `hr` 子代理是配置文件而非插件代码——权威副本版本化在 `opencode-config/` 下，复制即装：
   ```bash
