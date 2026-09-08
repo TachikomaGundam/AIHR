@@ -13,8 +13,16 @@ await fs.mkdir("/tmp/fastdraw-test", { recursive: true })
 process.chdir("/tmp/fastdraw-test")
 
 const mod = await import(new URL("./.build/server.mjs", import.meta.url))
+const origins = await import(new URL("./.build/origins.mjs", import.meta.url))
 const server = await mod.default.server()
 const t = server.tool
+
+const OMO_FILE = "/tmp/fastdraw-test/.omo/omo.jsonc"
+// read the [opencode] host block FastDraw maintains inside ~/.omo/omo.jsonc
+const omoBlock = async () => {
+  const j = JSON.parse(origins.stripJsonComments(await fs.readFile(OMO_FILE, "utf-8")))
+  return j["[opencode]"] ?? {}
+}
 
 let pass = 0
 const ok = (name) => { pass++; console.log(`PASS ${name}`) }
@@ -34,8 +42,11 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
 
   await t.fastdraw_assign.execute({ agent: "oracle", model: "prov/model-a" })
   await t.fastdraw_assign.execute({ agent: "explore", model: "prov/model-b" })
-  assert.equal(cfg.agent.oracle.model, "prov/model-a")
+  assert.equal(cfg.agent.oracle.model, "orig/oracle-model", "OMO builtins never touch the opencode config (phantom guard)")
   assert.equal(cfg.agent.oracle.mode, "subagent", "existing fields preserved")
+  const bound = await omoBlock()
+  assert.equal(bound.agents.oracle.model, "prov/model-a", "builtin binds in omo.jsonc")
+  assert.equal(bound.agents.explore.model, "prov/model-b")
 
   const r = await t.fastdraw_save_preset.execute({ name: "p1", description: "test preset" })
   assert.match(r, /preset "p1" saved \(2 agents\)/)
@@ -45,24 +56,28 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   assert.equal(store.presets.p1.description, "test preset")
   assert.equal(store.presets.p1.schemaVersion, 2, "v2 schema stamped on save")
   assert.equal(store.presets.p1.omo.oracle.model, "prov/model-a", "state binding becomes v2 entry")
-  assert.equal(store.presets.p1.omo.oracle.origin.layer, "state")
-  assert.equal(store.presets.p1.omo.oracle.origin.file, "${CONFIG_DIR}/.fastdraw.json", "origin stored portably")
+  assert.equal(store.presets.p1.omo.oracle.origin.layer, "omo", "OMO-layer binding harvested with its file origin")
+  assert.equal(store.presets.p1.omo.oracle.origin.file, "${HOME}/.omo/omo.jsonc", "origin stored portably")
   assert.equal(store.presets.p1.omo.explore.model, "prov/model-b")
   assert.deepEqual(store.presets.p1.custom, {})
   ok("assign + save_preset persists with preview")
 }
 
-/* 3. hot-swap: load preset that drops one agent → reverts to original */
+/* 3. load preset: OMO-side bindings re-apply to omo.jsonc, config untouched */
 {
   await t.fastdraw_assign.execute({ agent: "oracle", model: "prov/model-c" })
+  assert.equal((await omoBlock()).agents.oracle.model, "prov/model-c")
   // p1 has oracle+explore; current has oracle(c)+explore. Load p1 → oracle back to a.
   const cfg = { agent: { oracle: { model: "orig/oracle-model" }, explore: { model: "orig/explore" } } }
   await server.config(cfg)
   const r = await t.fastdraw_load_preset.execute({ name: "p1" })
   assert.match(r, /preset "p1" loaded \(2 agents\)/)
-  assert.equal(cfg.agent.oracle.model, "prov/model-a")
-  assert.equal(cfg.agent.explore.model, "prov/model-b")
-  ok("load_preset hot-swaps config")
+  assert.equal(cfg.agent.oracle.model, "orig/oracle-model", "opencode config stays clean on OMO loads")
+  assert.equal(cfg.agent.explore.model, "orig/explore")
+  const bound = await omoBlock()
+  assert.equal(bound.agents.oracle.model, "prov/model-a", "load re-applies the preset in the omo layer")
+  assert.equal(bound.agents.explore.model, "prov/model-b")
+  ok("load_preset rebinds the OMO layer, config untouched")
 }
 
 /* 4. hot-swap revert: assign extra agent, then load preset without it */
@@ -85,7 +100,7 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   assert.equal(payload.schemaVersion, 2)
   assert.equal(payload.name, "p1")
   assert.equal(payload.omo.oracle.model, "prov/model-a")
-  assert.equal(payload.omo.oracle.origin.file, "${CONFIG_DIR}/.fastdraw.json")
+  assert.equal(payload.omo.oracle.origin.file, "${HOME}/.omo/omo.jsonc")
   assert.equal(payload.omo.explore.model, "prov/model-b")
   assert.deepEqual(payload.custom, {})
   assert.equal(payload.agents, undefined, "export carries two-part structure")
@@ -131,15 +146,18 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   ok("invalid imports rejected gracefully")
 }
 
-/* 9. remove reverts via originals (fresh agent name — originals snapshot is first-write-wins) */
+/* 9. remove reverts via originals (fresh agent name — originals snapshot is first-write-wins).
+   Uses a CUSTOM name: builtin roles bind in the OMO layer where remove reverts the
+   omo.jsonc entry (covered in omo-routing.test), not the opencode config. */
 {
-  const cfg = { agent: { momus: { model: "orig/m" } } }
+  const cfg = { agent: { helper: { model: "orig/h" } } }
   await server.config(cfg)
-  await t.fastdraw_assign.execute({ agent: "momus", model: "prov/x" })
-  const r = await t.fastdraw_remove.execute({ agent: "momus" })
+  await t.fastdraw_assign.execute({ agent: "helper", model: "prov/x" })
+  assert.equal(cfg.agent.helper.model, "prov/x")
+  const r = await t.fastdraw_remove.execute({ agent: "helper" })
   assert.match(r, /reverted to default/)
-  assert.equal(cfg.agent.momus.model, "orig/m")
-  ok("remove reverts to original model")
+  assert.equal(cfg.agent.helper.model, "orig/h")
+  ok("remove reverts a config-side binding to its original model")
 }
 
 /* 10. list_presets shows bindings */

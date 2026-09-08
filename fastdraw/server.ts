@@ -688,13 +688,16 @@ async function fastdrawServer() {
               (names.length ? `\nAvailable: ${names.join(", ")}` : "\nNo presets saved yet.")
           }
           // Custom roles only apply when the agent exists on this machine
-          // (agents dir, or a config agent entry). Missing ones are skipped
-          // with a warning — a preset from another machine never fails.
+          // (agents dir, a config agent entry, or an OMO target — builtin or
+          // user-defined). Missing ones are skipped with a warning — a preset
+          // from another machine never fails.
+          await refreshOmo()
           const present = new Set<string>([...customNames])
           if (configRef) {
             const agentCfg = ((configRef as any).agent ?? {}) as AgentCfg
             for (const n of Object.keys(agentCfg)) present.add(n)
           }
+          for (const n of Object.keys(omoCfg.targets)) present.add(n)
           const skipped: string[] = []
           const applyAgents: Record<string, string> = {}
           const flat = presetAgents(p)
@@ -716,7 +719,6 @@ async function fastdrawServer() {
           // OMO-routed names bind in the OMO config file — they must never
           // be written into opencode config layers (that creates phantom
           // roles). Split them out; the rest follows the restore plan.
-          await refreshOmo()
           const omoSide: Record<string, string> = {}
           for (const n of Object.keys(presentBindings)) {
             if (isOmoRouted(omoCfg, n)) omoSide[n] = presentBindings[n].model

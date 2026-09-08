@@ -67,7 +67,9 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   const p = store.presets.mixed
   assert.equal(p.schemaVersion, 2)
   assert.equal(p.omo.oracle.model, "prov/omo-model", "standard roles → omo section")
-  assert.equal(p.omo.oracle.origin.layer, "state")
+  assert.equal(p.omo.oracle.origin.layer, "omo", "builtins bind in the omo layer even on a fresh machine")
+  assert.equal(p.omo.oracle.origin.file, "${HOME}/.omo/omo.jsonc")
+  assert.equal(cfg.agent.oracle.model, "orig/o", "phantom guard: builtin assign never touches the opencode config")
   assert.equal(p.custom["pcb-router"].model, "prov/custom-model", "non-standard roles → custom section")
   assert.equal(p.agents, undefined, "flat legacy key is gone")
   ok("two-section save: omo/custom split persisted")
@@ -117,11 +119,16 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   const r = await t.fastdraw_load_preset.execute({ name: "has-ghost" })
   assert.match(r, /loaded \(1 agents?\)/)
   assert.match(r, /Skipped 1 custom role not present on this machine: ghost-agent/)
-  assert.equal(cfg.agent.oracle.model, "prov/ghost-omo", "present omo role applied")
+  assert.equal(cfg.agent.oracle.model, "orig/o", "phantom guard: OMO builtin never lands in the opencode config")
   assert.equal(cfg.agent["ghost-agent"], undefined, "missing custom role NOT written to config")
+  const omoBound = JSON.parse(
+    origins.stripJsonComments(await fs.readFile(path.join(HOME, ".omo/omo.jsonc"), "utf-8")),
+  )["[opencode]"]
+  assert.equal(omoBound.agents.oracle.model, "prov/ghost-omo", "present omo role applied in the omo layer")
 
   const state = JSON.parse(await fs.readFile(STATE, "utf-8"))
-  assert.deepEqual(state.agents, { oracle: "prov/ghost-omo" }, "state keeps only present roles")
+  assert.deepEqual(state.agents ?? {}, {}, "OMO bindings live in state.omo, not state.agents")
+  assert.equal(state.omo.oracle.model, "prov/ghost-omo")
   ok("load skips missing custom role with warning, applies the rest")
 }
 
@@ -200,11 +207,13 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
    assignments for save_preset — snapshot merges config-declared models */
 {
   await fs.rm(path.join(HOME, ".config/opencode/.fastdraw.json"), { force: true })
+  // start from a clean OMO layer too: omo.jsonc bindings would shadow cfg models
+  await fs.rm(path.join(HOME, ".omo/omo.jsonc"), { force: true })
   const server = await mod.default.server()
   const t = server.tool
   const cfg = {
     agent: {
-      oracle: { model: "prov/cfg-omo", mode: "subagent" },
+      build: { model: "prov/cfg-build", mode: "subagent" },
       "pcb-router": { model: "prov/cfg-custom" },
       bare: { model: "no-slash-model" },
     },
@@ -216,10 +225,11 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   )
   const r = await t.fastdraw_save_preset.execute({ name: "cfgonly" })
   assert.match(r, /preset "cfgonly" saved \(2 agents\)/, "config-level bindings count as assignments")
-  assert.match(r, /no recorded config origin and will restore to the global config: oracle, pcb-router/, "origin-less config bindings reported")
+  assert.match(r, /no recorded config origin and will restore to the global config: build, pcb-router/, "origin-less config bindings reported")
   const store = JSON.parse(await fs.readFile(PRESETS, "utf-8"))
-  assert.equal(store.presets.cfgonly.omo.oracle.model, "prov/cfg-omo")
-  assert.equal(store.presets.cfgonly.omo.oracle.origin, undefined, "programmatic-only bindings carry no origin")
+  assert.equal(store.presets.cfgonly.custom.build.model, "prov/cfg-build", "overridable built-in is a cfg-side binding")
+  assert.equal(store.presets.cfgonly.custom.build.origin, undefined, "programmatic-only bindings carry no origin")
+  assert.deepEqual(store.presets.cfgonly.omo ?? {}, {}, "nothing OMO-routed in a pure config snapshot")
   assert.equal(store.presets.cfgonly.custom["pcb-router"].model, "prov/cfg-custom")
   await assert.rejects(
     () => fs.readFile(path.join(HOME, ".config/opencode/.fastdraw.json")),
@@ -268,7 +278,8 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
     preview: true,
   })
   assert.match(pr, /preview of preset "has-path" \(mode: path\)/)
-  assert.match(pr, /project-settings\.jsonc → 2 binding\(s\)/)
+  // only the custom role goes to the JSONC target; oracle is OMO-routed
+  assert.match(pr, /project-settings\.jsonc → 1 binding\(s\)/)
   assert.equal(
     await fs.readFile(target, "utf-8"),
     `{\n  // local note\n  "agent": {\n    "builder": { "model": "prov/builder" }\n  }\n}\n`,
@@ -283,15 +294,20 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   })
   assert.match(r, /preset "has-path" loaded \(2 agents\)/, "live apply unchanged")
   assert.match(r, /Restored \(mode: path\)/)
-  assert.match(r, /project-settings\.jsonc → 2 binding\(s\) \(backup: .*\.bak-\d{8}-\d{6}\)/)
+  assert.match(r, /project-settings\.jsonc → 1 binding\(s\) \(backup: .*\.bak-\d{8}-\d{6}\)/)
   const jtxt = await fs.readFile(target, "utf-8")
   assert.match(jtxt, /\/\/ local note/, "unrelated comment survives")
   const jj = JSON.parse(origins.stripJsonComments(jtxt))
-  assert.equal(jj.agent.oracle.model, "prov/p-omo", "omo role written into target")
   assert.equal(jj.agent["pcb-router"].model, "prov/p-custom", "custom role written into target")
+  assert.equal(jj.agent.oracle, undefined, "phantom guard: OMO names never enter an opencode-format target")
   assert.equal(jj.agent.builder.model, "prov/builder", "untouched role kept verbatim")
+  const omoJ = JSON.parse(
+    origins.stripJsonComments(await fs.readFile(path.join(HOME, ".omo/omo.jsonc"), "utf-8")),
+  )["[opencode]"]
+  assert.equal(omoJ.agents.oracle.model, "prov/p-omo", "OMO builtin binds in omo.jsonc regardless of restore target")
   const state = JSON.parse(await fs.readFile(STATE, "utf-8"))
-  assert.deepEqual(Object.keys(state.agents).sort(), ["oracle", "pcb-router"])
+  assert.deepEqual(Object.keys(state.agents).sort(), ["pcb-router"], "only the cfg-side binding lands in state.agents")
+  assert.equal(state.omo.oracle.model, "prov/p-omo")
   const bak = (await fs.readdir(CONFIG_DIR)).find((n) => n.startsWith("project-settings.jsonc.bak-"))
   assert.ok(bak, "backup file created")
   assert.equal(
@@ -312,14 +328,16 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   await fs.rm(HOME, { recursive: true, force: true })
   await fs.mkdir(path.join(HOME, ".config", "opencode"), { recursive: true })
   const cfgFile = path.join(HOME, ".config", "opencode", "opencode.jsonc")
-  await fs.writeFile(cfgFile, JSON.stringify({ agent: { oracle: { model: "prov/orig-source" } } }, null, 2))
+  await fs.writeFile(cfgFile, JSON.stringify({ agent: { "pcb-router": { model: "prov/orig-source" } } }, null, 2))
   const server = await mod.default.server()
   const t = server.tool
+  // custom roles must be present in the live config to load
+  await server.config({ agent: { "pcb-router": { model: "prov/orig-source" } } })
 
   const sr = await t.fastdraw_save_preset.execute({ name: "ri" })
   assert.match(sr, /preset "ri" saved \(1 agents?\)/, "harvested binding saveable")
   const store = JSON.parse(await fs.readFile(PRESETS, "utf-8"))
-  assert.equal(store.presets.ri.omo.oracle.origin.file, "${CONFIG_DIR}/opencode.jsonc", "origin recorded portably")
+  assert.equal(store.presets.ri.custom["pcb-router"].origin.file, "${CONFIG_DIR}/opencode.jsonc", "origin recorded portably")
 
   // the config file loses the role (e.g. hand-edit)
   await fs.writeFile(cfgFile, `{\n  "agent": {}\n}\n`)
@@ -328,7 +346,7 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   assert.match(r, /Restored \(mode: original\)/)
   assert.match(r, /opencode\.jsonc → 1 binding\(s\) \(backup: .*\.bak-\d{8}-\d{6}\)/)
   const j = JSON.parse(origins.stripJsonComments(await fs.readFile(cfgFile, "utf-8")))
-  assert.equal(j.agent.oracle.model, "prov/orig-source", "role written back to its origin file")
+  assert.equal(j.agent["pcb-router"].model, "prov/orig-source", "role written back to its origin file")
   const bak = (await fs.readdir(path.join(HOME, ".config", "opencode"))).find(
     (n) => n.startsWith("opencode.jsonc.bak-"),
   )
@@ -348,22 +366,23 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   await fs.mkdir(path.join(HOME, ".config", "opencode"), { recursive: true })
   const envFile = path.join("/tmp", "fastdraw-test-split-env", "opencode.json")
   await fs.mkdir(path.dirname(envFile), { recursive: true })
-  await fs.writeFile(envFile, JSON.stringify({ agent: { oracle: { model: "prov/env-model" } } }))
+  await fs.writeFile(envFile, JSON.stringify({ agent: { "worker-x": { model: "prov/env-model" } } }))
   process.env.OPENCODE_CONFIG = envFile
   const server = await mod.default.server()
   const t = server.tool
+  await server.config({ agent: { "worker-x": { model: "prov/env-model" } } })
 
   const sr = await t.fastdraw_save_preset.execute({ name: "envcfg" })
   assert.match(sr, /preset "envcfg" saved \(1 agents?\)/)
   const store = JSON.parse(await fs.readFile(PRESETS, "utf-8"))
-  assert.equal(store.presets.envcfg.omo.oracle.origin.file, null, "non-portable origin stored as null")
+  assert.equal(store.presets.envcfg.custom["worker-x"].origin.file, null, "non-portable origin stored as null")
   delete process.env.OPENCODE_CONFIG
 
   const r = await t.fastdraw_load_preset.execute({ name: "envcfg", mode: "original" })
-  assert.match(r, /had no resolvable origin on this machine and were written to the global config: oracle/)
+  assert.match(r, /had no resolvable origin on this machine and were written to the global config: worker-x/)
   const cfgFile = path.join(HOME, ".config", "opencode", "opencode.jsonc")
   const j = JSON.parse(origins.stripJsonComments(await fs.readFile(cfgFile, "utf-8")))
-  assert.equal(j.agent.oracle.model, "prov/env-model", "fell back to the global config file")
+  assert.equal(j.agent["worker-x"].model, "prov/env-model", "fell back to the global config file")
   ok("original restore: origin-less bindings fall back to global config, warned")
 }
 
@@ -374,12 +393,12 @@ const ok = (name) => { pass++; console.log(`PASS ${name}`) }
   await fs.mkdir(path.join(HOME, ".config", "opencode"), { recursive: true })
   const server = await mod.default.server()
   const t = server.tool
-  await server.config({ agent: { oracle: { model: "orig/o" } } })
-  await t.fastdraw_assign.execute({ agent: "oracle", model: "prov/state-model" })
+  await server.config({ agent: { helper: { model: "orig/h" } } })
+  await t.fastdraw_assign.execute({ agent: "helper", model: "prov/state-model" })
   await t.fastdraw_save_preset.execute({ name: "st" })
   const r = await t.fastdraw_load_preset.execute({ name: "st", mode: "original" })
   assert.match(r, /Restored \(mode: original\)/)
-  assert.match(r, /came from FastDraw state \(\.fastdraw\.json\) and stay there: oracle/)
+  assert.match(r, /came from FastDraw state \(\.fastdraw\.json\) and stay there: helper/)
   // no config file was created: the state binding needs no file write
   const cfgFile = path.join(HOME, ".config", "opencode", "opencode.jsonc")
   await assert.rejects(() => fs.readFile(cfgFile), /ENOENT/, "nothing written for state-layer bindings")
