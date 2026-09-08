@@ -9,16 +9,13 @@ import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, existsSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 
-const SELF_VERSION = JSON.parse(
-  readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "package.json"), "utf8"),
-).version;
-
-// Companion pins travel with this package's release; bump together (docs/PUSH.md §5).
+// Floating @latest specs: a registered config must never decay into a stale
+// pin (that is what rotted the 192.168.10.191 fresh-machine deploy). `hr setup`
+// prints the concrete resolved versions right after install for auditability.
 const PLUGINS = {
-  server: [`opencode-hr-agent@${SELF_VERSION}`, "opencode-fastdraw@1.1.1"],
-  tui: ["opencode-fastdraw@1.1.1"],
+  server: ["opencode-hr-agent@latest", "opencode-fastdraw@latest"],
+  tui: ["opencode-fastdraw@latest"],
 };
 
 function configDir() {
@@ -124,7 +121,7 @@ function install() {
   console.log(
     touched
       ? "\nRestart opencode, then expect hr_* + fastdraw_* tools (and /fastdraw in the TUI).\nUninstall with: opencode-hr uninstall"
-      : "\nNothing to change — both files already declare the pinned plugins.",
+      : "\nNothing to change — both files already declare the @latest plugins.",
   );
   return 0;
 }
