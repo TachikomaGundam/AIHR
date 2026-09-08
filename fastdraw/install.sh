@@ -224,9 +224,15 @@ NODE
     rc=$?
   fi
   case "$out" in
-    ok:created)  ok "created $file with FastDraw registered" ;;
+    ok:created)
+      ok "created $file with FastDraw registered"
+      printf 'CREATED=%s\n' "$file" >> "$PKG_DIR/.install-manifest"
+      ;;
     ok:exists)   ok "$file already registers FastDraw" ;;
-    ok:backup:*) ok "registered in $file (backup: ${out#ok:backup: })" ;;
+    ok:backup:*)
+      ok "registered in $file (backup: ${out#ok:backup: })"
+      printf 'BACKUP=%s\n' "${out#ok:backup: }" >> "$PKG_DIR/.install-manifest"
+      ;;
     fail:*)
       warn "could not auto-edit $file — add this to its \"plugin\" array manually:"
       warn "  \"$entry\""
