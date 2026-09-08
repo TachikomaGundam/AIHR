@@ -7,15 +7,20 @@
  * push API to build on). This module owns the back-chain instead: every
  * screen may register an optional `back` re-render closure, and ONE
  * app-level keymap layer (registered lazily, exactly once) binds ESC at a
- * priority above the host dialog layer. The binding's `when` gate is true
- * only while a back target exists AND the dialog is actually open, so:
+ * priority above the host dialog layer. The gate lives INSIDE the cmd return
+ * value: @opentui/keymap has no `when` binding field (RESERVED_BINDING_FIELDS
+ * is key/cmd/event/preventDefault/fallthrough — anything else is silently
+ * dropped), and only a literal `false` return marks the dispatch "rejected"
+ * so the event falls through to lower layers. The gate is open only while a
+ * back target exists AND the dialog is actually open, so:
  *
  *   nested screen               → ESC re-renders the parent (consumed);
- *   root / terminal screen      → gate closed → the host's own ESC binding
- *                                 runs → the dialog closes once, unchanged;
+ *   root / terminal screen      → cmd returns false → rejected → the host's
+ *                                 own ESC binding runs → dialog closes;
  *   dialog closed behind our
- *   back (ctrl+c, backdrop)     → isOpen() false → gate closed → no stray
- *                                 swallow, no zombie re-show later.
+ *   back (ctrl+c, backdrop)     → isOpen() false → cmd returns false → ESC
+ *                                 behaves natively everywhere else, no
+ *                                 machine-wide swallow, no zombie re-show.
  *
  * Everything is injected (replace/clear/setSize/registerLayer/isOpen), so
  * node:test drives it headless with fakes — this module imports nothing.
@@ -62,16 +67,16 @@ export function createNavigator(host: NavigatorHost): Navigator {
     layerRegistered = true
     try {
       host.registerLayer({
-        name: "fastdraw.back",
-        namespace: "fastdraw",
         priority: host.priority ?? 100,
         bindings: [
           {
             key: "escape",
-            when: gateOpen,
             cmd: () => {
               const go = back
-              if (go !== undefined && gateOpen()) go()
+              // false = rejected: dispatcher falls through to the host's
+              // native ESC layer (root close / plain-terminal ESC).
+              if (go === undefined || !gateOpen()) return false
+              go()
             },
           },
         ],
