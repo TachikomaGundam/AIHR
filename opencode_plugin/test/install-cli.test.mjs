@@ -11,13 +11,9 @@ import test from "node:test";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLI = path.join(HERE, "..", "install-cli.js");
-const SELF = JSON.parse(readFileSync(path.join(HERE, "..", "package.json"), "utf8")).version;
-const FASTDRAW = JSON.parse(
-  readFileSync(path.join(HERE, "..", "..", "fastdraw", "package.json"), "utf8"),
-).version;
 
-const SERVER_SPECS = [`opencode-hr-agent@${SELF}`, `opencode-fastdraw@${FASTDRAW}`];
-const TUI_SPECS = [`opencode-fastdraw@${FASTDRAW}`];
+const SERVER_SPECS = ["opencode-hr-agent@latest", "opencode-fastdraw@latest"];
+const TUI_SPECS = ["opencode-fastdraw@latest"];
 
 function hr(args, dir) {
   try {
@@ -34,7 +30,7 @@ function hr(args, dir) {
 const freshDir = () => mkdtempSync(path.join(tmpdir(), "opencode-hr-test-"));
 const read = (dir, file) => JSON.parse(readFileSync(path.join(dir, file), "utf8"));
 
-test("install registers both configs with pinned specs", () => {
+test("install registers both configs with @latest specs", () => {
   const dir = freshDir();
   try {
     const { rc, out } = hr(["install"], dir);
@@ -60,7 +56,7 @@ test("install is idempotent and says so", () => {
   }
 });
 
-test("install preserves unrelated keys and foreign plugins, upgrades own pins", () => {
+test("install preserves unrelated keys and foreign plugins, upgrades own specs", () => {
   const dir = freshDir();
   try {
     mkdirSync(dir, { recursive: true });
@@ -184,7 +180,7 @@ test("hardening: array-spec entries keep their options; version upgraded in plac
     );
     hr(["install"], dir);
     const cfg = read(dir, "opencode.json");
-    assert.deepEqual(cfg.plugin[0], [`opencode-hr-agent@${SELF}`, { apiKey: "keepme" }]);
+    assert.deepEqual(cfg.plugin[0], ["opencode-hr-agent@latest", { apiKey: "keepme" }]);
     const again = hr(["install"], dir);
     assert.match(again.out, /already registered/, "options-entry counts as registered");
   } finally {
