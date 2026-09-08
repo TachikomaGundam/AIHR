@@ -13,6 +13,7 @@ import fs from "node:fs/promises"
 import { homedir } from "node:os"
 import path from "node:path"
 import { OMO_ROLES, OVERRIDABLE } from "./roles.js"
+import { createNavigator, type Navigator } from "./navigator.js"
 import {
   readOmoConfig,
   writeOmoModels,
@@ -303,7 +304,12 @@ function flowError(ui: Ui, err: unknown) {
 }
 
 /** Flow: pick agent → pick model → persist → return to the agent list. */
-async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[]) {
+async function assignFlow(
+  ui: Ui,
+  nav: Navigator,
+  toMenu: () => void,
+  allModels: { id: string; provider: string }[],
+) {
   if (!allModels.length) {
     toast(ui, "FastDraw: No models configured", "warning")
     return
@@ -361,64 +367,66 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
         category: kindLabel(name),
       }))
 
-    ui.dialog.setSize("large")
-    ui.dialog.replace(() =>
-      ui.DialogSelect<string>({
-        title: "FastDraw — Select Agent",
-        options: agentOpts,
-        current: focusName,
-        onSelect: async (opt: any) => {
-          if (!opt) return
-          const agentName = opt.value
-          const current = currentModel(agentName) ?? ""
+    nav.screen(
+      () =>
+        ui.DialogSelect<string>({
+          title: "FastDraw — Select Agent",
+          options: agentOpts,
+          current: focusName,
+          onSelect: async (opt: any) => {
+            if (!opt) return
+            const agentName = opt.value
+            const current = currentModel(agentName) ?? ""
 
-          ui.dialog.clear()
-          ui.dialog.replace(() =>
-            ui.DialogSelect<string>({
-              title: `FastDraw — Model for ${agentName}`,
-              options: allModels.map((m) => ({
-                title: m.id,
-                value: m.id,
-                category: m.provider,
-              })),
-              current: current || undefined,
-              onSelect: async (modelOpt: any) => {
-                if (!modelOpt) return
-                ui.dialog.clear()
-                try {
-                  if (omoRouted(agentName)) {
-                    const err = await omoAssignToFile(omoCfg, agentName, modelOpt.value)
-                    if (err) {
-                      toast(ui, `FastDraw: ${agentName} → ${modelOpt.value} FAILED — ${err}`, "error")
-                    } else {
-                      toast(
-                        ui,
-                        `${agentName} → ${modelOpt.value} — bound in ${omoCfg.file}, takes effect on next start`,
-                        "success",
-                      )
-                      if (omoCfg.shadowFiles.length) {
-                        toast(
-                          ui,
-                          `⚠ Project OMO config shadows this file: ${omoCfg.shadowFiles.join(", ")}`,
-                          "warning",
-                        )
+            nav.screen(
+              () =>
+                ui.DialogSelect<string>({
+                  title: `FastDraw — Model for ${agentName}`,
+                  options: allModels.map((m) => ({
+                    title: m.id,
+                    value: m.id,
+                    category: m.provider,
+                  })),
+                  current: current || undefined,
+                  onSelect: async (modelOpt: any) => {
+                    if (!modelOpt) return
+                    nav.clear()
+                    try {
+                      if (omoRouted(agentName)) {
+                        const err = await omoAssignToFile(omoCfg, agentName, modelOpt.value)
+                        if (err) {
+                          toast(ui, `FastDraw: ${agentName} → ${modelOpt.value} FAILED — ${err}`, "error")
+                        } else {
+                          toast(
+                            ui,
+                            `${agentName} → ${modelOpt.value} — bound in ${omoCfg.file}, takes effect on next start`,
+                            "success",
+                          )
+                          if (omoCfg.shadowFiles.length) {
+                            toast(
+                              ui,
+                              `⚠ Project OMO config shadows this file: ${omoCfg.shadowFiles.join(", ")}`,
+                              "warning",
+                            )
+                          }
+                        }
+                      } else {
+                        const next = await loadState()
+                        next.agents[agentName] = modelOpt.value
+                        await saveState(next)
+                        toast(ui, `${agentName} → ${modelOpt.value} (applies on restart)`, "success")
                       }
+                    } catch (e) {
+                      flowError(ui, e)
                     }
-                  } else {
-                    const next = await loadState()
-                    next.agents[agentName] = modelOpt.value
-                    await saveState(next)
-                    toast(ui, `${agentName} → ${modelOpt.value} (applies on restart)`, "success")
-                  }
-                } catch (e) {
-                  flowError(ui, e)
-                }
-                await showAgentList(agentName)
-              },
-            }),
-          )
-        },
-      }),
+                    await showAgentList(agentName)
+                  },
+                }),
+              { size: "large", back: () => showAgentList(agentName) },
+            )
+          },
+        }),
+      { size: "large", back: toMenu },
     )
   }
 
@@ -426,132 +434,154 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
 }
 
 /** Flow: prompt name → prompt description → save current assignments. */
-function savePresetFlow(ui: Ui) {
-  ui.dialog.setSize("medium")
-  ui.dialog.replace(() =>
-    ui.DialogPrompt({
-      title: "FastDraw — Save Preset: name",
-      placeholder: "e.g. coding-heavy",
-      onCancel: () => ui.dialog.clear(),
-      onConfirm: (name: string) => {
-        const trimmed = name.trim()
-        if (!trimmed) {
-          toast(ui, "FastDraw: preset name cannot be empty", "warning")
-          return
-        }
-        ui.dialog.clear()
-        ui.dialog.replace(() =>
-          ui.DialogPrompt({
-            title: `FastDraw — Save Preset "${trimmed}": description (optional)`,
-            placeholder: "What is this preset for?",
-            onCancel: () => ui.dialog.clear(),
-            onConfirm: async (description: string) => {
-              ui.dialog.clear()
-              try {
-                const state = await loadState()
-                const omoCfg = await readOmoConfig()
-                const ctx: HarvestCtx = {
-                  home: homedir(),
-                  configDir: CONFIG_DIR,
-                  cwd: process.cwd(),
-                  env: process.env as HarvestEnv,
-                }
-                const h = await harvest(ctx)
-                const snapshot: Record<string, Binding> = { ...h.agents }
-                if (omoCfg.exists && omoCfg.parseable) {
-                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
-                  for (const [name, t] of Object.entries(omoCfg.targets)) {
-                    if (t.model) {
-                      snapshot[name] = { model: t.model, origin: port ? { layer: "omo", file: port } : undefined }
-                    }
-                  }
-                }
-                for (const [name, model] of Object.entries(state.agents)) {
-                  snapshot[name] = {
-                    model,
-                    origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
-                  }
-                }
-                for (const [name, rec] of Object.entries(state.omo ?? {})) {
-                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
-                  snapshot[name] = {
-                    model: rec.model,
-                    origin: omoCfg.file ? (port ? { layer: "omo", file: port } : undefined) : { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
-                  }
-                }
-                if (!Object.keys(snapshot).length) {
-                  toast(ui, "FastDraw: no assignments to save — assign models first", "warning")
-                  return
-                }
-                const store = await loadPresets()
-                store.presets[trimmed] = {
-                  schemaVersion: SCHEMA_VERSION,
-                  description: description.trim() || undefined,
-                  createdAt: new Date().toISOString(),
-                  ...splitBindings(snapshot),
-                }
-                await savePresets(store)
-                toast(
-                  ui,
-                  `Preset "${trimmed}" saved (${Object.keys(presetAgents(store.presets[trimmed])).length} agents)`,
-                  "success",
-                )
-                if (h.conflicts.length) {
-                  const report = formatConflictReport(h.conflicts)
-                  ui.dialog.replace(() =>
-                    ui.DialogPrompt({
-                      title: "FastDraw — config conflicts detected",
-                      placeholder: "Press Enter to dismiss",
-                      value: "",
-                      onCancel: () => ui.dialog.clear(),
-                      onConfirm: () => ui.dialog.clear(),
-                    }),
-                  )
-                  toast(ui, `Saved with conflicts:\n${report}`, "warning")
-                }
-              } catch (e) {
-                flowError(ui, e)
+function savePresetFlow(ui: Ui, nav: Navigator, toMenu: () => void) {
+  const showName = (initial?: string) =>
+    nav.screen(
+      () =>
+        ui.DialogPrompt({
+          title: "FastDraw — Save Preset: name",
+          placeholder: "e.g. coding-heavy",
+          ...(initial ? { value: initial } : {}),
+          onCancel: () => nav.clear(),
+          onConfirm: (name: string) => {
+            const trimmed = name.trim()
+            if (!trimmed) {
+              toast(ui, "FastDraw: preset name cannot be empty", "warning")
+              return
+            }
+            showDesc(trimmed)
+          },
+        }),
+      { size: "medium", back: toMenu },
+    )
+
+  const showDesc = (trimmed: string) =>
+    nav.screen(
+      () =>
+        ui.DialogPrompt({
+          title: `FastDraw — Save Preset "${trimmed}": description (optional)`,
+          placeholder: "What is this preset for?",
+          onCancel: () => nav.clear(),
+          onConfirm: async (description: string) => {
+            nav.clear()
+            try {
+              const state = await loadState()
+              const omoCfg = await readOmoConfig()
+              const ctx: HarvestCtx = {
+                home: homedir(),
+                configDir: CONFIG_DIR,
+                cwd: process.cwd(),
+                env: process.env as HarvestEnv,
               }
-            },
-          }),
-        )
-      },
-    }),
-  )
+              const h = await harvest(ctx)
+              const snapshot: Record<string, Binding> = { ...h.agents }
+              if (omoCfg.exists && omoCfg.parseable) {
+                const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+                for (const [name, t] of Object.entries(omoCfg.targets)) {
+                  if (t.model) {
+                    snapshot[name] = { model: t.model, origin: port ? { layer: "omo", file: port } : undefined }
+                  }
+                }
+              }
+              for (const [name, model] of Object.entries(state.agents)) {
+                snapshot[name] = {
+                  model,
+                  origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
+                }
+              }
+              for (const [name, rec] of Object.entries(state.omo ?? {})) {
+                const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+                snapshot[name] = {
+                  model: rec.model,
+                  origin: omoCfg.file ? (port ? { layer: "omo", file: port } : undefined) : { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
+                }
+              }
+              if (!Object.keys(snapshot).length) {
+                toast(ui, "FastDraw: no assignments to save — assign models first", "warning")
+                return
+              }
+              const store = await loadPresets()
+              store.presets[trimmed] = {
+                schemaVersion: SCHEMA_VERSION,
+                description: description.trim() || undefined,
+                createdAt: new Date().toISOString(),
+                ...splitBindings(snapshot),
+              }
+              await savePresets(store)
+              toast(
+                ui,
+                `Preset "${trimmed}" saved (${Object.keys(presetAgents(store.presets[trimmed])).length} agents)`,
+                "success",
+              )
+              if (h.conflicts.length) showConflict()
+            } catch (e) {
+              flowError(ui, e)
+            }
+          },
+        }),
+      { size: "medium", back: () => showName(trimmed) },
+    )
+
+  // Terminal report — no parent to return to; dismiss or ESC closes.
+  const showConflict = () =>
+    nav.screen(
+      () =>
+        ui.DialogPrompt({
+          title: "FastDraw — config conflicts detected",
+          placeholder: "Press Enter to dismiss",
+          value: "",
+          onCancel: () => nav.clear(),
+          onConfirm: () => nav.clear(),
+        }),
+      { size: "medium" },
+    )
+
+  showName()
 }
 
-/** Pick a preset, then run `action` with (name, preset). */
-async function pickPreset(ui: Ui, title: string, action: (name: string, p: Preset) => void) {
+/** Pick a preset, then run `action` with (name, preset). `back` = ESC target. */
+async function pickPreset(
+  ui: Ui,
+  nav: Navigator,
+  title: string,
+  action: (name: string, p: Preset) => void,
+  back?: () => void,
+) {
   const store = await loadPresets()
   const names = Object.keys(store.presets).sort()
   if (!names.length) {
     toast(ui, "FastDraw: no presets saved yet", "warning")
     return
   }
-  ui.dialog.setSize("large")
-  ui.dialog.replace(() =>
-    ui.DialogSelect<string>({
-      title,
-      options: names.map((n) => {
-        const p = store.presets[n]
-        return {
-          title: n,
-          value: n,
-          description:
-            `${Object.keys(presetAgents(p)).length} agents` + (p.description ? ` — ${p.description}` : ""),
-        }
+  nav.screen(
+    () =>
+      ui.DialogSelect<string>({
+        title,
+        options: names.map((n) => {
+          const p = store.presets[n]
+          return {
+            title: n,
+            value: n,
+            description:
+              `${Object.keys(presetAgents(p)).length} agents` + (p.description ? ` — ${p.description}` : ""),
+          }
+        }),
+        onSelect: (opt: any) => {
+          if (!opt) return
+          action(opt.value, store.presets[opt.value])
+        },
       }),
-      onSelect: (opt: any) => {
-        if (!opt) return
-        action(opt.value, store.presets[opt.value])
-      },
-    }),
+    { size: "large", back },
   )
 }
 
+const BROWSE_EXIT = "__back__"
+
 /** Browse directories, pick an existing file, or create a new one.
- *  Returns the chosen path, or null when cancelled. */
-async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> {
+ *  Returns the chosen path; null when cancelled or ESC'd out of the picker
+ *  (ESC from any screen inside here unwinds exactly one step: prompt → its
+ *  directory listing, listing → leave picker back to the caller). */
+async function pickTargetFile(ui: Ui, nav: Navigator, startDir: string): Promise<string | null> {
   let dir = startDir
   for (;;) {
     let entries: { name: string; isDir: boolean }[] = []
@@ -580,32 +610,34 @@ async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> 
     }
     opts.push({ title: "＋ Create new file…", value: "__new__", description: "type a filename" })
     const choice = await new Promise<string | null>((resolve) => {
-      ui.dialog.setSize("large")
-      ui.dialog.replace(() =>
-        ui.DialogSelect<string>({
-          title: `FastDraw — pick config file (${dir})`,
-          options: opts,
-          onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(null)),
-        }),
+      nav.screen(
+        () =>
+          ui.DialogSelect<string>({
+            title: `FastDraw — pick config file (${dir})`,
+            options: opts,
+            onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(BROWSE_EXIT)),
+          }),
+        { size: "large", back: () => resolve(BROWSE_EXIT) },
       )
     })
-    if (choice === null) return null
+    if (choice === BROWSE_EXIT || choice === null) return null
     if (choice === "__new__") {
       const name = await new Promise<string | null>((resolve) => {
-        ui.dialog.setSize("medium")
-        ui.dialog.replace(() =>
-          ui.DialogPrompt({
-            title: `FastDraw — new file in ${dir}`,
-            placeholder: "opencode.jsonc",
-            onCancel: () => resolve(null),
-            onConfirm: (input: string) => {
-              const trimmed = input.trim()
-              resolve(trimmed ? path.join(dir, trimmed) : null)
-            },
-          }),
+        nav.screen(
+          () =>
+            ui.DialogPrompt({
+              title: `FastDraw — new file in ${dir}`,
+              placeholder: "opencode.jsonc",
+              onCancel: () => resolve(null),
+              onConfirm: (input: string) => {
+                const trimmed = input.trim()
+                resolve(trimmed ? path.join(dir, trimmed) : null)
+              },
+            }),
+          { size: "medium", back: () => resolve(null) },
         )
       })
-      if (!name) continue
+      if (name === null) continue // cancel/ESC: back to this directory listing
       return name
     }
     if (choice.startsWith("d:")) {
@@ -617,10 +649,14 @@ async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> 
 }
 
 /** Flow: pick preset → restore mode → (optionally pick a target file) →
- *  confirm with write plan → apply live + persist with backup. */
-function loadPresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Load Preset", async (name, p) => {
-    ui.dialog.clear()
+ *  confirm with write plan → apply live + persist with backup.
+ *  Mode/browse are a loop so ESC unwinds one level at a time (confirm →
+ *  mode select → preset list → menu), each level a fresh await. */
+function loadPresetFlow(ui: Ui, nav: Navigator, toMenu: () => void) {
+  const start = () => pickPreset(ui, nav, "FastDraw — Load Preset", onPick, toMenu)
+
+  async function onPick(name: string, p: Preset) {
+    nav.clear()
     try {
       // Custom roles only apply when the agent exists on this machine
       // (agents dir, or an OMO target — builtin or user-defined). Missing
@@ -657,305 +693,341 @@ function loadPresetFlow(ui: Ui) {
       for (const [n, b] of Object.entries(presentBindings)) {
         if (!(n in omoSide)) cfgSideBindings[n] = b
       }
-      const mode = await new Promise<RestoreMode | null>((resolve) => {
-        ui.dialog.setSize("small")
-        ui.dialog.replace(() =>
-          ui.DialogSelect<RestoreMode>({
-            title: `FastDraw — restore preset "${name}" where?`,
-            options: [
-              {
-                title: "Global config",
-                value: "global",
-                description: "all bindings → ~/.config/opencode config file",
+
+      const showMode = () =>
+        new Promise<RestoreMode | null>((resolve) => {
+          nav.screen(
+            () =>
+              ui.DialogSelect<RestoreMode>({
+                title: `FastDraw — restore preset "${name}" where?`,
+                options: [
+                  {
+                    title: "Global config",
+                    value: "global",
+                    description: "all bindings → ~/.config/opencode config file",
+                  },
+                  {
+                    title: "Original locations",
+                    value: "original",
+                    description: "each binding back to the file it was recorded from",
+                  },
+                  { title: "Choose a file…", value: "path", description: "pick or create a config file" },
+                ],
+                onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(null)),
+              }),
+            {
+              size: "small",
+              back: () => {
+                resolve(null)
+                start()
               },
-              {
-                title: "Original locations",
-                value: "original",
-                description: "each binding back to the file it was recorded from",
-              },
-              { title: "Choose a file…", value: "path", description: "pick or create a config file" },
-            ],
-            onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(null)),
-          }),
-        )
-      })
-      if (mode === null) return
+            },
+          )
+        })
+
       const ctx: HarvestCtx = {
         home: homedir(),
         configDir: CONFIG_DIR,
         cwd: process.cwd(),
         env: process.env as HarvestEnv,
       }
-      let targetPath: string | undefined
-      if (mode === "path") {
-        targetPath = (await pickTargetFile(ui, CONFIG_DIR)) ?? undefined
-        if (!targetPath) return
+      for (;;) {
+        const mode = await showMode()
+        if (mode === null) return // ESC'd back to the list; start() re-shows it
+        let targetPath: string | undefined
+        if (mode === "path") {
+          const picked = await pickTargetFile(ui, nav, CONFIG_DIR)
+          if (!picked) continue // cancel/exit browse → back to mode select
+          targetPath = picked
+        }
+        const plan = await planRestore(cfgSideBindings, mode, ctx, targetPath)
+        const planLines = plan.files.map(
+          (f) => `  ${f.file}${f.create ? " (new file)" : ""} → ${Object.keys(f.entries).length} binding(s)`,
+        )
+        const fallbackBlock = plan.fallback.length
+          ? `\n⚠ ${plan.fallback.length} role(s) have no resolvable origin on this machine and would land in the global config: ${plan.fallback.join(", ")}.`
+          : ""
+        const skippedBlock = skipped.length
+          ? `\nSkipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.`
+          : ""
+        const omoBlock = Object.keys(omoSide).length
+          ? `\nOMO config bindings (${omoCfg.file}):\n${presetPreview(omoSide)}\n`
+          : ""
+        const modeLabel = mode === "path" ? `path → ${targetPath}` : mode
+        // Terminal confirm: ESC = abort-and-close (destructive gate stays
+        // one deliberate Enter away; no back target).
+        nav.screen(
+          () =>
+            ui.DialogConfirm({
+              title: `Load preset "${name}"? (mode: ${modeLabel})`,
+              message:
+                `${presetPreview(applyAgents)}\n\n` +
+                `This replaces ALL current assignments. Agents not listed revert to defaults.\n\n` +
+                `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}${omoBlock}\n\n` +
+                `Existing files are backed up as <file>.bak-<timestamp> before writing.`,
+              onCancel: () => nav.clear(),
+              onConfirm: async () => {
+                nav.clear()
+                try {
+                  const state = await loadState()
+                  const omoWrite: Record<string, ModelEntrySpec> = { ...omoSide }
+                  const omoReverted: string[] = []
+                  for (const [n, rec] of Object.entries(state.omo ?? {})) {
+                    if (n in omoSide) continue
+                    const upd = omoRevertSpec(omoTargetKind(omoCfg, n), rec)
+                    if (upd) omoWrite[n] = upd
+                    omoReverted.push(n)
+                  }
+                  let omoRes: OmoWriteResult | null = null
+                  if (Object.keys(omoWrite).length || omoReverted.length) {
+                    if (Object.keys(omoWrite).length) {
+                      omoRes = await writeOmoModels(omoWrite)
+                      if (!omoRes.written) {
+                        toast(ui, `Load aborted — OMO config write failed: ${omoRes.error}`, "error")
+                        return
+                      }
+                    }
+                    for (const [n, m] of Object.entries(omoSide)) {
+                      state.omo ??= {}
+                      state.omo[n] = {
+                        model: m,
+                        original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
+                        original_models:
+                          state.omo[n]?.original_models ?? omoCfg.targets[n]?.models ?? null,
+                      }
+                    }
+                    for (const n of omoReverted) delete state.omo![n]
+                  }
+                  await saveState({
+                    agents: cfgApplyAgents,
+                    ...(Object.keys(state.omo ?? {}).length ? { omo: state.omo } : {}),
+                  })
+                  const outcomes = await restoreWrite(plan)
+                  const failed = outcomes.filter((o) => o.error)
+                  if (failed.length) {
+                    toast(ui, `Restore failed for ${failed.length} file(s) — backups kept`, "warning")
+                  }
+                  toast(
+                    ui,
+                    `Preset "${name}" loaded${omoRes ? ` (OMO config: ${omoRes.file})` : ""} — restart to apply`,
+                    "success",
+                  )
+                  if (omoCfg.shadowFiles.length) {
+                    toast(
+                      ui,
+                      `⚠ Project OMO config shadows the user file: ${omoCfg.shadowFiles.join(", ")}`,
+                      "warning",
+                    )
+                  }
+                  if (plan.fallback.length) {
+                    toast(
+                      ui,
+                      `${plan.fallback.length} role(s) had no origin → written to the global config: ${plan.fallback.join(", ")}`,
+                      "warning",
+                    )
+                  }
+                  if (skipped.length) {
+                    toast(
+                      ui,
+                      `Skipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.`,
+                      "warning",
+                    )
+                  }
+                } catch (e) {
+                  flowError(ui, e)
+                }
+              },
+            }),
+          { size: "large" },
+        )
+        break
       }
-      const plan = await planRestore(cfgSideBindings, mode, ctx, targetPath)
-      const planLines = plan.files.map(
-        (f) => `  ${f.file}${f.create ? " (new file)" : ""} → ${Object.keys(f.entries).length} binding(s)`,
-      )
-      const fallbackBlock = plan.fallback.length
-        ? `\n⚠ ${plan.fallback.length} role(s) have no resolvable origin on this machine and would land in the global config: ${plan.fallback.join(", ")}.`
-        : ""
-      const skippedBlock = skipped.length
-        ? `\nSkipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.`
-        : ""
-      const omoBlock = Object.keys(omoSide).length
-        ? `\nOMO config bindings (${omoCfg.file}):\n${presetPreview(omoSide)}\n`
-        : ""
-      const modeLabel =
-        mode === "path" ? `path → ${targetPath}` : mode
-      ui.dialog.setSize("large")
-      ui.dialog.replace(() =>
-        ui.DialogConfirm({
-          title: `Load preset "${name}"? (mode: ${modeLabel})`,
-          message:
-            `${presetPreview(applyAgents)}\n\n` +
-            `This replaces ALL current assignments. Agents not listed revert to defaults.\n\n` +
-            `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}${omoBlock}\n\n` +
-            `Existing files are backed up as <file>.bak-<timestamp> before writing.`,
-          onCancel: () => ui.dialog.clear(),
-          onConfirm: async () => {
-            ui.dialog.clear()
-            try {
-              const state = await loadState()
-              const omoWrite: Record<string, ModelEntrySpec> = { ...omoSide }
-              const omoReverted: string[] = []
-              for (const [n, rec] of Object.entries(state.omo ?? {})) {
-                if (n in omoSide) continue
-                const upd = omoRevertSpec(omoTargetKind(omoCfg, n), rec)
-                if (upd) omoWrite[n] = upd
-                omoReverted.push(n)
+    } catch (e) {
+      flowError(ui, e)
+    }
+  }
+
+  start().catch((e) => flowError(ui, e))
+}
+
+/** Flow: prompt path → import preset(s). */
+function importPresetFlow(ui: Ui, nav: Navigator, toMenu: () => void) {
+  nav.screen(
+    () =>
+      ui.DialogPrompt({
+        title: "FastDraw — Import Preset: file path",
+        placeholder: "~/preset.json or ./preset.json",
+        onCancel: () => nav.clear(),
+        onConfirm: async (input: string) => {
+          nav.clear()
+          const file = expandPath(input.trim())
+          try {
+            const raw = JSON.parse(await fs.readFile(file, "utf-8"))
+            const parsed = parseImport(raw)
+            const store = await loadPresets()
+            if (parsed.kind === "bulk") {
+              for (const [n, p] of Object.entries(parsed.presets)) {
+                store.presets[n] = p
               }
-              let omoRes: OmoWriteResult | null = null
-              if (Object.keys(omoWrite).length || omoReverted.length) {
-                if (Object.keys(omoWrite).length) {
-                  omoRes = await writeOmoModels(omoWrite)
-                  if (!omoRes.written) {
-                    toast(ui, `Load aborted — OMO config write failed: ${omoRes.error}`, "error")
-                    return
-                  }
-                }
-                for (const [n, m] of Object.entries(omoSide)) {
-                  state.omo ??= {}
-                  state.omo[n] = {
-                    model: m,
-                    original: state.omo[n]?.original ?? omoCfg.targets[n]?.model ?? null,
-                    original_models:
-                      state.omo[n]?.original_models ?? omoCfg.targets[n]?.models ?? null,
-                  }
-                }
-                for (const n of omoReverted) delete state.omo![n]
-              }
-              await saveState({
-                agents: cfgApplyAgents,
-                ...(Object.keys(state.omo ?? {}).length ? { omo: state.omo } : {}),
-              })
-              const outcomes = await restoreWrite(plan)
-              const failed = outcomes.filter((o) => o.error)
-              if (failed.length) {
-                toast(ui, `Restore failed for ${failed.length} file(s) — backups kept`, "warning")
-              }
+              await savePresets(store)
               toast(
                 ui,
-                `Preset "${name}" loaded${omoRes ? ` (OMO config: ${omoRes.file})` : ""} — restart to apply`,
+                `Imported ${Object.keys(parsed.presets).length} presets: ${Object.keys(parsed.presets).sort().join(", ")}`,
                 "success",
               )
-              if (omoCfg.shadowFiles.length) {
-                toast(
-                  ui,
-                  `⚠ Project OMO config shadows the user file: ${omoCfg.shadowFiles.join(", ")}`,
-                  "warning",
-                )
+            } else {
+              const name =
+                parsed.name ?? path.basename(file, ".json").replace(/^fastdraw-preset-/, "")
+              store.presets[name] = {
+                schemaVersion: SCHEMA_VERSION,
+                description: parsed.description,
+                createdAt: new Date().toISOString(),
+                omo: parsed.omo,
+                custom: parsed.custom,
               }
-              if (plan.fallback.length) {
-                toast(
-                  ui,
-                  `${plan.fallback.length} role(s) had no origin → written to the global config: ${plan.fallback.join(", ")}`,
-                  "warning",
-                )
+              await savePresets(store)
+              toast(
+                ui,
+                `Preset "${name}" imported (${Object.keys(presetAgents(store.presets[name])).length} agents)`,
+                "success",
+              )
+            }
+          } catch (e) {
+            flowError(ui, e)
+          }
+        },
+      }),
+    { size: "medium", back: toMenu },
+  )
+}
+
+/** Flow: pick preset → prompt output path → write file. */
+function exportPresetFlow(ui: Ui, nav: Navigator, toMenu: () => void) {
+  const start = () => pickPreset(ui, nav, "FastDraw — Export Preset", onPick, toMenu)
+  function onPick(name: string, p: Preset) {
+    nav.clear()
+    nav.screen(
+      () =>
+        ui.DialogPrompt({
+          title: `FastDraw — Export "${name}" to file`,
+          value: `fastdraw-preset-${name}.json`,
+          onCancel: () => nav.clear(),
+          onConfirm: async (input: string) => {
+            nav.clear()
+            const out = expandPath(input.trim() || `fastdraw-preset-${name}.json`)
+            try {
+              const payload = {
+                fastdraw: 1,
+                schemaVersion: SCHEMA_VERSION,
+                name,
+                description: p.description,
+                exportedAt: new Date().toISOString(),
+                omo: p.omo,
+                custom: p.custom,
               }
-              if (skipped.length) {
-                toast(
-                  ui,
-                  `Skipped ${skipped.length} custom role${skipped.length === 1 ? "" : "s"} not present on this machine: ${skipped.join(", ")}.`,
-                  "warning",
-                )
-              }
+              await fs.mkdir(path.dirname(out), { recursive: true })
+              await fs.writeFile(out, JSON.stringify(payload, null, 2))
+              toast(ui, `Preset "${name}" exported → ${out}`, "success")
             } catch (e) {
               flowError(ui, e)
             }
           },
         }),
-      )
-    } catch (e) {
-      flowError(ui, e)
-    }
-  }).catch((e) => flowError(ui, e))
-}
-
-/** Flow: prompt path → import preset(s). */
-function importPresetFlow(ui: Ui) {
-  ui.dialog.setSize("medium")
-  ui.dialog.replace(() =>
-    ui.DialogPrompt({
-      title: "FastDraw — Import Preset: file path",
-      placeholder: "~/preset.json or ./preset.json",
-      onCancel: () => ui.dialog.clear(),
-      onConfirm: async (input: string) => {
-        ui.dialog.clear()
-        const file = expandPath(input.trim())
-        try {
-          const raw = JSON.parse(await fs.readFile(file, "utf-8"))
-          const parsed = parseImport(raw)
-          const store = await loadPresets()
-          if (parsed.kind === "bulk") {
-            for (const [n, p] of Object.entries(parsed.presets)) {
-              store.presets[n] = p
-            }
-            await savePresets(store)
-            toast(
-              ui,
-              `Imported ${Object.keys(parsed.presets).length} presets: ${Object.keys(parsed.presets).sort().join(", ")}`,
-              "success",
-            )
-          } else {
-            const name =
-              parsed.name ?? path.basename(file, ".json").replace(/^fastdraw-preset-/, "")
-            store.presets[name] = {
-              schemaVersion: SCHEMA_VERSION,
-              description: parsed.description,
-              createdAt: new Date().toISOString(),
-              omo: parsed.omo,
-              custom: parsed.custom,
-            }
-            await savePresets(store)
-            toast(
-              ui,
-              `Preset "${name}" imported (${Object.keys(presetAgents(store.presets[name])).length} agents)`,
-              "success",
-            )
-          }
-        } catch (e) {
-          flowError(ui, e)
-        }
-      },
-    }),
-  )
-}
-
-/** Flow: pick preset → prompt output path → write file. */
-function exportPresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Export Preset", (name, p) => {
-    ui.dialog.clear()
-    ui.dialog.replace(() =>
-      ui.DialogPrompt({
-        title: `FastDraw — Export "${name}" to file`,
-        value: `fastdraw-preset-${name}.json`,
-        onCancel: () => ui.dialog.clear(),
-        onConfirm: async (input: string) => {
-          ui.dialog.clear()
-          const out = expandPath(input.trim() || `fastdraw-preset-${name}.json`)
-          try {
-            const payload = {
-              fastdraw: 1,
-              schemaVersion: SCHEMA_VERSION,
-              name,
-              description: p.description,
-              exportedAt: new Date().toISOString(),
-              omo: p.omo,
-              custom: p.custom,
-            }
-            await fs.mkdir(path.dirname(out), { recursive: true })
-            await fs.writeFile(out, JSON.stringify(payload, null, 2))
-            toast(ui, `Preset "${name}" exported → ${out}`, "success")
-          } catch (e) {
-            flowError(ui, e)
-          }
-        },
-      }),
+      { size: "medium", back: start },
     )
-  }).catch((e) => flowError(ui, e))
+  }
+  start().catch((e) => flowError(ui, e))
 }
 
 /** Flow: pick preset → confirm → delete. */
-function deletePresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Delete Preset", (name, p) => {
-    ui.dialog.clear()
-    ui.dialog.replace(() =>
-      ui.DialogConfirm({
-        title: `Delete preset "${name}"?`,
-        message: `${Object.keys(presetAgents(p)).length} agent bindings will be removed from the preset store.\nCurrent assignments are NOT affected.`,
-        onCancel: () => ui.dialog.clear(),
-        onConfirm: async () => {
-          ui.dialog.clear()
-          try {
-            const store = await loadPresets()
-            delete store.presets[name]
-            await savePresets(store)
-            toast(ui, `Preset "${name}" deleted`, "success")
-          } catch (e) {
-            flowError(ui, e)
-          }
-        },
-      }),
+function deletePresetFlow(ui: Ui, nav: Navigator, toMenu: () => void) {
+  const start = () => pickPreset(ui, nav, "FastDraw — Delete Preset", onPick, toMenu)
+  function onPick(name: string, p: Preset) {
+    nav.clear()
+    // Terminal confirm: ESC = abort-and-close.
+    nav.screen(
+      () =>
+        ui.DialogConfirm({
+          title: `Delete preset "${name}"?`,
+          message: `${Object.keys(presetAgents(p)).length} agent bindings will be removed from the preset store.\nCurrent assignments are NOT affected.`,
+          onCancel: () => nav.clear(),
+          onConfirm: async () => {
+            nav.clear()
+            try {
+              const store = await loadPresets()
+              delete store.presets[name]
+              await savePresets(store)
+              toast(ui, `Preset "${name}" deleted`, "success")
+            } catch (e) {
+              flowError(ui, e)
+            }
+          },
+        }),
+      { size: "medium" },
     )
-  }).catch((e) => flowError(ui, e))
+  }
+  start().catch((e) => flowError(ui, e))
 }
 
-/* ── Main Menu ────────────────────────────────────────────────────── */
+/* ── Main Menu ───────────────────────────────────────────────────── */
 
 type MenuAction = "assign" | "save" | "load" | "import" | "export" | "delete"
 
 function buildDialogHandler(
   api: any,
+  nav: Navigator,
   allModels: { id: string; provider: string }[],
 ): (_dialog?: TuiDialogStack) => Promise<void> {
   const ui = api.ui
   return async (_dialog?: TuiDialogStack) => {
-    try {
-      ui.dialog.setSize("medium")
-      ui.dialog.replace(() =>
-        ui.DialogSelect<MenuAction>({
-          title: "FastDraw — Model Assignments & Presets",
-          options: [
-            { title: "Assign Model", value: "assign" as const, description: "Bind a model to an agent" },
-            { title: "Save Current as Preset", value: "save" as const, description: "Snapshot all current assignments" },
-            { title: "Load Preset", value: "load" as const, description: "Preview bindings, then apply" },
-            { title: "Import Preset from File", value: "import" as const, description: "Load preset(s) from a JSON file" },
-            { title: "Export Preset to File", value: "export" as const, description: "Share a preset as JSON" },
-            { title: "Delete Preset", value: "delete" as const, description: "Remove a saved preset" },
-          ],
-          onSelect: (opt: any) => {
-            if (!opt) return
-            ui.dialog.clear()
-            switch (opt.value as MenuAction) {
-              case "assign":
-                assignFlow(ui, allModels).catch((e) => flowError(ui, e))
-                break
-              case "save":
-                savePresetFlow(ui)
-                break
-              case "load":
-                loadPresetFlow(ui)
-                break
-              case "import":
-                importPresetFlow(ui)
-                break
-              case "export":
-                exportPresetFlow(ui)
-                break
-              case "delete":
-                deletePresetFlow(ui)
-                break
-            }
-          },
-        }),
-      )
-    } catch (err) {
-      flowError(api.ui, err)
+    const showMenu = () => {
+      try {
+        // Root screen: no back — ESC falls through to the host and closes
+        // the dialog (native behavior preserved).
+        nav.screen(
+          () =>
+            ui.DialogSelect<MenuAction>({
+              title: "FastDraw — Model Assignments & Presets",
+              options: [
+                { title: "Assign Model", value: "assign" as const, description: "Bind a model to an agent" },
+                { title: "Save Current as Preset", value: "save" as const, description: "Snapshot all current assignments" },
+                { title: "Load Preset", value: "load" as const, description: "Preview bindings, then apply" },
+                { title: "Import Preset from File", value: "import" as const, description: "Load preset(s) from a JSON file" },
+                { title: "Export Preset to File", value: "export" as const, description: "Share a preset as JSON" },
+                { title: "Delete Preset", value: "delete" as const, description: "Remove a saved preset" },
+              ],
+              onSelect: (opt: any) => {
+                if (!opt) return
+                nav.clear()
+                switch (opt.value as MenuAction) {
+                  case "assign":
+                    assignFlow(ui, nav, showMenu, allModels).catch((e) => flowError(ui, e))
+                    break
+                  case "save":
+                    savePresetFlow(ui, nav, showMenu)
+                    break
+                  case "load":
+                    loadPresetFlow(ui, nav, showMenu)
+                    break
+                  case "import":
+                    importPresetFlow(ui, nav, showMenu)
+                    break
+                  case "export":
+                    exportPresetFlow(ui, nav, showMenu)
+                    break
+                  case "delete":
+                    deletePresetFlow(ui, nav, showMenu)
+                    break
+                }
+              },
+            }),
+          { size: "medium" },
+        )
+      } catch (err) {
+        flowError(api.ui, err)
+      }
     }
+    showMenu()
   }
 }
 
@@ -963,7 +1035,19 @@ function buildDialogHandler(
 
 const tui: TuiPlugin = async function fastdrawTui(api) {
   const allModels = buildModelList(api)
-  const openFastDraw = buildDialogHandler(api, allModels)
+  // Every dialog touch goes through the navigator; its ESC layer returns
+  // one level per press (navigator.ts). Legacy hosts without keymap get the
+  // old behavior instead of a crash.
+  const nav = createNavigator({
+    replace: (render, onClose) => api.ui.dialog.replace(render as () => any, onClose),
+    clear: () => api.ui.dialog.clear(),
+    setSize: (size) => api.ui.dialog.setSize(size as "medium" | "large" | "xlarge"),
+    registerLayer: (api as any).keymap?.registerLayer
+      ? (layer) => (api as any).keymap.registerLayer(layer)
+      : undefined,
+    isOpen: () => api.ui.dialog.open === true,
+  })
+  const openFastDraw = buildDialogHandler(api, nav, allModels)
 
   /* Modern API: keymap.registerLayer */
   const keymap = (api as any).keymap
