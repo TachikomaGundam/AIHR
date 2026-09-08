@@ -67,6 +67,8 @@ hr setup
 
 `hr setup` 先用 npm 以 `@latest` 全局安装插件对，再把注册工作交给 `opencode-hr-agent` 自带的 `opencode-hr` 命令行。它从不需要提权（npm 全局目录不可写时会指向下面的用户级 prefix 方案；带注释的配置文件绝不改写，而是打印需要你粘贴的确切行），重复运行安全，`opencode-hr status` 可查看注册状态。npm 安装完成后它会跑 `npm ls -g` 打印 `@latest` 实际解析到的具体版本，让每次安装事后可审计。重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
 
+`hr` 命令本身装在 pip 的 scripts 目录里，而 Windows（`…\Scripts`）与 macOS user-site 安装（`~/Library/Python/<版本>/bin`）默认都不在 PATH 里——`pip install aihr` 成功之后直接敲 `hr` 会找不到命令。`hr setup` 会检测到这一点并持久化一条仅用户作用域的 PATH 记录：Windows 写 `HKCU\Environment`，其余系统在你已有的 shell rc 文件里加一段带醒目标记的块。绝不提权、绝不碰系统级，也可用 `hr setup --no-path` 跳过。要清掉 setup 添加的一切——配置注册、npm 全局包、opencode 的插件缓存副本、skill/agent 配置副本以及那条 PATH 记录——运行 `hr setup --uninstall`，最后再 `pip uninstall aihr`；若存在 git 方式的 FastDraw 安装布局，由它自带的 `fastdraw/uninstall.sh` 负责清除。
+
 手动注册（回退方案——例如 PATH 上没有 npm，或你偏好纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都声明插件：
 
 ```jsonc
