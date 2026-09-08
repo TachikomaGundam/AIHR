@@ -171,10 +171,10 @@ maintainer's call):
    entry (`opencode-hr`) must resolve: `npm i -g ./<tgz> --prefix /tmp/x && /tmp/x/bin/opencode-hr status`.
 3. Manifest asserts via `node -e`: `dependencies` is empty AND no lifecycle
    scripts exist except `test` (pretest, posttest and prepare are FORBIDDEN);
-   version triple in sync — `opencode_plugin/package.json` ==
-   `hr/cli_setup.py` PLUGIN_PINS == README pins, and the fastdraw pins in
-   `hr/cli_setup.py` + `install-cli.js` == `fastdraw/package.json` (CI enforces
-   via tests/test_plugin_setup.py + opencode_plugin/test/install-cli.test.mjs).
+   plugin specs float at `@latest` in `hr/cli_setup.py` and
+   `install-cli.js` — there are NO version pins to keep in sync anymore (CI
+   enforces the @latest specs via tests/test_plugin_setup.py +
+   opencode_plugin/test/install-cli.test.mjs).
 4. Publish execution is RESERVED to the human maintainer: agents prepare, never publish.
 5. Tag decision (user-side): this repo has NO version->tag convention; the
    existing `v0.2.1` tag points to an engine-only release, not to this
@@ -192,13 +192,13 @@ hr --help                                # expect all 24 commands
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.2/aihr-0.2.2-py3-none-any.whl"
 npm view opencode-hr-agent               # expect 0.2.2
 npm view opencode-fastdraw               # expect 1.1.1
-# One-shot plugin bootstrap (installs the pinned pair via npm AND registers
+# One-shot plugin bootstrap (installs the pair at @latest via npm AND registers
 # both opencode config files):
 hr setup
 hr setup --no-npm                        # re-run registration only; expect already-registered OK
 # Fallback (config-only, no npm): add to ~/.config/opencode/opencode.json
-# "plugin": "opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1" and to
-# ~/.config/opencode/tui.json "plugin": "opencode-fastdraw@1.1.1" — a bare
+# "plugin": "opencode-hr-agent@latest", "opencode-fastdraw@latest" and to
+# ~/.config/opencode/tui.json "plugin": "opencode-fastdraw@latest" — a bare
 # `npm install -g` alone is NEVER visible to opencode (prefix not scanned).
 # Restart opencode; expect hr_* + fastdraw_* agent tools, /fastdraw + <leader>m in TUI.
 # (Machine-readable discovery-contract proof recipe: see docs/PLUGIN_SECURITY.md notes
