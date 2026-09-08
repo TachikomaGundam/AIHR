@@ -1,25 +1,24 @@
 """Unit tests for hr.cli_setup — the ``hr setup`` plugin bootstrap.
 
 The subprocess runner is injected everywhere, so nothing touches npm, the
-network, or the real user config. Pins drift-guard runs against the actual
-package.json files in this checkout (CI) — its whole point.
+network, or the real user config.
 """
 
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from hr.cli_setup import (
-    PLUGIN_PINS,
     CommandResult,
-    check_pins_against_repo,
     plugin_specs,
     run_setup,
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 _OK = CommandResult(0, "", "")
 
 
@@ -47,20 +46,33 @@ def _registrar_runner(tmp_path: Path, extra: dict | None = None) -> FakeRunner:
     return FakeRunner(results)
 
 
-def test_plugin_specs_pinned() -> None:
-    assert plugin_specs() == ["opencode-hr-agent@0.2.2", "opencode-fastdraw@1.1.1"]
+def test_plugin_specs_float_at_latest() -> None:
+    assert plugin_specs() == [
+        "npm", "install", "-g", "--include-workspace-root", "false",
+        "opencode-hr-agent@latest", "opencode-fastdraw@latest",
+    ]
+    # non-npm package managers must not receive the npm-only flag
+    assert plugin_specs("pnpm") == [
+        "pnpm", "install", "-g", "opencode-hr-agent@latest", "opencode-fastdraw@latest",
+    ]
 
 
-def test_pins_match_repo_package_jsons() -> None:
-    assert check_pins_against_repo(REPO_ROOT) == []
-
-
-def test_drift_guard_detects_mismatch(tmp_path: Path) -> None:
-    pkg = tmp_path / "opencode_plugin"
-    pkg.mkdir()
-    (pkg / "package.json").write_text('{"version": "9.9.9"}')
-    problems = check_pins_against_repo(tmp_path)
-    assert problems == [f"opencode-hr-agent: pinned {PLUGIN_PINS['opencode-hr-agent']} != package.json 9.9.9"]
+def test_workspace_flag_survives_real_npm(tmp_path: Path) -> None:
+    """Integration guard (regression for the npm-11 no-lockfile workspace
+    default): real npm must accept the argv AND must not sweep a root
+    package.json in the CWD into a -g install."""
+    npm = shutil.which("npm")
+    if npm is None:
+        pytest.skip("npm not on PATH")
+    (tmp_path / "package.json").write_text(
+        json.dumps({"name": "hostile-root-probe", "version": "9.9.9"})
+    )
+    proc = subprocess.run(
+        plugin_specs(npm) + ["--dry-run"],
+        cwd=tmp_path, capture_output=True, text=True, timeout=300,
+    )
+    assert proc.returncode == 0, proc.stderr[-800:]
+    assert "hostile-root-probe" not in proc.stdout + proc.stderr
 
 
 def test_happy_path_sequence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -68,12 +80,33 @@ def test_happy_path_sequence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ca
     runner = _registrar_runner(tmp_path)
     assert run_setup(runner=runner) == 0
     joined = [" ".join(c) for c in runner.calls]
-    assert joined[0] == "npm install -g opencode-hr-agent@0.2.2 opencode-fastdraw@1.1.1"
-    assert joined[1] == "npm prefix -g"
-    assert joined[2].endswith("bin/opencode-hr install")
-    assert joined[3].endswith("bin/opencode-hr status")
+    assert joined[0] == "npm install -g --include-workspace-root false opencode-hr-agent@latest opencode-fastdraw@latest"
+    assert joined[1] == "npm ls -g --depth=0 opencode-hr-agent opencode-fastdraw"
+    assert joined[2] == "npm prefix -g"
+    assert joined[3].endswith("bin/opencode-hr install")
+    assert joined[4].endswith("bin/opencode-hr status")
     out = capsys.readouterr().out
     assert "done" in out and "Restart opencode" in out
+
+
+def test_resolved_versions_are_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/npm" if name == "npm" else None)
+    npm_ls = CommandResult(
+        0,
+        "/home/u/.npm-global\n├── opencode-hr-agent@0.2.3\n└── opencode-fastdraw@1.1.2\n",
+        "",
+    )
+    runner = _registrar_runner(tmp_path, {("npm", "ls"): npm_ls})
+    assert run_setup(runner=runner) == 0
+    out = capsys.readouterr().out
+    assert "resolved: opencode-hr-agent@0.2.3" in out
+    assert "resolved: opencode-fastdraw@1.1.2" in out
+
+
+def test_resolved_version_report_never_fails_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/npm" if name == "npm" else None)
+    runner = _registrar_runner(tmp_path, {("npm", "ls"): CommandResult(1, "", "npm ERR!")})
+    assert run_setup(runner=runner) == 0  # reporting is informational only
 
 
 def test_no_npm_skips_install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
