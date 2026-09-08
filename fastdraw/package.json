@@ -22,6 +22,7 @@
     "origins.ts",
     "omo.ts",
     "install.sh",
+    "uninstall.sh",
     "README.md",
     "LICENSE"
   ],
