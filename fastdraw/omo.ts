@@ -35,6 +35,7 @@ import {
   toPortablePath,
   type ModelEntrySpec,
 } from "./origins.js"
+import { OMO_BUILTINS } from "./roles.js"
 
 /** Static fallback when the OMO config file is absent (OMO 4.19 builtins). */
 export const OMO_STATIC_CATEGORIES = [
@@ -48,13 +49,21 @@ export const OMO_STATIC_CATEGORIES = [
   "writing",
 ] as const
 
-/** On a machine without any user OMO config, category names would not be
- *  recognized and would be mis-routed into opencode's `cfg.agent` as PHANTOM
- *  roles. Seeding the OMO builtin categories as known targets makes the first
- *  category bind create `[opencode].categories.<cat>` in a fresh omo.jsonc. */
-function staticCategoryTargets(): Record<string, OmoTarget> {
+/** OMO's builtin agent roles (single source of truth: roles.ts). They are
+ *  fleet-defined in OMO's own config, exactly like the builtin categories. */
+export const OMO_STATIC_AGENTS: readonly string[] = OMO_BUILTINS
+
+/** On a machine without any user OMO config, builtin agent and category
+ *  names would not be recognized and would be mis-routed into opencode's
+ *  `cfg.agent` as PHANTOM roles (production incident 2026-09-07: a preset
+ *  load on a fresh target wrote all 11 builtin bindings into
+ *  opencode.jsonc). Seeding every OMO builtin as a known target makes the
+ *  first bind of any of them create `[opencode].agents|categories.<name>`
+ *  in a fresh omo.jsonc instead. */
+function staticTargets(): Record<string, OmoTarget> {
   const out: Record<string, OmoTarget> = {}
   for (const c of OMO_STATIC_CATEGORIES) out[c] = { kind: "category", model: null, models: null }
+  for (const a of OMO_STATIC_AGENTS) out[a] = { kind: "agent", model: null, models: null }
   return out
 }
 
@@ -223,7 +232,7 @@ export async function readOmoConfig(
   if (!file) {
     return {
       ...empty,
-      targets: staticCategoryTargets(),
+      targets: staticTargets(),
       shadowFiles: await findShadowFiles(cwd, file),
     }
   }
@@ -236,13 +245,17 @@ export async function readOmoConfig(
     return { ...empty, parseable: false }
   }
   const root = asRecord(cfg)
-  const targets: Record<string, OmoTarget> = {}
+  // Builtins stay known even when the user file omits them; file entries
+  // always override the seed (empty model means "unbound" in the seed).
+  const targets: Record<string, OmoTarget> = staticTargets()
+  const fromFile: Record<string, OmoTarget> = {}
   if (root) {
     // Top-level base keys first, then the [opencode] host block wins.
-    foldSection(targets, root)
+    foldSection(fromFile, root)
     const block = asRecord(root["[opencode]"])
-    if (block) foldSection(targets, { agents: block.agents, categories: block.categories })
+    if (block) foldSection(fromFile, { agents: block.agents, categories: block.categories })
   }
+  Object.assign(targets, fromFile)
   return {
     file,
     exists: true,

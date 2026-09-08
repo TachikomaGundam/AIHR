@@ -623,9 +623,12 @@ function loadPresetFlow(ui: Ui) {
     ui.dialog.clear()
     try {
       // Custom roles only apply when the agent exists on this machine
-      // (agents dir). Missing ones are skipped with a warning — a preset
-      // from another machine never fails.
+      // (agents dir, or an OMO target — builtin or user-defined). Missing
+      // ones are skipped with a warning — a preset from another machine
+      // never fails.
+      const omoCfg = await readOmoConfig()
       const present = new Set<string>(await readCustomAgentNames())
+      for (const n of Object.keys(omoCfg.targets)) present.add(n)
       const skipped: string[] = []
       const applyAgents: Record<string, string> = {}
       const flat = presetAgents(p)
@@ -640,7 +643,6 @@ function loadPresetFlow(ui: Ui) {
       }
       // OMO-routed names bind in the OMO config file — never into opencode
       // config layers (that creates phantom roles). Split before planning.
-      const omoCfg = await readOmoConfig()
       const omoRouted = (n: string): boolean =>
         omoCfg.parseable && isOmoName(omoCfg, n)
       const omoSide: Record<string, string> = {}
