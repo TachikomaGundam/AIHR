@@ -25,6 +25,7 @@ const {
   omoTargetKind,
   omoPortableFile,
   OMO_STATIC_CATEGORIES,
+  OMO_STATIC_AGENTS,
 } = omo
 
 let pass = 0
@@ -218,15 +219,21 @@ const OMO_FIXTURE = `{
   assert.equal(prec.targets.dup.kind, "agent", "agent kind wins on name collision")
   assert.equal(prec.targets.dup.model, "prov/block-agent", "[opencode] block beats base keys")
 
-  // missing file entirely: builtin categories are seeded as unbound targets
-  // (so category routing works on a fresh machine), nothing else leaks in
+  // missing file entirely: builtin categories AND agents are seeded as
+  // unbound targets (routing works on a fresh machine), nothing else leaks in
   await fs.rm(OMO_FILE)
   const none = await readOmoConfig({ HOME: path.join(TMP, "nohome") }, HOME)
   assert.equal(none.exists, false)
   assert.equal(none.file, null)
   assert.deepEqual(none.targets.deep, { kind: "category", model: null, models: null })
-  assert.equal(Object.keys(none.targets).length, OMO_STATIC_CATEGORIES.length)
+  assert.deepEqual(none.targets.oracle, { kind: "agent", model: null, models: null })
+  assert.equal(
+    Object.keys(none.targets).length,
+    OMO_STATIC_CATEGORIES.length + OMO_STATIC_AGENTS.length,
+  )
   assert.ok(OMO_STATIC_CATEGORIES.every((c) => none.targets[c]?.kind === "category"))
+  assert.ok(OMO_STATIC_AGENTS.every((a) => none.targets[a]?.kind === "agent"))
+  assert.equal(none.targets["totally-made-up"], undefined, "unknown names stay unseeded")
   ok("readOmoConfig: detection order, precedence, collision, error states")
 }
 
@@ -326,15 +333,15 @@ const OMO_FIXTURE = `{
   ok("writeOmoModels: fresh-file creation lands in [opencode].agents")
 }
 
-/* 9b. fresh machine (no OMO config at all): builtin category names are
-    known targets, so a category bind creates [opencode].categories —
-    never the agents section (phantom-role trap of the pre-1.1 wiring) */
+/* 9b. fresh machine (no OMO config at all): builtin category AND agent
+    names are known targets, so binds create [opencode].categories|agents —
+    never opencode's cfg.agent (phantom-role trap, prod incident 2026-09-07) */
 {
   const freshHome = path.join(TMP, "fresh2")
   const cfgFresh = await readOmoConfig({ HOME: freshHome }, freshHome)
   assert.equal(cfgFresh.exists, false)
   assert.equal(cfgFresh.targets.deep?.kind, "category", "builtin category seeded without a file")
-  assert.equal(cfgFresh.targets.oracle, undefined, "role names still need a real config")
+  assert.equal(cfgFresh.targets.oracle?.kind, "agent", "builtin agent seeded without a file")
 
   const res = await writeOmoModels({ deep: "prov/cat-bind" }, { HOME: freshHome }, freshHome)
   assert.equal(res.written, true, res.error)
@@ -343,6 +350,16 @@ const OMO_FIXTURE = `{
   assert.equal(j["[opencode]"].categories.deep.models, undefined, "created entry has no dominant array — model is authoritative")
   assert.equal(j["[opencode]"].agents, undefined, "no agents skeleton written")
   ok("writeOmoModels: fresh-machine category bind routes to categories, not phantom agents")
+
+  // fresh-machine AGENT bind: routes into [opencode].agents of a created
+  // omo.jsonc — never into the opencode config layer
+  const agFresh = path.join(TMP, "fresh3")
+  const agRes = await writeOmoModels({ sisyphus: "prov/sisy-bind" }, { HOME: agFresh }, agFresh)
+  assert.equal(agRes.written, true, agRes.error)
+  const agJ = await parse(path.join(agFresh, ".omo", "omo.jsonc"))
+  assert.equal(agJ["[opencode]"].agents.sisyphus.model, "prov/sisy-bind")
+  assert.equal(agJ.agent, undefined, "opencode-shaped top-level agent key never written")
+  ok("writeOmoModels: fresh-machine agent bind creates [opencode].agents")
 }
 
 /* 10. writeOmoModels failure semantics: unparseable file refuses to write;
