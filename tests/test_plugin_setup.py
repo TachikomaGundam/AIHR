@@ -91,9 +91,12 @@ def test_happy_path_sequence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, ca
 
 def test_resolved_versions_are_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/npm" if name == "npm" else None)
+    # npm-ls stdout is parsed for name@ver only; derive the prefix from
+    # tmp_path because check (b) of the universality gate bans literal
+    # home-directory paths in tracked files.
     npm_ls = CommandResult(
         0,
-        "/home/u/.npm-global\n├── opencode-hr-agent@0.2.3\n└── opencode-fastdraw@1.1.2\n",
+        f"{tmp_path}/.npm-global\n├── opencode-hr-agent@0.2.3\n└── opencode-fastdraw@1.1.2\n",
         "",
     )
     runner = _registrar_runner(tmp_path, {("npm", "ls"): npm_ls})
