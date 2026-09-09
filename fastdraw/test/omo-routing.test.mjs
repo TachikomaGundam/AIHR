@@ -79,11 +79,16 @@ const freshServer = async () => {
   const rCat = await t.fastdraw_assign.execute({ agent: "deep", model: "prov/new-deep" })
   assert.match(rCat, /bound in OMO config/)
   const omo = await parse(OMO_FILE)
-  assert.equal(omo["[opencode]"].categories.deep.model, "prov/new-deep", "category bound in categories")
+  assert.equal(
+    omo["[opencode]"].categories.deep.model,
+    undefined,
+    "superseded legacy scalar dropped from the category entry",
+  )
+  assert.equal(omo["[opencode]"].categories.deep.description, "d", "siblings survive canonicalization")
   assert.deepEqual(
     omo["[opencode]"].categories.deep.models,
     ["prov/new-deep"],
-    "dominant models[] normalized so models[0] cannot shadow the new binding",
+    "chain head swapped, tail replaced at seat 0 — models[0] always answers with the new binding",
   )
   assert.equal(omo["[opencode]"].agents.deep, undefined, "category did NOT become a new agent")
 
@@ -117,17 +122,17 @@ const freshServer = async () => {
   ok("fastdraw_remove reverts OMO roles to their pre-fastdraw model")
 }
 
-/* 4b. remove reverts a CATEGORY exactly: original model AND the pre-
-   fastdraw dominant models[] array come back verbatim */
+/* 4b. remove reverts a CATEGORY exactly: the pre-fastdraw models[] chain
+   comes back verbatim (the superseded scalar does NOT) */
 {
   const { t } = await freshServer()
   const before = (await parse(OMO_FILE))["[opencode]"].categories.deep
-  assert.deepEqual(before.models, ["prov/new-deep"], "still normalized from the test-2 assign")
+  assert.deepEqual(before.models, ["prov/new-deep"], "still the canonical chain from the test-2 assign")
   const r = await t.fastdraw_remove.execute({ agent: "deep" })
-  assert.match(r, /reverted to prov\/deep-orig/)
+  assert.match(r, /reverted to prov\/m1/, "revert reports the effective pre-fastdraw primary")
   const omo = (await parse(OMO_FILE))["[opencode]"].categories.deep
-  assert.equal(omo.model, "prov/deep-orig")
-  assert.deepEqual(omo.models, ["prov/m1"], "dominant models[] restored to pre-fastdraw content")
+  assert.equal(omo.model, undefined, "revert keeps the entry canonical — no scalar keys")
+  assert.deepEqual(omo.models, ["prov/m1"], "pre-fastdraw chain restored verbatim")
   const st = JSON.parse(await fs.readFile(STATE, "utf-8"))
   assert.equal(st.omo.deep, undefined, "category record dropped after revert")
   ok("fastdraw_remove restores the category's pre-fastdraw models[] array exactly")
@@ -162,7 +167,8 @@ const freshServer = async () => {
   assert.match(r, /OMO config .*:/, "OMO write reported")
   const omo = await parse(OMO_FILE)
   assert.equal(omo["[opencode]"].agents.oracle.model, "prov/preset-oracle")
-  assert.equal(omo["[opencode]"].categories.deep.model, "prov/preset-deep")
+  assert.equal(omo["[opencode]"].categories.deep.model, undefined)
+  assert.deepEqual(omo["[opencode]"].categories.deep.models, ["prov/preset-deep"])
   const global = await parse(path.join(CONFIG_DIR, "opencode.jsonc"))
   assert.equal(global.agent["pcb-router"].model, "prov/preset-pcb")
   assert.equal(global.agent.oracle, undefined, "OMO role never written into opencode config")

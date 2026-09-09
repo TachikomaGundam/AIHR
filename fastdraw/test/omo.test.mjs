@@ -24,6 +24,7 @@ const {
   isOmoName,
   omoTargetKind,
   omoPortableFile,
+  verifyWritten,
   OMO_STATIC_CATEGORIES,
   OMO_STATIC_AGENTS,
 } = omo
@@ -182,7 +183,12 @@ const OMO_FIXTURE = `{
   assert.equal(cfg.targets.sisyphus.model, "prov/old-sisy")
   assert.equal(cfg.targets.legacy.model, "prov/bare", "bare-string entry parsed")
   assert.equal(cfg.targets.deep.kind, "category")
-  assert.equal(cfg.targets.deep.model, "prov/old-deep")
+  assert.equal(cfg.targets.deep.model, "prov/keep1", "category primary = models[0]; scalar ignored at runtime")
+  assert.equal(cfg.targets.deep.legacyScalar, "prov/old-deep")
+  assert.equal(cfg.targets.deep.legacyFallbacks, undefined)
+  assert.deepEqual(cfg.targets.deep.models, ["prov/keep1", { model: "prov/keep2" }])
+  assert.equal(cfg.targets.quick.model, "prov/old-quick", "scalar-only category: scalar answers alone")
+  assert.equal(cfg.targets.quick.legacyScalar, "prov/old-quick")
   assert.equal(cfg.targets.team_mode, undefined, "non-agent/category sections ignored")
   assert.equal(isOmoName(cfg, "quick"), true)
   assert.equal(omoTargetKind(cfg, "deep"), "category")
@@ -268,35 +274,43 @@ const OMO_FIXTURE = `{
   const j = await parse(OMO_FILE)
   assert.equal(j["[opencode]"].agents.sisyphus.model, "prov/new-sisy")
   assert.equal(j["[opencode]"].agents["circuit-engineer"].model, "prov/ce", "unknown → agents")
-  assert.equal(j["[opencode]"].categories.deep.model, "prov/new-deep", "category → categories")
   assert.deepEqual(
     j["[opencode]"].categories.deep.models,
-    ["prov/new-deep"],
-    "category models[] normalized to [model] (models[0] dominates at runtime)",
+    ["prov/new-deep", { model: "prov/keep2" }],
+    "chain tail preserved, primary swapped",
   )
+  assert.equal(
+    j["[opencode]"].categories.deep.model,
+    undefined,
+    "superseded legacy scalar dropped from the category entry",
+  )
+  assert.equal(j["[opencode]"].categories.deep.description, "autonomous", "category siblings survive")
+  assert.deepEqual(j["[opencode]"].categories.deep.thinking, { type: "enabled", budgetTokens: 8192 })
   ok("writeOmoModels: routes by kind, backs up, preserves comments and siblings")
 }
 
-/* 8b. category rebind normalizes the DOMINANT models[] — a stale array is
-    the 2026-09 production bug: OMO delegate-task uses models[0], ignores
-    `model`. Explicit spec.models (revert path) restores the array verbatim. */
+/* 8b. category rebind CANONICALIZES the chain: the tail survives, only the
+    primary is swapped, superseded scalar keys vanish. Explicit spec.models
+    (revert path) restores the array verbatim. */
 {
   await w(OMO_FILE, OMO_FIXTURE)
-  const res = await writeOmoModels({ deep: "prov/rebind" }, { HOME }, HOME)
+  const res = await writeOmoModels(
+    { deep: "prov/rebind", quick: "prov/quick-new" },
+    { HOME },
+    HOME,
+  )
   assert.equal(res.written, true, res.error)
   let j = await parse(OMO_FILE)
-  assert.deepEqual(j["[opencode]"].categories.deep.models, ["prov/rebind"])
+  assert.deepEqual(j["[opencode]"].categories.deep.models, ["prov/rebind", { model: "prov/keep2" }])
+  assert.equal(j["[opencode]"].categories.deep.model, undefined, "no legacy scalar left")
+  assert.equal(j["[opencode]"].categories.deep.fallback_models, undefined)
   assert.deepEqual(
-    j["[opencode]"].categories.deep.fallback_models ?? null,
-    null,
-    "unrelated sibling fields of categories untouched",
-  )
-  assert.equal(j["[opencode]"].categories.quick.model, "prov/old-quick", "untouched category intact")
-  assert.equal(
     j["[opencode]"].categories.quick.models,
-    undefined,
-    "category without models[] gains none",
+    ["prov/quick-new"],
+    "scalar-only legacy category folds to the canonical chain",
   )
+  assert.equal(j["[opencode]"].categories.quick.model, undefined, "superseded scalar removed")
+  assert.equal(j["[opencode]"].agents.oracle.model, "prov/old-oracle", "untouched agents intact")
 
   const restore = await writeOmoModels(
     { deep: { model: "prov/keep1", models: ["prov/keep1", { model: "prov/keep2" }] } },
@@ -305,20 +319,128 @@ const OMO_FIXTURE = `{
   )
   assert.equal(restore.written, true, restore.error)
   j = await parse(OMO_FILE)
-  assert.equal(j["[opencode]"].categories.deep.model, "prov/keep1")
   assert.deepEqual(j["[opencode]"].categories.deep.models, ["prov/keep1", { model: "prov/keep2" }])
+  assert.equal(
+    j["[opencode]"].categories.deep.model,
+    undefined,
+    "revert keeps the entry canonical — no scalar keys",
+  )
 
-  // agent entries are NOT normalized (no dominant-array semantics)
+  // agent entries are NOT canonicalized (runtime reads only .model)
   await w(OMO_FILE, OMO_FIXTURE)
   const ag = await writeOmoModels({ sisyphus: "prov/agent-new" }, { HOME }, HOME)
   assert.equal(ag.written, true, ag.error)
   j = await parse(OMO_FILE)
+  assert.equal(j["[opencode]"].agents.sisyphus.model, "prov/agent-new")
   assert.deepEqual(
     j["[opencode]"].agents.sisyphus.fallback_models,
     ["prov/fb1", "prov/fb2"],
     "agent fallback_models untouched",
   )
-  ok("writeOmoModels: category models[] normalized; explicit spec.models restores verbatim; agents untouched")
+  assert.equal(
+    j["[opencode]"].agents.sisyphus.models,
+    undefined,
+    "no models chain invented for agents",
+  )
+  assert.match(await rd(OMO_FILE), /\/\/ trailing note/, "agent inner comment survives fast path")
+  ok("writeOmoModels: category chain canonicalized; spec.models verbatim; agents scalar-only")
+}
+
+/* 8c. legacy `{model, fallback_models}` category → canonical `models` chain
+   with the old fallbacks kept as tail (fold, then swap the primary). */
+{
+  await w(
+    OMO_FILE,
+    `{"[opencode]": {"categories": {"mixed": {"model": "prov/old", "fallback_models": ["prov/y"]}}}}`,
+  )
+  const res = await writeOmoModels({ mixed: "prov/M" }, { HOME }, HOME)
+  assert.equal(res.written, true, res.error)
+  const j = await parse(OMO_FILE)
+  assert.deepEqual(j["[opencode]"].categories.mixed, { models: ["prov/M", "prov/y"] })
+  ok("writeOmoModels: legacy scalar+fallback_models folds into the canonical chain")
+}
+
+/* 8d. object chain heads keep every non-model setting through a primary
+   swap; string/object tail entries are untouched. */
+{
+  await w(
+    OMO_FILE,
+    `{
+  "[opencode]": {
+    "categories": {
+      "objcat": {
+        "models": [
+          { "model": "prov/old", "thinking": { "type": "enabled" }, "temperature": 0.2 },
+          "prov/tail1",
+          { "model": "prov/tail2" }
+        ]
+      }
+    }
+  }
+}`,
+  )
+  const res = await writeOmoModels({ objcat: "prov/M" }, { HOME }, HOME)
+  assert.equal(res.written, true, res.error)
+  const j = await parse(OMO_FILE)
+  assert.deepEqual(j["[opencode]"].categories.objcat.models, [
+    { model: "prov/M", thinking: { type: "enabled" }, temperature: 0.2 },
+    "prov/tail1",
+    { model: "prov/tail2" },
+  ])
+  ok("writeOmoModels: object head keeps its settings; full tail survives")
+}
+
+/* 8e. an agent carrying BOTH .model and .models keeps both untouched fields
+   after a write (dead weight stays; only .model is swapped). */
+{
+  await w(
+    OMO_FILE,
+    `{"[opencode]": {"agents": {"both": {"model": "prov/old", "models": ["prov/x"]}}}}`,
+  )
+  const res = await writeOmoModels({ both: "prov/M" }, { HOME }, HOME)
+  assert.equal(res.written, true, res.error)
+  const j = await parse(OMO_FILE)
+  assert.deepEqual(j["[opencode]"].agents.both, { model: "prov/M", models: ["prov/x"] })
+  ok("writeOmoModels: agent write touches only .model, leaves coexisting .models alone")
+}
+
+/* 8f. post-write binding simulation: the delegate path resolves a category
+   seat as models[0].model ?? models[0]; the agent path as .model. */
+{
+  await w(OMO_FILE, OMO_FIXTURE)
+  const res = await writeOmoModels(
+    { deep: "prov/M-deep", quick: "prov/M-quick", oracle: "prov/M-oracle" },
+    { HOME },
+    HOME,
+  )
+  assert.equal(res.written, true, res.error)
+  const j = await parse(OMO_FILE)
+  const delegate = (name) => {
+    const head = j["[opencode]"].categories[name].models[0]
+    return typeof head === "string" ? head : head.model
+  }
+  assert.equal(delegate("deep"), "prov/M-deep", "delegate seat for object-tail chain")
+  assert.equal(delegate("quick"), "prov/M-quick", "delegate seat for folded legacy chain")
+  assert.equal(j["[opencode]"].agents.oracle.model, "prov/M-oracle", "agent seat reads .model")
+  ok("writeOmoModels: runtime seats resolve to the requested models")
+}
+
+/* 8g. verifyWritten rejects a residual legacy scalar next to the chain and
+   accepts the canonical models-only shape. */
+{
+  const dirty = `{"[opencode]": {"categories": {"deep": {"models": ["prov/M"], "model": "prov/stale"}}}}`
+  assert.throws(
+    () => verifyWritten(dirty, { agents: {}, categories: { deep: ["prov/M"] } }),
+    /legacy model\/fallback_models keys/,
+  )
+  const staleTail = `{"[opencode]": {"categories": {"deep": {"models": ["prov/other"]}}}}`
+  assert.throws(
+    () => verifyWritten(staleTail, { agents: {}, categories: { deep: ["prov/M"] } }),
+    /models != /,
+  )
+  const clean = `{"[opencode]": {"categories": {"deep": {"models": ["prov/M"]}}}}`
+  verifyWritten(clean, { agents: {}, categories: { deep: ["prov/M"] } })
+  ok("verifyWritten: canonical chain required, residual scalar rejected")
 }
 
 /* 9. writeOmoModels: creates a missing file with only the needed skeleton */
@@ -346,8 +468,12 @@ const OMO_FIXTURE = `{
   const res = await writeOmoModels({ deep: "prov/cat-bind" }, { HOME: freshHome }, freshHome)
   assert.equal(res.written, true, res.error)
   const j = await parse(path.join(freshHome, ".omo", "omo.jsonc"))
-  assert.equal(j["[opencode]"].categories.deep.model, "prov/cat-bind")
-  assert.equal(j["[opencode]"].categories.deep.models, undefined, "created entry has no dominant array — model is authoritative")
+  assert.deepEqual(
+    j["[opencode]"].categories.deep.models,
+    ["prov/cat-bind"],
+    "created entry carries the canonical chain",
+  )
+  assert.equal(j["[opencode]"].categories.deep.model, undefined, "created entry has no legacy scalar")
   assert.equal(j["[opencode]"].agents, undefined, "no agents skeleton written")
   ok("writeOmoModels: fresh-machine category bind routes to categories, not phantom agents")
 
