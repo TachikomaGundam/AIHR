@@ -697,28 +697,71 @@ function specModels(spec: ModelEntrySpec): unknown[] | undefined {
   return typeof spec === "string" ? undefined : spec.models
 }
 
-/** Serialize one role entry, preserving the legacy shape (bare model
- *  string) when the pre-existing value was a string. `models` (whole-entry
- *  rewrite path): explicit array replacement, else — with
- *  `normalizeModelsArray` — collapse an existing `models[]` to `[model]` so
- *  the dominant field can never shadow the freshly written `model`. */
-function entryJson(
-  oldVal: unknown,
-  model: string,
-  models?: unknown[],
-  normalizeModelsArray?: boolean,
-): string {
+/** Model chain of a category entry: the canonical `models` array when
+ *  present, else the fold of the deprecated scalar form
+ *  `[model, ...fallback_models]`; null when the entry holds nothing usable.
+ *  OMO 4.19.4 `resolveCategoryExecution` (dist/index.js:132535) reads the
+ *  chain: `models[0]` primary, `models.slice(1)` fallbacks, scalar ignored. */
+export function categoryChainOf(entry: unknown): unknown[] | null {
+  if (typeof entry === "string") return entry ? [entry] : null
+  const r =
+    entry !== null && typeof entry === "object" && !Array.isArray(entry)
+      ? (entry as Record<string, unknown>)
+      : null
+  if (!r) return null
+  if (Array.isArray(r.models)) return r.models
+  const fb = Array.isArray(r.fallback_models) ? r.fallback_models : []
+  const chain = typeof r.model === "string" && r.model ? [r.model, ...fb] : [...fb]
+  return chain.length ? chain : null
+}
+
+/** Swap a chain's primary model: an object head keeps every non-model key
+ *  (reasoning/temperature/top_p/max_tokens/provider_options/thinking…) and
+ *  only its model string changes; bare-string heads stay bare strings. */
+export function withChainPrimary(chain: readonly unknown[], model: string): unknown[] {
+  if (chain.length === 0) return [model]
+  const head = chain[0]
+  if (head !== null && typeof head === "object" && !Array.isArray(head)) {
+    return [{ ...(head as Record<string, unknown>), model }, ...chain.slice(1)]
+  }
+  return [model, ...chain.slice(1)]
+}
+
+/** The chain a canonical category write produces for `spec`: an explicit
+ *  spec `models` array is taken verbatim (revert path); otherwise the
+ *  entry's existing chain keeps its tail and only the primary is replaced. */
+export function canonicalCategoryChain(entry: unknown, spec: ModelEntrySpec): unknown[] {
+  const explicit = specModels(spec)
+  if (Array.isArray(explicit)) return explicit
+  return withChainPrimary(categoryChainOf(entry) ?? [], specModel(spec))
+}
+
+/** Serialize one role entry (agent/legacy path), preserving the legacy shape
+ *  (bare model string) when the pre-existing value was a string. `models`
+ *  (whole-entry rewrite path): explicit array replacement only. */
+function entryJson(oldVal: unknown, model: string, models?: unknown[]): string {
   if (typeof oldVal === "string") return JSON.stringify(model)
   const base =
     oldVal && typeof oldVal === "object" && !Array.isArray(oldVal)
       ? { ...(oldVal as Record<string, unknown>) }
       : {}
-  if (models !== undefined) {
-    if ("models" in base || models.length > 0) base.models = models
-  } else if (normalizeModelsArray && Array.isArray(base.models)) {
-    base.models = [model]
-  }
+  if (models !== undefined && ("models" in base || models.length > 0)) base.models = models
   return JSON.stringify({ ...base, model }, null, 2)
+}
+
+/** Serialize one CANONICAL category entry: every sibling key of the old
+ *  object survives, the model chain lives in `models`, and the superseded
+ *  legacy `model` / `fallback_models` keys are dropped — the chain is the
+ *  runtime's single source of truth for categories (see omo.ts header). */
+function categoryEntryJson(oldVal: unknown, chain: unknown[]): string {
+  const base: Record<string, unknown> =
+    oldVal !== null && typeof oldVal === "object" && !Array.isArray(oldVal)
+      ? { ...(oldVal as Record<string, unknown>) }
+      : {}
+  delete base.model
+  delete base.fallback_models
+  base.models = chain
+  return JSON.stringify(base, null, 2)
 }
 
 const WS_RE = /[ \t\r\n]/
@@ -734,8 +777,19 @@ function insertBeforeClose(clean: string, braceIdx: number): number {
 
 const sp2 = (n: number): string => " ".repeat(n)
 
-/** One new leaf entry member: `"name": { "model": "…" }` at `indent`. */
-function entryBodyText(name: string, spec: ModelEntrySpec, indent: number): string {
+/** One new leaf entry member: `"name": { "model": "…" }` at `indent`; in
+ *  category mode the canonical models-only shape `"name": { "models": […] }`
+ *  (no legacy scalar keys). */
+function entryBodyText(
+  name: string,
+  spec: ModelEntrySpec,
+  indent: number,
+  categoryChain = false,
+): string {
+  if (categoryChain) {
+    const chain = canonicalCategoryChain(undefined, spec)
+    return `${sp2(indent)}${JSON.stringify(name)}: {\n${sp2(indent + 2)}"models": ${JSON.stringify(chain)}\n${sp2(indent)}}`
+  }
   const model = specModel(spec)
   const models = specModels(spec)
   const inner = models
@@ -745,9 +799,13 @@ function entryBodyText(name: string, spec: ModelEntrySpec, indent: number): stri
 }
 
 /** New-entries member block (no braces), newline-prefixed, comma-joined. */
-function entriesBody(updates: Record<string, ModelEntrySpec>, indent: number): string {
+function entriesBody(
+  updates: Record<string, ModelEntrySpec>,
+  indent: number,
+  categoryChain = false,
+): string {
   return Object.entries(updates)
-    .map(([name, spec]) => `\n${entryBodyText(name, spec, indent)}`)
+    .map(([name, spec]) => `\n${entryBodyText(name, spec, indent, categoryChain)}`)
     .join(",")
 }
 
@@ -755,8 +813,12 @@ function entriesBody(updates: Record<string, ModelEntrySpec>, indent: number): s
  *  entries, formatted for insertion into an existing container. Starts with
  *  a newline; single-key output matches the legacy `setAgentModelsJsonc`
  *  creation format byte for byte. */
-function chainMembersText(keys: string[], updates: Record<string, ModelEntrySpec>): string {
-  let inner = entriesBody(updates, 2 * (keys.length + 1))
+function chainMembersText(
+  keys: string[],
+  updates: Record<string, ModelEntrySpec>,
+  categoryChain = false,
+): string {
+  let inner = entriesBody(updates, 2 * (keys.length + 1), categoryChain)
   for (let i = keys.length - 1; i >= 0; i--) {
     const sp = sp2(2 * (i + 1))
     inner = `\n${sp}${JSON.stringify(keys[i])}: {${inner}\n${sp}}`
@@ -772,17 +834,20 @@ function chainMembersText(keys: string[], updates: Record<string, ModelEntrySpec
  *  absent from the container are appended. Throws when the text is not a
  *  JSON object or the result would not parse.
  *
- *  `normalizeModelsArray`: an entry's existing `"models"` array is OMO's
- *  dominant field for categories (`models[0]` beats `model` at runtime), so
- *  rebinding without touching it silently fails. When set, every updated
- *  entry whose `models` value is an array gets that array collapsed to
- *  `[model]` — unless the spec itself carries an explicit `models` array,
- *  which is written verbatim (restore path). */
+ *  `categoryChain`: OMO-category canonicalization (omo.ts header) — every
+ *  updated entry is rewritten to the canonical models-only shape: the
+ *  entry's chain (`models`, or the legacy `[model, ...fallback_models]`
+ *  fold) keeps its tail and only the primary is replaced; the superseded
+ *  `model` and `fallback_models` keys are dropped. A spec carrying an
+ *  explicit `models` array is written verbatim (restore path). Updated
+ *  entries are serialized whole, so hand-placed comments INSIDE one do not
+ *  survive (the rest of the file, comments included, does). NEVER set this
+ *  for agents: their runtime reads only `.model`. */
 export function setNestedModelsJsonc(
   text: string,
   containerKeys: string[],
   updates: Record<string, ModelEntrySpec>,
-  opts?: { normalizeModelsArray?: boolean },
+  opts?: { categoryChain?: boolean },
 ): string {
   if (!Object.keys(updates).length) return text
   const pre = stripTrailingCommas(text)
@@ -840,6 +905,15 @@ export function setNestedModelsJsonc(
         continue
       }
       const vs = valueSpan(clean, colon)
+      if (opts?.categoryChain) {
+        const oldVal: unknown = parseLenient(clean.slice(vs.s, vs.e))
+        edits.push({
+          s: vs.s,
+          e: vs.e,
+          text: categoryEntryJson(oldVal, canonicalCategoryChain(oldVal, spec)),
+        })
+        continue
+      }
       // Entry object with a model field → replace ONLY that value span so
       // inner comments survive; bare strings / objects lacking the field
       // fall back to a whole-entry rewrite.
@@ -864,8 +938,6 @@ export function setNestedModelsJsonc(
           const avs = valueSpan(clean, modelsHit.colon)
           if (Array.isArray(models)) {
             edits.push({ s: avs.s, e: avs.e, text: JSON.stringify(models) })
-          } else if (opts?.normalizeModelsArray && clean[avs.s] === "[") {
-            edits.push({ s: avs.s, e: avs.e, text: `[${JSON.stringify(model)}]` })
           }
         } else if (Array.isArray(models)) {
           const at = insertBeforeClose(clean, vs.e - 1)
@@ -877,19 +949,14 @@ export function setNestedModelsJsonc(
         edits.push({
           s: vs.s,
           e: vs.e,
-          text: entryJson(
-            oldVal,
-            model,
-            Array.isArray(models) ? models : undefined,
-            opts?.normalizeModelsArray,
-          ),
+          text: entryJson(oldVal, model, Array.isArray(models) ? models : undefined),
         })
       }
     }
     if (missing.length) {
       const hasAny = clean.slice(scope.s + 1, scope.e - 1).trim().length > 0
       const body = `${hasAny ? "," : ""}${missing
-        .map(([name, s]) => `\n${entryBodyText(name, s, 2 * entryDepth)}`)
+        .map(([name, s]) => `\n${entryBodyText(name, s, 2 * entryDepth, opts?.categoryChain === true)}`)
         .join(",")}`
       const at = insertBeforeClose(clean, scope.e - 1)
       edits.push({ s: at, e: at, text: body })
@@ -901,7 +968,9 @@ export function setNestedModelsJsonc(
     if (replaceColon >= 0) {
       const vs = valueSpan(clean, replaceColon)
       const inner =
-        rest.length > 1 ? chainMembersText(rest.slice(1), updates) : entriesBody(updates, 2)
+        rest.length > 1
+          ? chainMembersText(rest.slice(1), updates, opts?.categoryChain === true)
+          : entriesBody(updates, 2, opts?.categoryChain === true)
       edits.push({ s: vs.s, e: vs.e, text: `{${inner}\n}` })
     } else {
       const hasAny = clean.slice(scope.s + 1, scope.e - 1).trim().length > 0
@@ -909,7 +978,7 @@ export function setNestedModelsJsonc(
       edits.push({
         s: at,
         e: at,
-        text: `${hasAny ? "," : ""}${chainMembersText(rest, updates)}`,
+        text: `${hasAny ? "," : ""}${chainMembersText(rest, updates, opts?.categoryChain === true)}`,
       })
     }
   }
