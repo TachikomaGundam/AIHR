@@ -9,13 +9,20 @@
  * target for opencode-fleet bindings (profiles aside). Writing these names
  * into opencode `cfg.agent` instead just creates PHANTOM ROLES.
  *
- * CAUTION (production incident 2026-09): for CATEGORIES the `model` scalar is
- * NOT the whole truth — when the definition also carries a `models` array,
- * OMO's delegate-task resolution treats `models[0]` as the primary and
- * `models.slice(1)` as the fallback chain, ignoring `model` entirely. Binding
- * only `model` therefore silently no-ops. writeOmoModels normalizes the array
- * (`models: [model]`) on every category write and the postcondition verifies
- * the DOMINANT value, not just the scalar.
+ * CAUTION (semantics verified against oh-my-openagent 4.19.4 dist/index.js):
+ * CATEGORIES and AGENTS resolve through different fields. A category's model
+ * CHAIN is canonical — `resolveCategoryExecution` (:132535) takes `models[0]`
+ * as the primary and `models.slice(1)` as the fallback chain, IGNORING the
+ * legacy `model` scalar whenever `models` exists; `fallback_models` is
+ * deprecated there (scalar + array coexisting = drift). writeOmoModels
+ * therefore canonicalizes category writes chain-preservingly: the existing
+ * chain (or the `[model, ...fallback_models]` fold) keeps its tail, only the
+ * primary is swapped, and the superseded scalar keys are dropped — the
+ * postcondition verifies the whole chain plus the ABSENCE of those keys.
+ * Agents are the mirror image: no consumer reads agent-level `.models`
+ * (userModel registration :161170, call_omo_agent :128763, and
+ * resolveSubagentModel :132741 all read `.model` + `.fallback_models` only),
+ * so agent writes touch ONLY `.model` and never create a chain.
  *
  * File detection mirrors OMO's own order (omo.jsonc wins, omo.json fallback);
  * read and write always go through the SAME resolved file. Project-level
@@ -31,6 +38,7 @@ import {
   writeFileAtomic,
   stripJsonComments,
   setNestedModelsJsonc,
+  canonicalCategoryChain,
   specModel,
   toPortablePath,
   type ModelEntrySpec,
@@ -80,15 +88,16 @@ export interface OmoBinding {
   /** Model the OMO config held before FastDraw first touched this name;
    *  null = the name had no model there (or none was recorded). */
   original: string | null
-  /** Category `models` array as found before FastDraw's first write (the
-   *  dominant field — see module header); recorded so revert restores the
-   *  exact pre-fastdraw entry, not just its primary model. */
+  /** Category `models` chain as found before FastDraw's first write (see
+   *  module header); recorded so revert restores the exact pre-fastdraw
+   *  chain, not just its primary model. */
   original_models?: unknown[] | null
 }
 
 /** Write-spec restoring a binding's pre-fastdraw state: the original model
- *  plus, for categories, the recorded dominant `models` array so the exact
- *  entry shape comes back. Null when no original model is recorded. */
+ *  plus, for categories, the recorded `models` chain — written back verbatim
+ *  as the canonical array, legacy scalar keys dropped. Null when no original
+ *  model is recorded. */
 export function omoRevertSpec(
   kind: OmoTargetKind | null,
   rec: OmoBinding,
@@ -101,13 +110,22 @@ export function omoRevertSpec(
 
 export interface OmoTarget {
   kind: OmoTargetKind
-  /** `model` scalar as written in the config. For categories this is NOT
-   *  authoritative when `models` is non-null — OMO's delegate-task path uses
-   *  `models[0]` as the effective primary. */
+  /** EFFECTIVE primary model. Category: `models[0]` (string head or object
+   *  head's `.model`) — what OMO's delegate path actually binds — falling
+   *  back to the legacy scalar only when no chain exists. Agent: the
+   *  `.model` scalar (the only field its runtime paths read), chain head
+   *  shown for display when an entry oddly carries one. */
   model: string | null
-  /** Category `models` array when the definition carries one; null
-   *  otherwise. Non-null = this entry's `models[0]` dominates `model`. */
+  /** Raw `models` array as written in the definition; null when absent. On
+   *  agents this is DEAD WEIGHT (no consumer) — the UI flags it. */
   models: unknown[] | null
+  /** Raw `model` scalar (or bare-string entry) as written, undefined when
+   *  absent. On categories superseded by the chain — presence = drift the
+   *  next apply cleans up. */
+  legacyScalar?: string
+  /** Raw `fallback_models` array as written, undefined when absent.
+   *  Deprecated on categories (drift); still live config on agents. */
+  legacyFallbacks?: unknown[]
 }
 
 export interface OmoConfig {
@@ -172,6 +190,24 @@ function entryModelsArray(v: unknown): unknown[] | null {
   return Array.isArray(m) ? m : null
 }
 
+/** Primary model of a `models` chain (string head or object head's `.model`);
+ *  null when absent/unusable. */
+function chainPrimary(models: readonly unknown[]): string | null {
+  return entryModel(models[0])
+}
+
+/** Raw superseded keys one definition carries, for drift reporting and the
+ *  category fold. Included only when actually present so targets stay
+ *  deep-comparable. */
+function legacyKeys(def: unknown): Pick<OmoTarget, "legacyScalar" | "legacyFallbacks"> {
+  const out: Pick<OmoTarget, "legacyScalar" | "legacyFallbacks"> = {}
+  const raw = typeof def === "string" ? def : asRecord(def)?.model
+  if (typeof raw === "string" && raw) out.legacyScalar = raw
+  const fb = asRecord(def)?.fallback_models
+  if (Array.isArray(fb)) out.legacyFallbacks = fb
+  return out
+}
+
 /** Fold one layer's agents+categories definitions into `out` (later calls
  *  win — callers pass base keys first, then the [opencode] host block). */
 function foldSection(
@@ -181,14 +217,26 @@ function foldSection(
   const agents = asRecord(cfg.agents)
   if (agents) {
     for (const [name, def] of Object.entries(agents)) {
-      out[name] = { kind: "agent", model: entryModel(def), models: entryModelsArray(def) }
+      const models = entryModelsArray(def)
+      // Agent runtime paths read `.model` (+ `.fallback_models`) only — a
+      // models[] here is dead weight, surfaced for display and flagged.
+      const model = entryModel(def) ?? (models ? chainPrimary(models) : null)
+      out[name] = { kind: "agent", model, models, ...legacyKeys(def) }
     }
   }
   const categories = asRecord(cfg.categories)
   if (categories) {
     for (const [name, def] of Object.entries(categories)) {
-      if (!(name in out))
-        out[name] = { kind: "category", model: entryModel(def), models: entryModelsArray(def) }
+      if (name in out) continue
+      const models = entryModelsArray(def)
+      out[name] = {
+        kind: "category",
+        // `models[0]` is the effective primary whenever the chain exists;
+        // the scalar only answers alone (see module header).
+        model: (models ? chainPrimary(models) : null) ?? entryModel(def),
+        models,
+        ...legacyKeys(def),
+      }
     }
   }
 }
@@ -273,6 +321,20 @@ export function omoTargetKind(cfg: OmoConfig, name: string): OmoTargetKind | nul
   return cfg.targets[name]?.kind ?? null
 }
 
+/** Terse drift flag shared by fastdraw_list and the TUI. A CATEGORY still
+ *  carrying the superseded `model` scalar or `fallback_models` keys (next to
+ *  or instead of the canonical chain) is legacy drift — the next apply
+ *  cleans it. An AGENT carrying a `models` array holds dead weight: no
+ *  agent-path consumer reads it. */
+export function omoDriftNote(t: OmoTarget | undefined): string {
+  if (!t) return ""
+  if (t.kind === "category")
+    return t.legacyScalar !== undefined || t.legacyFallbacks !== undefined
+      ? "  ⚠ legacy scalar/fallback_models — canonicalized to the chain on next apply"
+      : ""
+  return t.models !== null ? "  ⚠ .models array on an agent — ignored at runtime" : ""
+}
+
 /** Portable form of the OMO file for preset origins (`${HOME}/.omo/...`). */
 export function omoPortableFile(cfg: OmoConfig, home: string, configDir: string): string | null {
   return cfg.file ? toPortablePath(cfg.file, { home, configDir }) : null
@@ -290,10 +352,13 @@ export interface OmoWriteResult {
 /** Apply role/category model updates to the USER OMO config: names known as
  *  categories land in `[opencode].categories`, everything else in
  *  `[opencode].agents` (unknown names = builtin-role overrides there).
- *  Category updates ALSO normalize the dominant `models` array to
- *  `[model]` (or write back a spec-provided array verbatim) so the binding
- *  can never be shadowed by a legacy list — see module header. Backs the
- *  file up first; on ANY failure the filesystem is untouched. */
+ *  Category updates CANONICALIZE the model chain: the existing `models`
+ *  array (or the legacy `[model, ...fallback_models]` fold) keeps its tail
+ *  and only the primary is replaced; the superseded `model` /
+ *  `fallback_models` keys are dropped. A spec carrying an explicit `models`
+ *  array is written verbatim (revert path). Agent updates touch ONLY
+ *  `.model`. Backs the file up first; on ANY failure the filesystem is
+ *  untouched. */
 export async function writeOmoModels(
   updates: Record<string, ModelEntrySpec>,
   env = process.env,
@@ -326,12 +391,18 @@ export async function writeOmoModels(
     if (Object.keys(agentUpdates).length) {
       text = setNestedModelsJsonc(text, AGENT_CHAIN, agentUpdates)
     }
+    const categoryChains: Record<string, unknown[]> = {}
     if (Object.keys(categoryUpdates).length) {
+      const oldCats = asRecord(
+        asRecord(asRecord(JSON.parse(stripJsonComments(text)))?.["[opencode]"])?.categories,
+      )
+      for (const [name, spec] of Object.entries(categoryUpdates))
+        categoryChains[name] = canonicalCategoryChain(oldCats?.[name], spec)
       text = setNestedModelsJsonc(text, CATEGORY_CHAIN, categoryUpdates, {
-        normalizeModelsArray: true,
+        categoryChain: true,
       })
     }
-    verifyWritten(text, { agents: agentUpdates, categories: categoryUpdates })
+    verifyWritten(text, { agents: agentUpdates, categories: categoryChains })
     await writeFileAtomic(file, text)
     return { file, backup, written: true }
   } catch (e) {
@@ -342,36 +413,37 @@ export async function writeOmoModels(
   }
 }
 
-/** Postcondition: every updated name reads back with the requested model in
- *  the [opencode] section it was routed to. For categories the DOMINANT
- *  `models` array is verified too: when the entry carries one it must equal
- *  the write's effective chain (explicit spec array, else `[model]`) — a
- *  matching `model` scalar with a stale array is EXACTLY the silent-no-op
- *  this guards against. Throws otherwise. */
-function verifyWritten(
+/** Postcondition for every routed update. AGENTS: `.model` reads back the
+ *  requested string — the only field the agent runtime paths consume.
+ *  CATEGORIES: the entry must hold EXACTLY the expected canonical chain in
+ *  `models` and must NOT carry the superseded `model` / `fallback_models`
+ *  keys — a residual scalar is precisely the drift (two sources of truth
+ *  across merge layers) this writer exists to prevent. Exported for tests.
+ *  Throws otherwise; writeOmoModels then leaves the filesystem untouched. */
+export function verifyWritten(
   text: string,
-  sections: { agents: Record<string, ModelEntrySpec>; categories: Record<string, ModelEntrySpec> },
+  sections: { agents: Record<string, ModelEntrySpec>; categories: Record<string, unknown[]> },
 ): void {
   const root = asRecord(JSON.parse(stripJsonComments(text)))
   const block = asRecord(root?.["[opencode]"])
-  for (const key of ["agents", "categories"] as const) {
-    const updates = sections[key]
-    if (!Object.keys(updates).length) continue
-    const section = asRecord(block?.[key])
-    for (const [name, spec] of Object.entries(updates)) {
-      const model = specModel(spec)
-      if (!section || !(name in section) || entryModel(section[name]) !== model) {
-        throw new Error(`postcondition failed: [opencode].${key}.${name}.model != ${model}`)
-      }
-      if (key !== "categories") continue
-      const actual = entryModelsArray(section[name])
-      if (actual === null) continue
-      const expected = typeof spec === "string" ? [model] : (spec.models ?? [model])
-      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        throw new Error(
-          `postcondition failed: [opencode].categories.${name}.models dominates model=${model} but holds ${JSON.stringify(actual)}`,
-        )
-      }
+  for (const [name, spec] of Object.entries(sections.agents)) {
+    const model = specModel(spec)
+    const entry = asRecord(block?.agents)?.[name]
+    if (entry === undefined || entryModel(entry) !== model) {
+      throw new Error(`postcondition failed: [opencode].agents.${name}.model != ${model}`)
+    }
+  }
+  for (const [name, chain] of Object.entries(sections.categories)) {
+    const e = asRecord(asRecord(block?.categories)?.[name])
+    if (!e || "model" in e || "fallback_models" in e) {
+      throw new Error(
+        `postcondition failed: [opencode].categories.${name} must not keep legacy model/fallback_models keys`,
+      )
+    }
+    if (JSON.stringify(e.models) !== JSON.stringify(chain)) {
+      throw new Error(
+        `postcondition failed: [opencode].categories.${name}.models != ${JSON.stringify(chain)} (holds ${JSON.stringify(e.models)})`,
+      )
     }
   }
 }

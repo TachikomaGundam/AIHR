@@ -17,6 +17,7 @@ import {
   readOmoConfig,
   writeOmoModels,
   isOmoName,
+  omoDriftNote,
   omoTargetKind,
   omoPortableFile,
   omoRevertSpec,
@@ -330,16 +331,10 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
       (omoRouted(name) ? (omoCfg.targets[name]?.model ?? undefined) : undefined) ??
       assignments.agents[name]
 
-    // A hand-edited category may still carry a stale models[] whose first
-    // entry dominates `model` at OMO runtime — surface it, mirroring
+    // A hand-edited entry may still carry the legacy shape (category scalar
+    // keys, or a dead models[] on an agent) — surface it, mirroring
     // fastdraw_list.
-    const shadowNote = (name: string): string => {
-      const t = omoCfg.targets[name]
-      if (t?.kind !== "category" || !t.models?.length) return ""
-      const primary = t.models[0]
-      const pm = typeof primary === "string" ? primary : (primary as { model?: string })?.model
-      return pm && pm !== t.model ? `  ⚠ shadowed: dominant models[0]=${pm}` : ""
-    }
+    const shadowNote = (name: string): string => omoDriftNote(omoCfg.targets[name])
 
     const kindLabel = (name: string): string => {
       const k = omoTargetKind(omoCfg, name)
