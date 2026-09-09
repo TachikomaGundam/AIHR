@@ -14,6 +14,7 @@ import {
   readOmoConfig,
   writeOmoModels,
   isOmoName,
+  omoDriftNote,
   omoPortableFile,
   omoRevertSpec,
   omoTargetKind,
@@ -304,13 +305,7 @@ function formatOmoBlock(omoCfg: OmoConfig, state: Assignments): string {
     const rec = state.omo?.[name]
     const t = omoCfg.targets[name]
     const shown = rec?.model ?? t?.model
-    let shadow = ""
-    if (t?.kind === "category" && t.models?.length) {
-      const primary = t.models[0]
-      const pm = typeof primary === "string" ? primary : (primary as { model?: string })?.model
-      if (pm && pm !== t.model) shadow = `  ⚠ shadowed: dominant models[0]=${pm}`
-    }
-    return `  ${name}: ${shown ?? "[not set]"}${rec ? "  [fastdraw]" : ""}${shadow}`
+    return `  ${name}: ${shown ?? "[not set]"}${rec ? "  [fastdraw]" : ""}${omoDriftNote(t)}`
   }
   const names = Object.keys(omoCfg.targets).sort()
   const agents = names.filter((n) => omoCfg.targets[n].kind === "agent")
