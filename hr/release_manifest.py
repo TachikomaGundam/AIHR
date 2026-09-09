@@ -63,6 +63,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/cli_inventory.py",                 # bench/discover/seed commands
     "hr/cli_selection.py",                 # interactive model picker / selection indices
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
+    "hr/setup_env.py",                     # PATH persistence closure (posix rc blocks / HKCU Environment) imported by cli_setup
     # Runtime import closure of the entry points above (top-level imports)
     "hr/db.py",                            # connect/init_schema etc.; imported unguarded by the facade and cli_app
     "hr/decision.py",                      # latest_sweep_id/seat_assignments/battery_codes/capability_means/model_capabilities/seat_rows
