@@ -49,6 +49,14 @@ install and declare an exact version instead: `npm install -g
 via its config `"plugin"` arrays (which `opencode-hr install` / `hr setup`
 write; see README Install), never by scanning the global prefix.
 
+PATH persistence: when pip's scripts directory (the `hr` entry point) is
+missing from PATH — the Windows/macOS user-site default — `hr setup` appends
+exactly one user-scope entry (`HKCU\Environment` on Windows, a marked block in
+existing rc files elsewhere), expanding `%VAR%` at read time so other tools'
+entries are preserved verbatim. `hr setup --uninstall` removes precisely that
+entry and every other artifact setup created (configs, globals, cache copies,
+config copies); nothing elevated or system-wide is ever touched.
+
 ## 4. No lifecycle scripts
 
 `npm install` never runs project scripts here: the manifest has no
