@@ -39,7 +39,7 @@ Both providers speak the Anthropic Messages wire format (`POST {endpoint}/messag
 
 If a provider has no API key configured, its models are skipped (not errored).
 
-## The Thirteen Commands
+## The Sixteen Commands
 
 ```bash
 # Full pipeline: discover, bench, verdict, apply
@@ -68,6 +68,11 @@ hr status                            # DB stats + latest capability means
 hr apply                             # bridge verdict seating → FastDraw preset
 hr apply --preset <name>             # custom preset name (default: verdict-<today>)
 hr apply --set-state                 # write .fastdraw.json (needs opencode restart)
+
+# Database lifecycle (turnkey)
+hr db-up [--port N] [--force]        # create/start the aihr database (default 127.0.0.1:5433; N overrides the port; --force takes over an aihr-db container owned by another install)
+hr db-down [--purge --yes]           # stop it (--purge also removes the data volume, --yes skips the confirmation)
+hr db-status                         # show aihr database status
 ```
 
 ## The v4 Livebench — Eight Batteries
@@ -223,7 +228,7 @@ hr apply                     # write preset (verdict-<today>)
 
 ## Database Schema
 
-HR stores data in the same PostgreSQL database as Wiki.js (`wiki` database, tables prefixed `hr_`):
+HR stores data in its own AIHR-native PostgreSQL database (`aihr` database, schema `hr`, tables prefixed `hr_`). It is managed by the turnkey lifecycle: `hr db-up` creates and starts it, `hr db-down` stops it, `hr db-status` reports its state:
 
 | Table | Purpose |
 |-------|---------|
@@ -235,7 +240,24 @@ HR stores data in the same PostgreSQL database as Wiki.js (`wiki` database, tabl
 | `hr_assignments` | Role assignments (role, fit_score, rationale, is_active) |
 | `hr_reports` | Composite evaluation reports (pros, cons, recommended_roles, overall_score) |
 
-Connection: `localhost:5432`, user `wikijs`, database `wiki`.
+### Connection resolution
+
+The DSN resolves in this order (first hit wins):
+
+1. `HR_DSN` env var (full connection string, returned verbatim).
+2. `hr.toml` at the monorepo root (secret-free by contract: `db_host`, `db_port`, `db_name`, `db_user`) plus the `HR_DB_PASSWORD` env var.
+3. `docker/.env` managed by `hr db-up` (the `aihr-db` container's first-boot random password, persisted with `0600` permissions).
+4. `HR_COMPOSE_FILE` (legacy footnote only): opt-in docker-compose fallback for pre-turnkey setups. Not recommended for new installs.
+
+Fresh-machine recipe, zero env exports:
+
+```bash
+pip install aihr
+hr db-up      # turnkey aihr database on 127.0.0.1:5433
+hr status     # works with no further setup
+```
+
+Why a dedicated database: least privilege (HR no longer holds Wiki.js superuser credentials) and port hygiene (the `127.0.0.1:5433` default cannot collide with a host PostgreSQL on 5432). `hr db-up` generates a random password on first boot and persists it `0600` in `docker/.env`. This turnkey arrangement supersedes the pre-2026-09-10 shared-wiki-db setup. Wiki.js remains the publish target for `hr publish`, over the GraphQL API with an API key; that path is unchanged.
 
 ## Wiki.js Publishing
 

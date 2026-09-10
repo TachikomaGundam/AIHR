@@ -5,8 +5,10 @@ from pathlib import Path
 
 import psycopg2
 import psycopg2.extensions
+from psycopg2 import sql
 
-from hr.config import compose_db_password, db_dsn
+from hr.config import compose_db_password, db_dsn, db_target_fields
+from hr.config_resources import db_env_file, read_db_env_file
 from hr.db_schema import DDL as _DDL
 from hr.db_schema import DDL_INDEXES as _DDL_INDEXES
 from hr.db_schema import DDL_SCHEMA as _DDL_SCHEMA
@@ -18,26 +20,33 @@ from hr.schema_migration import (
 
 
 def _load_db_password() -> str:
+    """Password chain: HR_DB_PASSWORD > AIHR db env file > HR_COMPOSE_FILE."""
     password = os.environ.get("HR_DB_PASSWORD")
     if password:
         return password
+    env_file = db_env_file()
+    if env_file is not None:
+        file_password = read_db_env_file(env_file).get("AIHR_DB_PASSWORD")
+        if file_password:
+            return file_password
     compose = os.environ.get("HR_COMPOSE_FILE")
     if compose:
         password = compose_db_password(Path(compose).expanduser())
         if password:
             return password
     raise RuntimeError(
-        "cannot resolve DB password: set HR_DB_PASSWORD, or set "
-        "HR_COMPOSE_FILE to a docker-compose.yml whose services.wiki "
-        "environment defines DB_PASS/POSTGRES_PASSWORD"
+        "cannot resolve DB password: set HR_DB_PASSWORD, run `hr db-up` "
+        "to provision the AIHR db env file, or set HR_COMPOSE_FILE to a "
+        "docker-compose.yml whose services.db/services.wiki environment "
+        "defines POSTGRES_PASSWORD/DB_PASS"
     )
 
 
 def connect(
-    dbname: str = "wiki",
+    dbname: str | None = None,
     user: str | None = None,
-    host: str = "localhost",
-    port: int = 5432,
+    host: str | None = None,
+    port: int | None = None,
     password: str | None = None,
 ) -> psycopg2.extensions.connection:
     if password is None:
@@ -48,11 +57,12 @@ def connect(
         else:
             migrate_schema_namespace(conn)
             return conn
+    fields = db_target_fields()
     conn = psycopg2.connect(
-        dbname=dbname,
-        user=user or os.environ.get("HR_DB_USER", "wikijs"),
-        host=host,
-        port=port,
+        dbname=dbname or str(fields["dbname"]),
+        user=user or str(fields["user"]),
+        host=host or str(fields["host"]),
+        port=port or int(fields["port"]),
         password=password,
     )
     migrate_schema_namespace(conn)
@@ -61,6 +71,26 @@ def connect(
 
 def ddl() -> str:
     return _DDL
+
+
+def schema_stats(conn: psycopg2.extensions.connection) -> tuple[int, int]:
+    """(hr.* table count, total row count across those tables)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'hr' ORDER BY table_name"
+        )
+        tables = [str(row[0]) for row in cur.fetchall()]
+        total = 0
+        for table in tables:
+            cur.execute(
+                sql.SQL("SELECT count(*) FROM {}").format(
+                    sql.Identifier("hr", table)
+                )
+            )
+            row = cur.fetchone()
+            total += int(row[0]) if row else 0
+    return len(tables), total
 
 
 def migrate_add_response_columns(conn: psycopg2.extensions.connection) -> None:

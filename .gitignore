@@ -11,6 +11,9 @@ exports/
 # Local config holds real credentials; *.example is the secret-free template
 hr.toml
 
+# Generated AIHR db credentials (hr db-up); never committed
+docker/.env
+
 # Local deployment overlays (real anchors / wire overrides / gateway URLs /
 # extra models) — never shipped; deep-merged over the tracked configs by
 # hr.config.load_yaml
