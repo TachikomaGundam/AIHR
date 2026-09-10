@@ -124,10 +124,10 @@ pip install .
 
 ### Configuration
 
-如需 DB / Wiki.js 配置项，请复制示例 `hr.toml`：
+如需 DB / Wiki.js 配置项，请复制示例 `hr.toml`（位于仓库根目录）：
 
 ```bash
-cp configs/hr.toml.example hr.toml
+cp hr.toml.example hr.toml
 ```
 
 不存在单一的"唯一事实来源"文件——配置按关注点拆分在 `configs/` 各文件中，外加运行时 opencode 配置：
@@ -155,14 +155,14 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 - `configs/fleet.yaml` — 动态机队的可选覆盖：`wire_overrides`、`scope_excludes`、`gateway_urls`（仅注册表提供者的 base URL）。
 - `configs/seats.yaml` — 席位定义、每席位 `primary_capabilities`、stage-0 `calibration_anchors`。
 - `configs/deployable.yaml` — `extra_deployable`：在 opencode 配置之外提供的模型（唯一手工维护的模型列表）。
-- `configs/hr.toml.example` — 根 `hr.toml` 模板（DB 连接 + 可选 Wiki.js 发布目标）。密钥绝不存于此文件：一律来自环境变量（`HR_DSN`、`HR_DB_PASSWORD`、provider 密钥）。
+- `hr.toml.example` — 仓库根目录下的本地 `hr.toml` 模板（DB 连接 + 可选 Wiki.js 发布目标）。密钥绝不存于此文件：一律来自环境变量（`HR_DSN`、`HR_DB_PASSWORD`）或 `hr db-up` 生成的 db env 文件。
 
 模型机队本身不在此仓库声明：运行时从 opencode 配置（`opencode.jsonc` 的 provider 块）推导，并与 `deployable.yaml` 的 extras 合并——见下文 Universality。
 
 ### 快速上手
 
 ```bash
-cp configs/hr.toml.example hr.toml   # 把数据库参数指向你的 PostgreSQL
+cp hr.toml.example hr.toml           # 把数据库参数指向你的 PostgreSQL（或直接运行：hr db-up）
 hr seed                              # 建库/升级结构 + 写入规范座位
 hr status                            # 扫描列表 + 最新扫描能力均值
 ```
@@ -244,7 +244,8 @@ FastDraw 包含服务端与 TUI 两部分。必须在两个 opencode 配置文�
 
 ```
 harness/hr/               # 仓库根目录（pip install -e .）
-  configs/                # YAML 配置：deployable.yaml、fleet.yaml、hr.toml.example、knowledge.yaml、models.yaml、seats.yaml、thresholds.yaml（+ 被 gitignore 的 *.local.yaml 覆盖层）
+  configs/                # YAML 配置：deployable.yaml、fleet.yaml、knowledge.yaml、models.yaml、seats.yaml、thresholds.yaml（+ 被 gitignore 的 *.local.yaml 覆盖层）
+  docker/                 # 开箱即用数据库：AIHR postgres:16-alpine 容器的 docker-compose.yml（`hr db-up`）
   docs/                   # 双语文档（en/、zh-CN/）
   exports/                # 生成的工件（gitignore）
   fastdraw/               # npm 子包：FastDraw 服务器、TUI、预设管理
@@ -260,6 +261,7 @@ harness/hr/               # 仓库根目录（pip install -e .）
   scripts/                # 运维脚本（check_universal.sh、register_livebench_batteries.py、spread_probe.py、...）
   tests/                  # pytest 测试套件
   pyproject.toml          # 包含 CLI 入口点的包清单
+  hr.toml.example         # 被 gitignore 的根 `hr.toml` 的模板（唯一事实来源）
 ```
 
 ## Tests

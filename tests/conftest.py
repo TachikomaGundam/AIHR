@@ -61,9 +61,16 @@ _CONFIG_NAMES = (
     "models.yaml",
     "thresholds.yaml",
     "knowledge.yaml",
-    "hr.toml.example",
 )
-_DB_ENVS = ("HR_DSN", "HR_DB_PASSWORD", "HR_DB_USER", "HR_COMPOSE_FILE")
+_DB_ENVS = (
+    "HR_DSN",
+    "HR_DB_PASSWORD",
+    "HR_DB_USER",
+    "HR_DB_NAME",
+    "HR_DB_HOST",
+    "HR_DB_PORT",
+    "HR_COMPOSE_FILE",
+)
 
 # Coverage artifacts are excluded from the guard's comparison set: pytest-cov
 # erases `.coverage` BEFORE pytest_sessionstart's snapshot and writes it back

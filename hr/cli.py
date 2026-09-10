@@ -28,6 +28,7 @@ from .cli_selection import _pick_models_interactive, _selection_indices
 from .cli_report_commands import calibrate, health, sweeps, verdict
 from .cli_knowledge import publish, recommend, reference, research
 from .cli_apply import apply, status
+from .cli_db import db_down, db_status, db_up
 from .cli_setup import setup
 from .deployment_manager import register_release_commands
 
@@ -45,6 +46,9 @@ __all__ = [
     "calibrate",
     "capability_means",
     "connect",
+    "db_down",
+    "db_status",
+    "db_up",
     "discover",
     "health",
     "latest_sweep_id",

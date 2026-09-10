@@ -216,9 +216,9 @@ git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGun
 
 ## What must NOT happen
 
-- Do not reuse the scratch `wikijs` DSN from this machine on the second box —
+- Do not reuse this machine's local scratch PostgreSQL DSN on the second box —
   the CLI takes `HR_TEST_PG_DSN`/per-provider keys from `hr.toml` / env that
-  you configure locally (template: `configs/hr.toml.example`).
+  you configure locally (template: `hr.toml.example`).
 - Do not re-upload if a publish partially fails without checking
   https://pypi.org/p/aihr / https://www.npmjs.com/package/... first —
   `twine upload`/`npm publish` of the same version are rejects, not re-runs;
