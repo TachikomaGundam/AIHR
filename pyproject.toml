@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aihr"
-version = "0.2.2"
+version = "0.3.0"
 description = "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
 readme = "README.md"
 license = "MIT"
@@ -67,10 +67,15 @@ include = ["hr*"]
 exclude = ["hr.hr*"]
 
 [tool.setuptools.data-files]
+"share/aihr" = [
+    "hr.toml.example",
+]
+"share/aihr/docker" = [
+    "docker/docker-compose.yml",
+]
 "share/aihr/configs" = [
     "configs/deployable.yaml",
     "configs/fleet.yaml",
-    "configs/hr.toml.example",
     "configs/knowledge.yaml",
     "configs/models.yaml",
     "configs/seats.yaml",
