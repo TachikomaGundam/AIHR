@@ -127,6 +127,17 @@ Bindings are **routed by where the role actually lives**:
 
 State files written by older FastDraw versions (OMO roles sitting in the flat `agents` map) are migrated into the OMO config on first start. Config files on disk are touched only by OMO writes and by *load preset* in a restore mode, which first backs each file up as `<file>.bak-<timestamp>`.
 
+## Home-reachability & hardlink safety
+
+Incident 2026-09-09 (wiki: `dev/tools/omo-home-pollution-cadence`): a Cadence installer set the Windows user `HOME` to `Documents\Cadence\SPB_Data`. OMO resolves its config home as `env.HOME ?? env.USERPROFILE ?? cwd`, so it silently stopped reading the `~/.omo/omo.jsonc` that FastDraw and the user edit — and the user's hardlink mirror of that file was destroyed by editors' atomic save (write temp + rename = new inode), leaving two diverged configs.
+
+FastDraw now guards both failure modes (warn-only, never blocks a write):
+
+- **Hardlink-aware writes.** All config writes (`.fastdraw.json`, preset store, exports, `~/.omo/omo.jsonc`, preset-restore targets) go through `safeWriteFile`: when the target has `nlink > 1` it is rewritten **in place**, so link partners keep seeing the same content; unlinked files keep the atomic temp+rename path. Each linked path is recorded in `~/.config/opencode/fastdraw-links.json`.
+- **Status warnings.** `fastdraw_list` and the TUI menu additionally show `⚠ home-reach: ...` lines when `HOME` looks hijacked (differs from the OS home and `USERPROFILE`), when a managed OMO config sits outside the resolved home, or when a registered link partner vanished / changed inode / diverged from its mirror.
+
+Tip: if an external tool hardlinks your OMO config, disable the editor's atomic save where offered (some tools call the option `saveAtomic: false`) — an atomic replace detaches every hardlink partner silently; FastDraw will at least flag it afterwards.
+
 ## Development
 
 ```bash

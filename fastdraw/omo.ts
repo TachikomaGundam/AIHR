@@ -35,7 +35,7 @@ import { homedir } from "node:os"
 import path from "node:path"
 import {
   backupIfExists,
-  writeFileAtomic,
+  safeWriteFile,
   stripJsonComments,
   setNestedModelsJsonc,
   canonicalCategoryChain,
@@ -403,7 +403,7 @@ export async function writeOmoModels(
       })
     }
     verifyWritten(text, { agents: agentUpdates, categories: categoryChains })
-    await writeFileAtomic(file, text)
+    await safeWriteFile(file, text)
     return { file, backup, written: true }
   } catch (e) {
     if (backup !== null) {
