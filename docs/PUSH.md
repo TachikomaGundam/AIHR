@@ -19,12 +19,24 @@ Repo: `~/workspace/harness/hr` (git root), branch `main`, tags `v0.2.0`
 and `v0.2.1` set. Origin is already configured as
 `git@github.com:TachikomaGundam/AIHR.git`.
 
-> **Published state (verified 2026-09-05 against the registries):**
-> **PyPI `aihr` 0.2.1 — UPLOADED and registry-verified** (latest; wheel +
-> sdist sha256 byte-identical to the locally validated artifacts) ·
-> npm `opencode-hr-agent` **0.2.0** · npm `opencode-fastdraw` **1.1.0**
-> (2026-09-02; the 1.1.0 release changed only the plugin JS, so no new
-> engine build was due).
+> **Published state (verified 2026-09-11 against the registries):**
+> **PyPI `aihr` — latest is still 0.2.2; the 0.3.0 upload below is
+> MAINTAINER-PENDING (§4 commands, token never through chat/agent).** ·
+> npm `opencode-hr-agent` 0.2.2 · npm `opencode-fastdraw` 1.2.0 — both
+> unchanged by 0.3.0 (no plugin JS change; `hrContractVersion` stays
+> 1.0.0 — new shipped files are not an on-disk contract change).
+>
+> **0.3.0** (AIHR item 9: turnkey `aihr-db` container +
+> `hr db-up/db-down/db-status` + 4-step DSN chain + foreign-takeover
+> guard; end of the shared-`wikijs`-superuser arrangement) is committed &
+> pushed (`f5ca1ed` + `5ed08ed`), CI green on 3.12+3.14 (+node 22/24),
+> tagged `v0.3.0`, and mirrored as a **GitHub Release with wheel+sdist
+> assets**: <https://github.com/TachikomaGundam/AIHR/releases/tag/v0.3.0>.
+> Artifacts built at `5ed08ed`, twine check PASSED, sha256:
+> wheel `0cad36eaac959d0ca07e94a2bcbe2947c4c342ee3c28c8d60d9a72485721e662`,
+> sdist `2a45e2776dee13a75a2da02a51a1c1ffc0ae03e6716da61cc5593987c259623c`
+> (GitHub asset digests verified identical 2026-09-11). This machine's
+> engine install is `aihr 0.3.0` (editable → repo).
 >
 > **0.2.1** (audit-queue P0/P1 fixes + FastDraw contract decouple) is
 > committed & pushed (`a750773`), CI green on 3.12+3.14, tagged `v0.2.1`,
@@ -187,7 +199,8 @@ maintainer's call):
 ```bash
 # engine (primary — PyPI):
 pip install "aihr[vision]"
-hr --help                                # expect all 24 commands
+hr --help                                # expect all 27 commands
+hr db-up && hr status                    # turnkey DB: docker required, ZERO env exports
 # engine (mirror — Release wheel, no PyPI required):
 pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.2/aihr-0.2.2-py3-none-any.whl"
 npm view opencode-hr-agent               # expect 0.2.2
