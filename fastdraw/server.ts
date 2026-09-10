@@ -32,12 +32,14 @@ import {
   sectionToBindings,
   planRestore,
   restoreWrite,
+  safeWriteFile,
   type RestoreMode,
   type Binding,
   type HarvestCtx,
   type HarvestEnv,
   type ModelEntrySpec,
 } from "./origins.js"
+import { scanHomeReach, renderHomeReachWarnings } from "./home-reach.js"
 
 const CONFIG_DIR = path.join(homedir(), ".config", "opencode")
 const STATE_FILE = path.join(CONFIG_DIR, ".fastdraw.json")
@@ -63,8 +65,7 @@ async function loadState(): Promise<Assignments> {
 }
 
 async function saveState(a: Assignments): Promise<void> {
-  await fs.mkdir(CONFIG_DIR, { recursive: true })
-  await fs.writeFile(STATE_FILE, JSON.stringify(a, null, 2))
+  await safeWriteFile(STATE_FILE, JSON.stringify(a, null, 2))
 }
 
 /* ── Preset I/O ───────────────────────────────────────────────────── */
@@ -132,8 +133,7 @@ async function loadPresets(): Promise<PresetStore> {
 }
 
 async function savePresets(store: PresetStore): Promise<void> {
-  await fs.mkdir(CONFIG_DIR, { recursive: true })
-  await fs.writeFile(PRESETS_FILE, JSON.stringify(store, null, 2))
+  await safeWriteFile(PRESETS_FILE, JSON.stringify(store, null, 2))
 }
 
 /** A valid model binding map: every value is a "provider/model" string. */
@@ -558,10 +558,12 @@ async function fastdrawServer() {
             ...(omoBlock ? [omoBlock] : []),
             formatList(groups, state.agents, cfgAgent),
           ]
+          const reach = renderHomeReachWarnings(scanHomeReach().warnings)
           return (
             blocks.join("\n\n") +
             `\n\nUse \`fastdraw_assign\` or TUI (\`/fastdraw\` or \`<leader>m\`) to change.` +
-            shadowNote(omoCfg)
+            shadowNote(omoCfg) +
+            (reach ? `\n${reach}` : "")
           )
         },
       }),
@@ -880,8 +882,7 @@ async function fastdrawServer() {
             omo: p.omo,
             custom: p.custom,
           }
-          await fs.mkdir(path.dirname(out), { recursive: true })
-          await fs.writeFile(out, JSON.stringify(payload, null, 2))
+          await safeWriteFile(out, JSON.stringify(payload, null, 2))
           return `**FastDraw**: preset "${args.name}" exported → ${out}\n\n${presetPreview(presetAgents(p))}`
         },
       }),

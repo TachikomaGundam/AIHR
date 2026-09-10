@@ -37,11 +37,13 @@ import {
   sectionToBindings,
   planRestore,
   restoreWrite,
+  safeWriteFile,
   type RestoreMode,
   type Binding,
   type HarvestCtx,
   type HarvestEnv,
 } from "./origins.js"
+import { scanHomeReach, homeReachToastLines } from "./home-reach.js"
 
 const CONFIG_DIR = path.join(homedir(), ".config", "opencode")
 const STATE_FILE = path.join(CONFIG_DIR, ".fastdraw.json")
@@ -91,8 +93,7 @@ async function omoAssignToFile(
 }
 
 async function saveState(a: Assignments): Promise<void> {
-  await fs.mkdir(CONFIG_DIR, { recursive: true })
-  await fs.writeFile(STATE_FILE, JSON.stringify(a, null, 2))
+  await safeWriteFile(STATE_FILE, JSON.stringify(a, null, 2))
 }
 
 /* ── Preset I/O ───────────────────────────────────────────────────── */
@@ -160,8 +161,7 @@ async function loadPresets(): Promise<PresetStore> {
 }
 
 async function savePresets(store: PresetStore): Promise<void> {
-  await fs.mkdir(CONFIG_DIR, { recursive: true })
-  await fs.writeFile(PRESETS_FILE, JSON.stringify(store, null, 2))
+  await safeWriteFile(PRESETS_FILE, JSON.stringify(store, null, 2))
 }
 
 function isModelMap(v: unknown): v is Record<string, string> {
@@ -862,8 +862,7 @@ function exportPresetFlow(ui: Ui) {
               omo: p.omo,
               custom: p.custom,
             }
-            await fs.mkdir(path.dirname(out), { recursive: true })
-            await fs.writeFile(out, JSON.stringify(payload, null, 2))
+            await safeWriteFile(out, JSON.stringify(payload, null, 2))
             toast(ui, `Preset "${name}" exported → ${out}`, "success")
           } catch (e) {
             flowError(ui, e)
@@ -910,6 +909,13 @@ function buildDialogHandler(
   const ui = api.ui
   return async (_dialog?: TuiDialogStack) => {
     try {
+      // Advisory only (home-pollution incident, wiki dev/tools/omo-home-pollution-cadence):
+      // never let a check failure block the menu, so it gets its own guard.
+      try {
+        for (const line of homeReachToastLines(scanHomeReach().warnings)) toast(ui, line, "warning")
+      } catch {
+        /* home-reach warnings are optional */
+      }
       ui.dialog.setSize("medium")
       ui.dialog.replace(() =>
         ui.DialogSelect<MenuAction>({

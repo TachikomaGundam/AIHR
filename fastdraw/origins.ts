@@ -23,7 +23,14 @@
  */
 import path from "node:path"
 import fs from "node:fs/promises"
+import fsSync from "node:fs"
 import { OMO_ROLES } from "./roles.js"
+import {
+  upsertLinkPartner,
+  defaultLinkRegistryPath,
+  HOME_REACH_WIKI,
+  type LinkPartnerRecord,
+} from "./home-reach.js"
 
 /** Preset schema version. v1 = legacy (flat `agents` map or string-valued
  *  `omo`/`custom` sections); v2 = per-role `{model, origin}` entries. */
@@ -475,6 +482,82 @@ export async function writeFileAtomic(file: string, content: string): Promise<vo
     await fs.rm(tmp, { force: true })
     throw e
   }
+}
+
+/** True for the OS-level refusals that justify the atomic-rename fallback
+ *  (files locked by another process / permission flip mid-write). */
+function isLockRefusal(e: unknown): boolean {
+  if (typeof e !== "object" || e === null || !("code" in e)) return false
+  const code: unknown = e.code
+  return code === "EACCES" || code === "EBUSY"
+}
+
+function errCode(e: unknown): string {
+  if (typeof e === "object" && e !== null && "code" in e && typeof e.code === "string") {
+    return e.code
+  }
+  return String(e)
+}
+
+/** Truncate-and-write the SAME inode: open r+, erase, write at 0, fsync. */
+async function writeInPlace(file: string, content: string): Promise<void> {
+  const h = await fs.open(file, "r+")
+  try {
+    await h.truncate(0)
+    await h.write(content, 0, "utf-8")
+    await h.sync()
+  } finally {
+    await h.close()
+  }
+}
+
+/** Hardlink-aware config write — the entry point for EVERY FastDraw
+ *  user-config write (OMO config, state, presets store, exports).
+ *
+ *  Temp+rename writes silently DETACH hardlink mirrors (editors did this
+ *  in the Cadence incident — wiki: dev/tools/omo-home-pollution-cadence),
+ *  so when `file` has nlink > 1 we rewrite it IN PLACE, keeping every
+ *  partner linked, and record the path+inode in the link-partner sidecar
+ *  for later verifyLinkIntegrity() checks. Non-linked files keep the
+ *  classic atomic temp+rename semantics. If the in-place write itself is
+ *  refused (EACCES/EBUSY), we fall back to the atomic rename but emit a
+ *  loud warning — the link is broken at that point and the operator must
+ *  know. Never blocks: this is still just a write. */
+export async function safeWriteFile(
+  file: string,
+  content: string,
+  registryPath: string = defaultLinkRegistryPath(),
+): Promise<void> {
+  const dir = path.dirname(file)
+  await fs.mkdir(dir, { recursive: true })
+  let identity: { dev: number; ino: number } | null = null
+  try {
+    const st = fsSync.statSync(file)
+    if (st.nlink > 1) identity = { dev: st.dev, ino: st.ino }
+  } catch {
+    // file absent → plain atomic write below
+  }
+  if (identity) {
+    try {
+      await writeInPlace(file, content)
+      const record: LinkPartnerRecord = {
+        path: file,
+        dev: identity.dev,
+        ino: identity.ino,
+        updatedAt: new Date().toISOString(),
+      }
+      upsertLinkPartner(record, { registryPath })
+      return
+    } catch (e) {
+      if (!isLockRefusal(e)) throw e
+      console.warn(
+        `fastdraw: WARNING in-place write to ${file} refused (${errCode(e)}) — ` +
+          `falling back to atomic rename, which DETACHES its hardlink partner(s); ` +
+          `mirrors will silently diverge until re-linked. See wiki ${HOME_REACH_WIKI}.`,
+      )
+    }
+  }
+  await writeFileAtomic(file, content)
 }
 
 /** stripJsonComments variant that also records, per cleaned char, the
@@ -1201,7 +1284,7 @@ export async function restoreWrite(
       } else {
         content = newConfigContent(f.entries, f.kind)
       }
-      await writeFileAtomic(f.file, content)
+      await safeWriteFile(f.file, content)
       oc.written = true
     } catch (e) {
       oc.error = e instanceof Error ? e.message : String(e)
