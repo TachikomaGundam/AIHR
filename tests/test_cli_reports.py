@@ -23,7 +23,7 @@ from tests.test_cli import (
 )
 
 class TestTyperWiring:
-    def test_app_has_exactly_14_commands(self):
+    def test_app_has_exactly_the_registered_commands(self):
         from typer.main import get_command
 
         cmd = get_command(app)
@@ -47,7 +47,7 @@ class TestTyperWiring:
         assert "ArgumentParser" not in src
         assert "parse_args(" not in src
 
-    def test_help_lists_all_13_commands(self):
+    def test_help_lists_all_registered_commands(self):
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         section = result.output.split("╭─ Commands")[1].split("╰─")[0]

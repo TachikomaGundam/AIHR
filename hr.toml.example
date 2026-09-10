@@ -1,0 +1,21 @@
+# Full reference template for the root hr.toml (secret-free by contract).
+# Copy to hr.toml at the monorepo root and adjust for your environment.
+#
+# passwords NEVER belong here — use HR_DB_PASSWORD env or `hr db-up`
+# which manages docker/.env; full precedence:
+# HR_DSN > hr.toml+HR_DB_PASSWORD > docker/.env (aihr-db) > HR_COMPOSE_FILE (legacy)
+
+# --- Database connection (turnkey defaults; each field overridable via
+#     HR_DB_HOST / HR_DB_PORT / HR_DB_NAME / HR_DB_USER env, or use HR_DSN) ---
+db_host = "localhost"
+db_port = 5433
+db_name = "aihr"
+db_user = "aihr"
+
+# --- Optional Wiki.js publish target for `hr publish` ---
+# Without a [wiki] section the command prints "wiki not configured,
+# skipping" and exits 0: the wiki is an optional publish target.
+# Recognized keys (hr/config.py wiki_config): graphql_url, api_key_file.
+# [wiki]
+# graphql_url = "http://localhost:3000/graphql"
+# api_key_file = "~/.wikijs-api-key"

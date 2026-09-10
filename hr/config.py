@@ -9,19 +9,24 @@ from __future__ import annotations
 
 import os
 import sys
-import tomllib
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-import yaml
 from pydantic import BaseModel
 
+from hr.config_resources import LEGACY_COMPOSE_DB_DEFAULTS as _LEGACY_COMPOSE_DB_DEFAULTS
+from hr.config_resources import compose_db_password as compose_db_password
+from hr.config_resources import compose_db_settings as compose_db_settings
 from hr.config_resources import config_path as config_path
+from hr.config_resources import db_env_file as db_env_file
 from hr.config_resources import hr_home as hr_home
 from hr.config_resources import load_yaml as load_yaml
 from hr.config_resources import opencode_config_dir as opencode_config_dir
 from hr.config_resources import opencode_data_dir as opencode_data_dir
+from hr.config_resources import read_db_env_file as read_db_env_file
+from hr.config_resources import read_root_toml as _read_root_toml
+from hr.config_resources import wiki_config as wiki_config
 from hr.opencode_auth import provider_api_key as provider_api_key
 
 # ---------------------------------------------------------------------------
@@ -29,35 +34,14 @@ from hr.opencode_auth import provider_api_key as provider_api_key
 # ---------------------------------------------------------------------------
 
 _DEFAULT_DB_HOST = "localhost"
-_DEFAULT_DB_PORT = 5432
-_DEFAULT_DB_NAME = "wiki"
-_DEFAULT_DB_USER = "wikijs"
-
-
-def wiki_config() -> dict[str, Any] | None:
-    """Optional Wiki.js publish target from the root ``hr.toml`` ``[wiki]`` section.
-
-    ``hr publish`` skips cleanly (exit 0) when this returns ``None`` — the
-    wiki is an optional, config-driven publish target. Recognized keys
-    (all optional): ``graphql_url``, ``api_key_file``.
-    """
-    section = _read_root_toml().get("wiki")
-    if isinstance(section, dict) and section:
-        return section
-    return None
+_DEFAULT_DB_PORT = 5433
+_DEFAULT_DB_NAME = "aihr"
+_DEFAULT_DB_USER = "aihr"
 
 
 # ---------------------------------------------------------------------------
 # DSN resolution
 # ---------------------------------------------------------------------------
-
-def _read_root_toml() -> dict[str, Any]:
-    """Secret-free ``hr.toml`` at the monorepo root ({} when missing)."""
-    toml_path = hr_home() / "hr.toml"
-    if not toml_path.exists():
-        return {}
-    with toml_path.open("rb") as fh:
-        return dict(tomllib.load(fh))
 
 
 def _build_dsn(fields: dict[str, Any], password: str) -> str:
@@ -73,56 +57,44 @@ def _build_dsn(fields: dict[str, Any], password: str) -> str:
     return f"postgresql://{encoded_user}:{encoded_password}@{host}:{port}/{encoded_name}"
 
 
-def compose_db_password(compose_path: Path) -> str:
-    """Read the DB password from a docker-compose ``services.wiki`` block.
-
-    Accepts both ``services.wiki`` write-styles (they parse identically):
-    the ``environment`` block as a YAML mapping (``{DB_PASS: …}``) or as a
-    list of ``KEY=VALUE`` strings. Looks for ``DB_PASS`` first, then
-    ``POSTGRES_PASSWORD``. Returns "" when neither is present.
-    """
-    with open(compose_path, "r", encoding="utf-8") as fh:
-        data = yaml.safe_load(fh) or {}
-    services = data.get("services", {}) or {}
-    wiki = services.get("wiki") or {}
-    env_block = wiki.get("environment")
-    if isinstance(env_block, dict):
-        for key in ("DB_PASS", "POSTGRES_PASSWORD"):
-            value = env_block.get(key)
-            if value:
-                return str(value)
-    elif isinstance(env_block, list):
-        for key in ("DB_PASS", "POSTGRES_PASSWORD"):
-            for entry in env_block:
-                if isinstance(entry, str) and entry.startswith(f"{key}="):
-                    return entry.split("=", 1)[1]
-    return ""
+def db_target_fields() -> dict[str, Any]:
+    """Secret-free connect fields: ``HR_DB_*`` env > ``hr.toml`` > defaults."""
+    fields = _read_root_toml()
+    return {
+        "dbname": os.environ.get("HR_DB_NAME") or fields.get("db_name", _DEFAULT_DB_NAME),
+        "user": os.environ.get("HR_DB_USER") or fields.get("db_user", _DEFAULT_DB_USER),
+        "host": os.environ.get("HR_DB_HOST") or fields.get("db_host", _DEFAULT_DB_HOST),
+        "port": int(os.environ.get("HR_DB_PORT") or fields.get("db_port", _DEFAULT_DB_PORT)),
+    }
 
 
-def db_dsn() -> str:
-    """Resolve the Postgres DSN for HR.
+def db_dsn_with_source() -> tuple[str, str]:
+    """Resolve the Postgres DSN plus a label naming the winning step.
 
     Resolution order:
       1. ``HR_DSN`` env var — returned verbatim.
       2. ``hr.toml`` at the monorepo root (secret-free by contract:
-         db_host/db_port/db_name/db_user only) + ``HR_DB_PASSWORD`` env var
-         -> ``postgresql://user:pass@host:port/dbname``.
-      3. docker-compose — a DOCUMENTED OPT-IN fallback active only when the
-         ``HR_COMPOSE_FILE`` env var is set; reads ``DB_PASS`` /
-         ``POSTGRES_PASSWORD`` from ``services.wiki.environment`` in that
-         compose yaml and builds the same DSN shape.
+         db_host/db_port/db_name/db_user only) + ``HR_DB_PASSWORD`` env var.
+      3. The AIHR turnkey db env file — ``docker/.env`` next to the shipped
+         compose (data-dir fallback), written by ``hr db-up``: fields from
+         hr.toml when present else the aihr defaults, AIHR_DB_PORT overriding
+         the port (it is paired with the container the password belongs to),
+         password from AIHR_DB_PASSWORD.
+      4. docker-compose — a DOCUMENTED OPT-IN legacy fallback active only
+         when ``HR_COMPOSE_FILE`` is set; user/db/password resolve from
+         ``services.db.environment`` (POSTGRES_*) overlaid by
+         ``services.wiki.environment`` (DB_*), so pre-aihr shared Wiki.js
+         machines keep reaching the correct database.
 
     Raises RuntimeError listing every attempted step when nothing resolves.
     """
     steps: list[str] = []
 
-    # (1) explicit DSN
     dsn = os.environ.get("HR_DSN")
     if dsn:
-        return dsn
+        return dsn, "HR_DSN env var"
     steps.append("HR_DSN env var (unset)")
 
-    # (2) secret-free hr.toml + HR_DB_PASSWORD env
     toml_path = hr_home() / "hr.toml"
     fields = _read_root_toml()
     if fields:
@@ -131,7 +103,7 @@ def db_dsn() -> str:
         steps.append(f"hr.toml {toml_path} (not found)")
     password = os.environ.get("HR_DB_PASSWORD")
     if fields and password:
-        return _build_dsn(fields, password)
+        return _build_dsn(fields, password), "hr.toml + HR_DB_PASSWORD env var"
     if fields:
         steps.append(
             "HR_DB_PASSWORD env var (unset; hr.toml intentionally stores no password)"
@@ -139,17 +111,45 @@ def db_dsn() -> str:
     else:
         steps.append("HR_DB_PASSWORD env var (unset)")
 
-    # (3) documented opt-in compose fallback
+    env_file = db_env_file()
+    if env_file is not None:
+        file_values = read_db_env_file(env_file)
+        file_password = file_values.get("AIHR_DB_PASSWORD")
+        if file_password:
+            merged = dict(fields)
+            file_port = file_values.get("AIHR_DB_PORT")
+            if file_port:
+                merged["db_port"] = file_port
+            return (
+                _build_dsn(merged, file_password),
+                f"AIHR db env file ({env_file})",
+            )
+        steps.append(f"AIHR db env file {env_file} (no AIHR_DB_PASSWORD entry)")
+    else:
+        steps.append("AIHR db env file (not found; provision one with `hr db-up`)")
+
     compose = os.environ.get("HR_COMPOSE_FILE")
     if compose:
         compose_path = Path(compose).expanduser()
         if compose_path.is_file():
-            payload = compose_db_password(compose_path)
+            settings = compose_db_settings(compose_path)
+            payload = settings.get("password")
             if payload:
-                return _build_dsn(fields, payload)
+                legacy_fields: dict[str, Any] = {
+                    **_LEGACY_COMPOSE_DB_DEFAULTS,
+                    **fields,
+                }
+                for key in ("db_user", "db_name"):
+                    if settings.get(key):
+                        legacy_fields[key] = settings[key]
+                return (
+                    _build_dsn(legacy_fields, payload),
+                    f"HR_COMPOSE_FILE legacy docker-compose ({compose_path})",
+                )
             steps.append(
                 f"HR_COMPOSE_FILE={compose} "
-                "(no DB_PASS/POSTGRES_PASSWORD under services.wiki.environment)"
+                "(no DB_PASS/POSTGRES_PASSWORD under services.db or "
+                "services.wiki environment)"
             )
         else:
             steps.append(f"HR_COMPOSE_FILE={compose} (file not found)")
@@ -160,10 +160,17 @@ def db_dsn() -> str:
     raise RuntimeError(
         "cannot resolve HR database DSN; attempted, in order:\n"
         f"  {attempted}\n"
-        "Set HR_DSN, or create hr.toml at the monorepo root plus "
-        "HR_DB_PASSWORD, or set HR_COMPOSE_FILE to enable the "
+        "Run `hr db-up` to provision the AIHR database (writes docker/.env), "
+        "or set HR_DSN, or create hr.toml at the monorepo root plus "
+        "HR_DB_PASSWORD, or set HR_COMPOSE_FILE to enable the legacy "
         "docker-compose password fallback."
     )
+
+
+def db_dsn() -> str:
+    """Resolve the Postgres DSN for HR (see :func:`db_dsn_with_source`)."""
+    dsn, _source = db_dsn_with_source()
+    return dsn
 
 
 # ---------------------------------------------------------------------------

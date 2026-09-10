@@ -7,8 +7,6 @@ fakes so nothing touches a real database.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 import hr.db as db_mod
@@ -45,14 +43,46 @@ class _FakeConn:
         self.closed = True
 
 
-def test_load_db_password_from_env(monkeypatch) -> None:
-    monkeypatch.setenv("HR_DB_PASSWORD", "sekrit")
+def _seal_db_env(monkeypatch, tmp_path) -> None:
+    """Seal the password chain: no hr.toml, no env file, no compose."""
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    monkeypatch.delenv("HR_DSN", raising=False)
+    monkeypatch.delenv("HR_DB_PASSWORD", raising=False)
     monkeypatch.delenv("HR_COMPOSE_FILE", raising=False)
+    monkeypatch.delenv("HR_DB_NAME", raising=False)
+    monkeypatch.delenv("HR_DB_HOST", raising=False)
+    monkeypatch.delenv("HR_DB_PORT", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+
+
+def test_load_db_password_from_env(monkeypatch, tmp_path) -> None:
+    _seal_db_env(monkeypatch, tmp_path)
+    monkeypatch.setenv("HR_DB_PASSWORD", "sekrit")
     assert db_mod._load_db_password() == "sekrit"
 
 
+def test_load_db_password_from_env_file(monkeypatch, tmp_path) -> None:
+    """Chain step 2: the docker/.env written by `hr db-up`."""
+    _seal_db_env(monkeypatch, tmp_path)
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / ".env").write_text(
+        "AIHR_DB_PASSWORD=file-pass\nAIHR_DB_PORT=5433\n", encoding="utf-8"
+    )
+    assert db_mod._load_db_password() == "file-pass"
+
+
+def test_load_db_password_env_var_beats_env_file(monkeypatch, tmp_path) -> None:
+    _seal_db_env(monkeypatch, tmp_path)
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / ".env").write_text("AIHR_DB_PASSWORD=file-pass\n", encoding="utf-8")
+    monkeypatch.setenv("HR_DB_PASSWORD", "env-pass")
+    assert db_mod._load_db_password() == "env-pass"
+
+
 def test_load_db_password_from_compose(monkeypatch, tmp_path) -> None:
-    monkeypatch.delenv("HR_DB_PASSWORD", raising=False)
+    _seal_db_env(monkeypatch, tmp_path)
     monkeypatch.setenv("HR_COMPOSE_FILE", str(tmp_path / "compose.yml"))
     monkeypatch.setattr(
         db_mod, "compose_db_password", lambda path: "compose-pass"
@@ -60,11 +90,15 @@ def test_load_db_password_from_compose(monkeypatch, tmp_path) -> None:
     assert db_mod._load_db_password() == "compose-pass"
 
 
-def test_load_db_password_fails_loud(monkeypatch) -> None:
-    monkeypatch.delenv("HR_DB_PASSWORD", raising=False)
-    monkeypatch.delenv("HR_COMPOSE_FILE", raising=False)
-    with pytest.raises(RuntimeError, match="cannot resolve DB password"):
+def test_load_db_password_fails_loud(monkeypatch, tmp_path) -> None:
+    """Chain exhausted: the error names every attempted step."""
+    _seal_db_env(monkeypatch, tmp_path)
+    with pytest.raises(RuntimeError, match="cannot resolve DB password") as exc:
         db_mod._load_db_password()
+    msg = str(exc.value)
+    assert "HR_DB_PASSWORD" in msg
+    assert "hr db-up" in msg
+    assert "HR_COMPOSE_FILE" in msg
 
 
 def test_connect_via_db_dsn(monkeypatch) -> None:
@@ -77,9 +111,12 @@ def test_connect_via_db_dsn(monkeypatch) -> None:
     assert "migrate" in conn.cursor_obj.executed
 
 
-def test_connect_falls_back_to_env_password(monkeypatch) -> None:
+def test_connect_falls_back_to_env_password(monkeypatch, tmp_path) -> None:
+    """No hardcoded wiki/wikijs/5432: the fallback path routes dbname/user/
+    host/port through hr.config (sealed here to the fresh aihr defaults)."""
     conn = _FakeConn()
     calls: dict = {}
+    _seal_db_env(monkeypatch, tmp_path)
 
     def fake_pg_connect(**kwargs):
         calls["kwargs"] = kwargs
@@ -95,8 +132,31 @@ def test_connect_falls_back_to_env_password(monkeypatch) -> None:
     out = db_mod.connect()
     assert out is conn
     assert calls["kwargs"]["password"] == "env-pass"
-    assert calls["kwargs"]["user"] == "wikijs"
-    assert calls["kwargs"]["dbname"] == "wiki"
+    assert calls["kwargs"]["user"] == "aihr"
+    assert calls["kwargs"]["dbname"] == "aihr"
+    assert calls["kwargs"]["host"] == "localhost"
+    assert calls["kwargs"]["port"] == 5433
+
+
+def test_connect_explicit_fields_win(monkeypatch, tmp_path) -> None:
+    conn = _FakeConn()
+    calls: dict = {}
+    _seal_db_env(monkeypatch, tmp_path)
+    monkeypatch.setattr(db_mod, "migrate_schema_namespace", lambda c: None)
+    monkeypatch.setattr(
+        db_mod.psycopg2, "connect", lambda **kwargs: calls.update(kwargs) or conn
+    )
+    out = db_mod.connect(
+        dbname="other", user="ops", host="db.example", port=6000, password="pw"
+    )
+    assert out is conn
+    assert calls == {
+        "dbname": "other",
+        "user": "ops",
+        "host": "db.example",
+        "port": 6000,
+        "password": "pw",
+    }
 
 
 def test_connect_explicit_password(monkeypatch) -> None:

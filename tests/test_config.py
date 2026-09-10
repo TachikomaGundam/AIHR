@@ -23,6 +23,7 @@ def _clear_dsn_envs(monkeypatch) -> None:
     monkeypatch.delenv("HR_DB_PORT", raising=False)
     monkeypatch.delenv("HR_DB_NAME", raising=False)
     monkeypatch.delenv("HR_DB_USER", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
 
 
 def test_hr_home_env_override(tmp_path, monkeypatch):
@@ -160,9 +161,10 @@ def test_db_dsn_encodes_reserved_credential_characters(tmp_path, monkeypatch):
     monkeypatch.setenv("HR_HOME", str(tmp_path))
     monkeypatch.setenv("HR_DB_PASSWORD", "p@ss:/word")
 
-    # When / Then: each credential component remains within its URI field.
+    # When / Then: each credential component remains within its URI field,
+    # and an hr.toml without db_port lands on the new aihr default port.
     assert config.db_dsn() == (
-        "postgresql://alice%40example.com:p%40ss%3A%2Fword@localhost:5432/hr%20data"
+        "postgresql://alice%40example.com:p%40ss%3A%2Fword@localhost:5433/hr%20data"
     )
 
 
@@ -179,6 +181,141 @@ def test_db_dsn_toml_defaults_when_no_password(tmp_path, monkeypatch):
     assert "hr.toml" in msg
     assert "HR_DB_PASSWORD" in msg
     assert "HR_COMPOSE_FILE" in msg
+    assert "hr db-up" in msg
+    assert "AIHR db env file" in msg
+
+
+# ---------------------------------------------------------------------------
+# AIHR turnkey db env file (chain step 3)
+# ---------------------------------------------------------------------------
+
+
+def _write_env_file(tmp_path, body: str):
+    docker = tmp_path / "docker"
+    docker.mkdir(parents=True, exist_ok=True)
+    (docker / ".env").write_text(body, encoding="utf-8")
+
+
+def test_db_dsn_env_file_resolves_aihr_stack(tmp_path, monkeypatch):
+    """No hr.toml, no HR_DB_PASSWORD, no compose: the generated docker/.env
+    alone resolves the full DSN on the new aihr defaults."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    _write_env_file(tmp_path, "AIHR_DB_PASSWORD=turnkey-pw\n")
+    dsn, source = config.db_dsn_with_source()
+    assert dsn == "postgresql://aihr:turnkey-pw@localhost:5433/aihr"
+    assert "AIHR db env file" in source
+
+
+def test_db_dsn_env_file_port_override(tmp_path, monkeypatch):
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    _write_env_file(
+        tmp_path, "AIHR_DB_PASSWORD=turnkey-pw\nAIHR_DB_PORT=5441\n"
+    )
+    assert config.db_dsn() == "postgresql://aihr:turnkey-pw@localhost:5441/aihr"
+
+
+def test_db_dsn_env_file_uses_toml_fields_when_present(tmp_path, monkeypatch):
+    """Chain contract: fields from hr.toml when present, else aihr defaults;
+    the env file supplies the password."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    (tmp_path / "hr.toml").write_text(
+        'db_host = "db.example"\ndb_name = "aihr2"\ndb_user = "ops"\n',
+        encoding="utf-8",
+    )
+    _write_env_file(tmp_path, "AIHR_DB_PASSWORD=env-file-pw\nAIHR_DB_PORT=5442\n")
+    assert config.db_dsn() == "postgresql://ops:env-file-pw@db.example:5442/aihr2"
+
+
+def test_db_dsn_precedence_env_password_beats_env_file(tmp_path, monkeypatch):
+    """Chain ordering: HR_DSN > hr.toml+HR_DB_PASSWORD > docker/.env >
+    legacy compose — with the lower steps also resolvable, step 2 wins."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    (tmp_path / "hr.toml").write_text('db_user = "alice"\n', encoding="utf-8")
+    _write_env_file(tmp_path, "AIHR_DB_PASSWORD=lower-step-pw\n")
+    monkeypatch.setenv("HR_DB_PASSWORD", "higher-step-pw")
+    assert config.db_dsn() == "postgresql://alice:higher-step-pw@localhost:5433/aihr"
+
+
+def test_db_dsn_env_file_data_dir_fallback_discovered(tmp_path, monkeypatch):
+    """Read discovery finds <HOME>/.local/share/aihr/db.env when the
+    repo-local docker/.env is absent."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path / "hr"))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    data = tmp_path / ".local" / "share" / "aihr"
+    data.mkdir(parents=True)
+    (data / "db.env").write_text(
+        "AIHR_DB_PASSWORD=fallback-pw\nAIHR_DB_PORT=5443\n", encoding="utf-8"
+    )
+    assert config.db_dsn() == "postgresql://aihr:fallback-pw@localhost:5443/aihr"
+
+
+# ---------------------------------------------------------------------------
+# legacy HR_COMPOSE_FILE path (chain step 4) — user/db/password resolution
+# ---------------------------------------------------------------------------
+
+
+def test_db_dsn_compose_fallback_resolves_services_db(tmp_path, monkeypatch):
+    """services.db.environment POSTGRES_* (list style) define user/db."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    (tmp_path / "compose.yml").write_text(
+        "services:\n"
+        "  db:\n"
+        "    environment:\n"
+        "      - POSTGRES_USER=dbuser\n"
+        "      - POSTGRES_DB=dbnam\n"
+        "      - POSTGRES_PASSWORD=dbpw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HR_COMPOSE_FILE", str(tmp_path / "compose.yml"))
+    assert config.db_dsn() == "postgresql://dbuser:dbpw@localhost:5432/dbnam"
+
+
+def test_db_dsn_compose_fallback_wiki_overlays_db_service(tmp_path, monkeypatch):
+    """The consumer block (services.wiki DB_*) overlays services.db POSTGRES_*."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    (tmp_path / "compose.yml").write_text(
+        "services:\n"
+        "  db:\n"
+        "    environment:\n"
+        "      POSTGRES_USER: baseuser\n"
+        "      POSTGRES_DB: basenam\n"
+        "      POSTGRES_PASSWORD: basepw\n"
+        "  wiki:\n"
+        "    environment:\n"
+        "      DB_USER: overlayuser\n"
+        "      DB_NAME: overlaynam\n"
+        "      DB_PASS: overlaypw\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HR_COMPOSE_FILE", str(tmp_path / "compose.yml"))
+    assert config.db_dsn() == "postgresql://overlayuser:overlaypw@localhost:5432/overlaynam"
+
+
+def test_db_dsn_compose_env_vars_keep_highest_precedence(tmp_path, monkeypatch):
+    """HR_DB_* env overrides beat every compose-declared field."""
+    _clear_dsn_envs(monkeypatch)
+    monkeypatch.setenv("HR_HOME", str(tmp_path))
+    (tmp_path / "compose.yml").write_text(
+        "services:\n"
+        "  wiki:\n"
+        "    environment:\n"
+        "      DB_USER: wikijs\n"
+        "      DB_PASS: wikipw\n"
+        "      DB_NAME: wiki\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HR_COMPOSE_FILE", str(tmp_path / "compose.yml"))
+    monkeypatch.setenv("HR_DB_USER", "forced")
+    monkeypatch.setenv("HR_DB_NAME", "forced_db")
+    monkeypatch.setenv("HR_DB_PORT", "5599")
+    assert config.db_dsn() == "postgresql://forced:wikipw@localhost:5599/forced_db"
 
 
 def test_db_dsn_compose_fallback_builds_dsn(tmp_path, monkeypatch):

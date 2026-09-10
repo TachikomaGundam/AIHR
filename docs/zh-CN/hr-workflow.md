@@ -39,7 +39,7 @@ HR 评估所有通过 opencode 配置声明的供应商可达模型。机队不�
 
 如果供应商没有配置 API 密钥，其模型会被跳过（而非报错）。
 
-## 十三条命令
+## 十六条命令
 
 ```bash
 # 完整流水线：discover → bench → verdict → apply
@@ -68,6 +68,11 @@ hr status                            # DB 状态 + 最新能力均值
 hr apply                             # 裁决座位桥接到 FastDraw 预设
 hr apply --preset <name>             # 自定义预设名称（默认：verdict-<日期>）
 hr apply --set-state                 # 写入 .fastdraw.json（需要重启 opencode）
+
+# 数据库生命周期（开箱即用）
+hr db-up [--port N] [--force]        # 创建并启动 aihr 数据库（默认 127.0.0.1:5433；N 覆盖端口；--force 强制接管由其他安装拥有的 aihr-db 容器）
+hr db-down [--purge --yes]           # 停止数据库（--purge 一并删除数据卷，--yes 跳过确认）
+hr db-status                         # 查看 aihr 数据库状态
 ```
 
 ## v4 Livebench 八大电池
@@ -222,7 +227,7 @@ hr apply                     # 写入预设（verdict-<今天日期>）
 
 ## 数据库表结构
 
-HR 将数据存储在与 Wiki.js 共享的 PostgreSQL 数据库中（`wiki` 数据库，表前缀 `hr_`）：
+HR 将数据存储在自己专属的 AIHR 原生 PostgreSQL 数据库中（`aihr` 数据库，`hr` 模式，表前缀 `hr_`）。该库由开箱即用的生命周期命令管理：`hr db-up` 创建并启动，`hr db-down` 停止，`hr db-status` 报告状态：
 
 | 表 | 用途 |
 |----|------|
@@ -234,7 +239,24 @@ HR 将数据存储在与 Wiki.js 共享的 PostgreSQL 数据库中（`wiki` 数�
 | `hr_assignments` | 角色分配（角色、适配分数、理由、是否活跃） |
 | `hr_reports` | 综合评估报告（优缺点、推荐角色、总分） |
 
-连接：`localhost:5432`，用户 `wikijs`，数据库 `wiki`。
+### 连接解析
+
+DSN 按以下顺序解析（命中即止）：
+
+1. `HR_DSN` 环境变量（完整连接串，原样返回）。
+2. monorepo 根目录的 `hr.toml`（按约定不含密钥：`db_host`、`db_port`、`db_name`、`db_user`）加上 `HR_DB_PASSWORD` 环境变量。
+3. 由 `hr db-up` 管理的 `docker/.env`（`aihr-db` 容器首次启动生成的随机密码，以 `0600` 权限持久化）。
+4. `HR_COMPOSE_FILE`（仅作历史遗留脚注）：面向旧部署的可选 docker-compose 回退。不建议新安装使用。
+
+新机器零环境变量配方：
+
+```bash
+pip install aihr
+hr db-up      # 开箱即用，aihr 数据库监听 127.0.0.1:5433
+hr status     # 无需其他配置即可工作
+```
+
+为何独立建库：最小权限（HR 不再持有 Wiki.js 超级用户凭据）与端口卫生（默认 `127.0.0.1:5433`，不会与宿主机 PostgreSQL 的 5432 冲突）。`hr db-up` 在首次启动时生成随机密码并以 `0600` 权限写入 `docker/.env`。这套开箱即用方案取代了 2026-09-10 之前与 Wiki.js 共享数据库的旧安排。`hr publish` 的发布目标仍是 Wiki.js，经 GraphQL API + API 密钥访问，该路径不变。
 
 ## Wiki.js 发布
 

@@ -1,0 +1,16 @@
+services:
+  aihr-db:
+    image: postgres:16-alpine
+    container_name: aihr-db
+    restart: unless-stopped
+    volumes:
+      - aihr-db-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${AIHR_DB_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: aihr
+      POSTGRES_USER: aihr
+      POSTGRES_PASSWORD: ${AIHR_DB_PASSWORD}
+
+volumes:
+  aihr-db-data:

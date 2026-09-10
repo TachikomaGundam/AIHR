@@ -1130,6 +1130,17 @@ def test_built_candidate_runs_python_S_m_hr_help(tmp_path: Path) -> None:
     subprocess.run(["tar", "-xf", str(archive), "-C", str(ws)], check=True)
     subprocess.run(["git", "init", "-q"], cwd=ws, check=True)
     subprocess.run(["git", "add", "itemrepo"], cwd=ws, check=True)
+    # Authored-file overlay (mirrors the `authored` set in
+    # tests/test_release_surface._runtime_import_closure): manifest entries
+    # this commit introduces exist only in the working tree until the commit
+    # lands, so overlay exactly the missing surface files from the checkout.
+    # At a committed state the overlay is empty and the gate stays pure-HEAD.
+    for rel in sorted(set(INCLUDED_HR_MODULES) | set(RELEASE_ASSETS)):
+        head_blob = ws / rel
+        worktree_file = _REPO_ROOT / rel
+        if not head_blob.is_file() and worktree_file.is_file():
+            head_blob.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(worktree_file, head_blob)
     releases_root = tmp_path / "releases"
     assert build_release(ws, releases_root, "smoke-r2")["success"]
     assert verify_release("smoke-r2", releases_root)["valid"]
