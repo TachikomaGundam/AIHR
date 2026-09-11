@@ -20,11 +20,17 @@ and `v0.2.1` set. Origin is already configured as
 `git@github.com:TachikomaGundam/AIHR.git`.
 
 > **Published state (verified 2026-09-11 against the registries):**
-> **PyPI `aihr` — latest is still 0.2.2; the 0.3.0 upload below is
-> MAINTAINER-PENDING (§4 commands, token never through chat/agent).** ·
+> **PyPI `aihr` 0.3.0 — UPLOADED and registry-verified** (latest; wheel +
+> sdist sha256 match the locally built artifacts; fresh PyPI-wheel
+> re-download digest-identical and installs clean — the three db
+> lifecycle commands present, and the foreign-takeover guard proven live:
+> a second install's `hr db-up` refuses to recreate this host's
+> `aihr-db`, exit 1, container untouched). ·
 > npm `opencode-hr-agent` 0.2.2 · npm `opencode-fastdraw` 1.2.0 — both
 > unchanged by 0.3.0 (no plugin JS change; `hrContractVersion` stays
 > 1.0.0 — new shipped files are not an on-disk contract change).
+> Remaining: second-machine turnkey proof (`pip install "aihr[vision]"
+> && hr db-up && hr status`, zero env exports) when a box is available.
 >
 > **0.3.0** (AIHR item 9: turnkey `aihr-db` container +
 > `hr db-up/db-down/db-status` + 4-step DSN chain + foreign-takeover
