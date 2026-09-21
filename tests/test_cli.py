@@ -39,6 +39,8 @@ COMMANDS = {
     "db-up",
     "db-down",
     "db-status",
+    "install-post",
+    "self-uninstall",
     "apply",
     "apply-preview",
     "apply-rollback",

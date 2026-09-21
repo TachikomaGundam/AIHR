@@ -56,20 +56,41 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 
 ## Install
 
-Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）。两条命令引导整个技术栈——引擎、npm 插件、opencode 注册：
+每个操作系统一条命令。零 sudo、零前置依赖：turnkey bundle 自带引擎，也自带数据库。
 
 ```bash
-# Python 引擎（仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow）
-pip install "aihr[vision]"
-# 经 npm 安装锁版插件对 + opencode 配置注册，一条命令，可重复执行
-hr setup
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh
+
+# Windows（PowerShell）
+powershell -c "irm https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.ps1 | iex"
 ```
 
-`hr setup` 先用 npm 以 `@latest` 全局安装插件对，再把注册工作交给 `opencode-hr-agent` 自带的 `opencode-hr` 命令行。它从不需要提权（npm 全局目录不可写时会指向下面的用户级 prefix 方案；带注释的配置文件绝不改写，而是打印需要你粘贴的确切行），重复运行安全，`opencode-hr status` 可查看注册状态。npm 安装完成后它会跑 `npm ls -g` 打印 `@latest` 实际解析到的具体版本，让每次安装事后可审计。重启 opencode 后验证：让 agent 调 `hr_status` / `fastdraw_list`（工具面），在 TUI 里输入 `/fastdraw`（命令面）。
+参数：`--version X.Y.Z` 锁定版本 · `--bundle <path>` 从本地 bundle 安装、不联网下载 · `--port N` 指定数据库端口 · `--reinstall` 覆盖重装（幂等：数据目录连数据库一并原封不动）。装完另开一个 shell，让 `~/.aihr/bin` 的 shim 进入 PATH，然后 `hr db-up && hr status`。
 
-`hr` 命令本身装在 pip 的 scripts 目录里，而 Windows（`…\Scripts`）与 macOS user-site 安装（`~/Library/Python/<版本>/bin`）默认都不在 PATH 里——`pip install aihr` 成功之后直接敲 `hr` 会找不到命令。`hr setup` 会检测到这一点并持久化一条仅用户作用域的 PATH 记录：Windows 写 `HKCU\Environment`，其余系统在你已有的 shell rc 文件里加一段带醒目标记的块。绝不提权、绝不碰系统级，也可用 `hr setup --no-path` 跳过。要清掉 setup 添加的一切——配置注册、npm 全局包、opencode 的插件缓存副本、skill/agent 配置副本以及那条 PATH 记录——运行 `hr setup --uninstall`，最后再 `pip uninstall aihr`；若存在 git 方式的 FastDraw 安装布局，由它自带的 `fastdraw/uninstall.sh` 负责清除。
+安装器放下的一切，全都住在同一个归它自有的目录里：`~/.aihr`（Linux/macOS）或 `%LOCALAPPDATA%\aihr`（Windows）——`app/` 是自带运行时的引擎（目标机器无需装 Python），`pg/` 是 vendored PostgreSQL，`bin/` 是 PATH shim，`data/pgdata` 是数据库本身，`db.env` 以 `0600` 权限存放首次启动生成的随机密码，`share/aihr` 是随包配置，`receipt.json` 逐条记录每个落盘路径。目录之外安装器只碰两样东西：shell rc 里那段指向 shim、带醒目标记的 PATH 块，以及它写入插件注册的两个 opencode 配置数组——统统在回执里。npm 不是安装步骤：安装收尾命令 `hr install-post` 把插件登记进 opencode 的配置数组（`opencode.jsonc` 的主 `plugin` 数组，FastDraw TUI 那半边在 `tui.json`），opencode/bun 在启动时自行拉取并缓存这些 npm 包。`hr db-up` 不需要 Docker：后端自动三选一，内嵌 vendored Postgres（bundle 默认）、compose 容器（保留的原有通道）、或用 `HR_DSN` / `hr.toml` 指向你自己已有的 PostgreSQL；`hr db-status` 会报告当前生效的是哪个后端。无 Docker 的 turnkey 随 **aihr 0.4.0（2026-09）**落地；0.3.0 那个 `hr db-up` 还要求预装 Docker 的"docker not found"时代已被取代。
 
-手动注册（回退方案——例如 PATH 上没有 npm，或你偏好纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都声明插件：
+### Uninstall
+
+```bash
+hr self-uninstall --yes
+```
+
+卸载按回执反向执行：先移除安装放下的所有东西，然后打印一份**残留清单**，凡不归它所有的路径与设置逐条列出，每条附上确切的删除命令。契约是"要么删净它放的一切，要么逐条报告残留"，绝不静默留下任何东西。`hr install-post` 是它的幂等反面（PATH shim、opencode 配置数组注册、写回执）：安装器把它当自己的收尾跑，手动重复执行也安全。开发者通道下，先跑 `hr self-uninstall --yes` 清掉 install-post 写过的一切，最后再 `pip uninstall aihr`。
+
+### 开发者通道（pip / uv tool）
+
+Python 引擎以 **`aihr`** 发布于 PyPI（导入包名 `hr`，命令行 `hr`）。`pip install aihr` 或 `uv tool install aihr` 是**开发者通道**；上面那条 turnkey 一键安装的承诺属于 bundle，不属于 pip：
+
+```bash
+pip install aihr
+# 仅当需要 vision 条目生成器时才带 [vision]，会引入 Pillow
+pip install "aihr[vision]"
+```
+
+内嵌 Postgres 只随 bundle 分发；pip 通道上的 `hr db-up` 走 compose 容器或你自己的 PostgreSQL。pip 装完后运行一次 `hr install-post`，即可获得 PATH shim 与 opencode 配置注册（幂等、有回执）。`hr` 命令本身装在 pip 的 scripts 目录里，而 Windows（`…\Scripts`）与 macOS user-site 安装（`~/Library/Python/<版本>/bin`）默认都不在 PATH 里，`pip install aihr` 成功之后直接敲 `hr` 会找不到命令。`install-post` 会检测到这一点并只持久化一条用户作用域的 PATH 记录：Windows 写 `HKCU\Environment`，其余系统在你已有的 shell rc 文件里加一段带醒目标记的块。绝不提权、绝不碰系统级。
+
+手动注册（回退方案，纯配置）：opencode 只从配置文件的 `"plugin"` 数组（以及插件目录）发现插件；npm 条目由 opencode 在启动时自行下载并缓存。全局 npm 前缀根本不会被扫描，`-g` 安装对 opencode 完全不可见。请在**两个**文件中都声明插件：
 
 ```jsonc
 // ~/.config/opencode/opencode.json（或 .jsonc）—— 服务端半边：hr_* / fastdraw_* agent 工具
@@ -83,8 +104,8 @@ hr setup
 
 `opencode-fastdraw` 是独立的模型/角色切换插件，可单独声明；`opencode-hr-agent` 是 OpenCode 工具面到 `hr` CLI 的桥接层，依赖上面的 Python 引擎。每个 [GitHub Release](https://github.com/TachikomaGundam/AIHR/releases) 也附带 wheel 产物。
 
-- **为什么默认 `@latest`：** 一键安装绝不该带着过期锁版本——写死的具体版本会悄然腐烂，且正是新机部署时版本漂移坑的根源。`@latest` 始终解析到最新已发布版本，且 `hr setup` 会打印实际落定的具体版本，运行面仍可事后审计。若你更想冻结运行面（每次 opencode 启动重新解析 `@latest` 可能拉取能访问你 `~/.npmrc` 与 `HR_HOME` 的新代码），把上面两个文件里的 `@latest` 换成具体精确版本即可。
-- **为什么要两个文件：** 只写 `opencode.json` 时 agent 工具正常但 `/fastdraw` 与 `<leader>m` 会静默消失；只写 `tui.json` 则相反。`fastdraw/install.sh` 会自动注册两处。
+- **为什么默认 `@latest`：** 一键安装绝不该带着过期锁版本——写死的具体版本会悄然腐烂，且正是新机部署时版本漂移坑的根源。`@latest` 始终解析到最新已发布版本。若你更想冻结运行面（每次 opencode 启动重新解析 `@latest` 可能拉取能访问你 `~/.npmrc` 与 `HR_HOME` 的新代码），把上面两个文件里的 `@latest` 换成具体精确版本即可。
+- **为什么要两个文件：** 只写 `opencode.json` 时 agent 工具正常但 `/fastdraw` 与 `<leader>m` 会静默消失；只写 `tui.json` 则相反。`hr install-post` 会自动注册两处。
 - **可选的 HR 工作流层：** `/hr-workflow` 斜杠技能与 `hr` 子代理是配置文件而非插件代码——权威副本版本化在 `opencode-config/` 下，复制即装：
   ```bash
   mkdir -p ~/.config/opencode/skills ~/.config/opencode/agents
@@ -155,7 +176,7 @@ gitignore 的本地覆盖层中——`configs/seats.local.yaml`、`configs/fleet
 - `configs/fleet.yaml` — 动态机队的可选覆盖：`wire_overrides`、`scope_excludes`、`gateway_urls`（仅注册表提供者的 base URL）。
 - `configs/seats.yaml` — 席位定义、每席位 `primary_capabilities`、stage-0 `calibration_anchors`。
 - `configs/deployable.yaml` — `extra_deployable`：在 opencode 配置之外提供的模型（唯一手工维护的模型列表）。
-- `hr.toml.example` — 仓库根目录下的本地 `hr.toml` 模板（DB 连接 + 可选 Wiki.js 发布目标）。密钥绝不存于此文件：一律来自环境变量（`HR_DSN`、`HR_DB_PASSWORD`）或 `hr db-up` 生成的 db env 文件。
+- `hr.toml.example` — 仓库根目录下的本地 `hr.toml` 模板（DB 连接 + 可选 Wiki.js 发布目标）。密钥绝不存于此文件：一律来自环境变量（`HR_DSN`、`HR_DB_PASSWORD`）或 `hr db-up` 生成的 db env 文件（内嵌后端为 `~/.aihr/db.env`）。
 
 模型机队本身不在此仓库声明：运行时从 opencode 配置（`opencode.jsonc` 的 provider 块）推导，并与 `deployable.yaml` 的 extras 合并——见下文 Universality。
 
@@ -245,7 +266,7 @@ FastDraw 包含服务端与 TUI 两部分。必须在两个 opencode 配置文�
 ```
 harness/hr/               # 仓库根目录（pip install -e .）
   configs/                # YAML 配置：deployable.yaml、fleet.yaml、knowledge.yaml、models.yaml、seats.yaml、thresholds.yaml（+ 被 gitignore 的 *.local.yaml 覆盖层）
-  docker/                 # 开箱即用数据库：AIHR postgres:16-alpine 容器的 docker-compose.yml（`hr db-up`）
+  docker/                 # `hr db-up` 的 compose 后端（三种后端之一；bundle 用内嵌 Postgres）：aihr-db postgres:16-alpine 容器的 docker-compose.yml
   docs/                   # 双语文档（en/、zh-CN/）
   exports/                # 生成的工件（gitignore）
   fastdraw/               # npm 子包：FastDraw 服务器、TUI、预设管理

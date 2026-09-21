@@ -21,6 +21,25 @@ hr/
 
 该包以 editable 模式全局安装。`hr` 控制台脚本可在任何目录运行。
 
+## 新机器配方（0.4.0+）
+
+每个操作系统一条命令，零 sudo、零前置依赖（turnkey bundle，随 aihr 0.4.0 于 2026-09 落地）：
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh
+# Windows（PowerShell）
+powershell -c "irm https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.ps1 | iex"
+```
+
+安装器参数：`--version X.Y.Z`、`--bundle <path>`、`--port N`、`--reinstall`。然后另开一个 shell，让 `~/.aihr/bin` 的 shim 进入 PATH：
+
+```bash
+hr db-up && hr status
+```
+
+一切都住在同一个归安装器自有的目录 `~/.aihr`（Windows 为 `%LOCALAPPDATA%\aihr`）里：内嵌 Postgres 及其数据（`~/.aihr/data/pgdata`，密码与端口写在 `~/.aihr/db.env`），还有回执 `~/.aihr/receipt.json`。`hr install-post`（幂等的安装收尾）把插件登记进 `opencode.jsonc` 与 `tui.json` 的配置数组，opencode/bun 启动时自行拉取这些 npm 包，所以 npm 不是安装步骤。完整反向操作是 `hr self-uninstall --yes`：先删净它放下的一切，然后打印残留清单，逐条列出不归它所有的路径并附上确切的删除命令。
+
 ## 模型供应商
 
 HR 评估所有通过 opencode 配置声明的供应商可达模型。机队不是快照：在运行时从 `opencode.jsonc` 的 provider 块推导（每个 `provider.*.models` 条目即一个模型，`npm` 字段推导 wire 类型）；`configs/fleet.yaml` 只提供可选覆盖（`scope_excludes:` 移出默认作用域、`wire_overrides:` 声明仅注册表提供者的 wire）。
@@ -39,7 +58,7 @@ HR 评估所有通过 opencode 配置声明的供应商可达模型。机队不�
 
 如果供应商没有配置 API 密钥，其模型会被跳过（而非报错）。
 
-## 十六条命令
+## 十八条命令
 
 ```bash
 # 完整流水线：discover → bench → verdict → apply
@@ -70,9 +89,13 @@ hr apply --preset <name>             # 自定义预设名称（默认：verdict-
 hr apply --set-state                 # 写入 .fastdraw.json（需要重启 opencode）
 
 # 数据库生命周期（开箱即用）
-hr db-up [--port N] [--force]        # 创建并启动 aihr 数据库（默认 127.0.0.1:5433；N 覆盖端口；--force 强制接管由其他安装拥有的 aihr-db 容器）
+hr db-up [--port N] [--force]        # 创建并启动 aihr 数据库（后端自动三选一——compose / 内嵌 / 自带，详见连接解析；默认 127.0.0.1:5433；N 覆盖端口；--force 强制接管由其他安装拥有的 aihr-db 容器）
 hr db-down [--purge --yes]           # 停止数据库（--purge 一并删除数据卷，--yes 跳过确认）
 hr db-status                         # 查看 aihr 数据库状态
+
+# 生命周期（0.4.0+ turnkey）
+hr install-post                      # 幂等的安装收尾：PATH shim、opencode 配置数组注册、写回执（~/.aihr/receipt.json）
+hr self-uninstall --yes              # 按回执完整反向卸载；随后打印残留清单（RESIDUAL MANIFEST），逐条列出不归它所有的路径及确切的删除命令
 ```
 
 ## v4 Livebench 八大电池
@@ -227,7 +250,7 @@ hr apply                     # 写入预设（verdict-<今天日期>）
 
 ## 数据库表结构
 
-HR 将数据存储在自己专属的 AIHR 原生 PostgreSQL 数据库中（`aihr` 数据库，`hr` 模式，表前缀 `hr_`）。该库由开箱即用的生命周期命令管理：`hr db-up` 创建并启动，`hr db-down` 停止，`hr db-status` 报告状态：
+HR 将数据存储在自己专属的 AIHR 原生 PostgreSQL 数据库中（`aihr` 数据库，`hr` 模式，表前缀 `hr_`）。该库由开箱即用的生命周期命令管理：`hr db-up` 创建并启动它（后端自动三选一：compose 容器、内嵌 vendored Postgres、自带 PostgreSQL，详见下文连接解析），`hr db-down` 停止它，`hr db-status` 报告状态并指明当前生效的后端：
 
 | 表 | 用途 |
 |----|------|
@@ -241,22 +264,23 @@ HR 将数据存储在自己专属的 AIHR 原生 PostgreSQL 数据库中（`aihr
 
 ### 连接解析
 
+`hr db-up [--port N] [--force]` 在**三个**后端之间自动决策；`hr db-down` 与 `hr db-status` 覆盖全部三种后端，且 `hr db-status` 会报告当前生效的是哪个后端。Docker 只是三后端之一，从来不是前置要求：
+
+1. **Compose 容器**（保留的原有通道）：由 `docker/docker-compose.yml` 驱动的 `aihr-db` postgres:16-alpine 容器。
+2. **内嵌 vendored Postgres**（turnkey bundle 安装，0.4.0+）：不需要 Docker。数据在 `~/.aihr/data/pgdata`；密码与端口写在 `~/.aihr/db.env`。
+3. **自带 PostgreSQL**：任何你已在运行的服务器，经 `HR_DSN` 或 `hr.toml` 描述。
+
 DSN 按以下顺序解析（命中即止）：
 
 1. `HR_DSN` 环境变量（完整连接串，原样返回）。
 2. monorepo 根目录的 `hr.toml`（按约定不含密钥：`db_host`、`db_port`、`db_name`、`db_user`）加上 `HR_DB_PASSWORD` 环境变量。
-3. 由 `hr db-up` 管理的 `docker/.env`（`aihr-db` 容器首次启动生成的随机密码，以 `0600` 权限持久化）。
-4. `HR_COMPOSE_FILE`（仅作历史遗留脚注）：面向旧部署的可选 docker-compose 回退。不建议新安装使用。
+3. compose 通道的 `docker/.env`（首选，由 `hr db-up` 管理：`aihr-db` 容器首次启动生成的随机密码，以 `0600` 权限持久化；bundle 安装没有 compose 文件，这个文件在那里根本不会出现）。
+4. 内嵌后端的 `~/.aihr/db.env`（由 `hr db-up` 以 `0600` 权限持久化的密码/端口；两者同时存在时 `docker/.env` 仍为首选）。
+5. `HR_COMPOSE_FILE`（仅作历史遗留脚注）：面向旧部署的可选 docker-compose 回退。不建议新安装使用。
 
-新机器零环境变量配方：
+零环境变量的新机器路径见上文"新机器配方（0.4.0+）"一节：bundle 一键安装，然后 `hr db-up && hr status`。
 
-```bash
-pip install aihr
-hr db-up      # 开箱即用，aihr 数据库监听 127.0.0.1:5433
-hr status     # 无需其他配置即可工作
-```
-
-为何独立建库：最小权限（HR 不再持有 Wiki.js 超级用户凭据）与端口卫生（默认 `127.0.0.1:5433`，不会与宿主机 PostgreSQL 的 5432 冲突）。`hr db-up` 在首次启动时生成随机密码并以 `0600` 权限写入 `docker/.env`。这套开箱即用方案取代了 2026-09-10 之前与 Wiki.js 共享数据库的旧安排。`hr publish` 的发布目标仍是 Wiki.js，经 GraphQL API + API 密钥访问，该路径不变。
+为何独立建库：最小权限（HR 不再持有 Wiki.js 超级用户凭据）与端口卫生（默认 `127.0.0.1:5433`，不会与宿主机 PostgreSQL 的 5432 冲突）。`hr db-up` 在首次启动时生成随机密码并以 `0600` 权限持久化（内嵌后端写 `~/.aihr/db.env`，compose 通道写 `docker/.env`）。无 Docker 的 turnkey 随 aihr 0.4.0（2026-09）发布，取代了 0.3.0 对预装 Docker 的依赖（那个"docker not found"时代）；而 turnkey 数据库本身取代了 2026-09-10 之前与 Wiki.js 共享数据库的旧安排。`hr publish` 的发布目标仍是 Wiki.js，经 GraphQL API + API 密钥访问，该路径不变。
 
 ## Wiki.js 发布
 

@@ -1,9 +1,12 @@
 """Configuration resource discovery and YAML overlay loading.
 
 Includes the AIHR turnkey-database resource layer: discovery/parsing of the
-db env file (``docker/.env`` next to the shipped compose, with a data-dir
-fallback) written by ``hr db-up``, and credential resolution from a legacy
-docker-compose manifest (``HR_COMPOSE_FILE``).
+db env file (``docker/.env`` next to the shipped compose, with the embedded-
+Postgres bundle's ``<D>/db.env`` and a data-dir fallback) written by
+``hr db-up``, and credential resolution from a legacy docker-compose manifest
+(``HR_COMPOSE_FILE``). The turnkey bundle owns directory ``D`` — POSIX
+``~/.aihr``, Windows ``%LOCALAPPDATA%\\aihr`` — overridable via
+``AIHR_HOME_DIR`` for tests.
 """
 
 from __future__ import annotations
@@ -56,17 +59,42 @@ def wiki_config() -> dict[str, Any] | None:
     return None
 
 
-def db_env_file_candidates() -> tuple[Path, Path]:
-    """``(primary, fallback)`` locations of the AIHR db env file.
+def aihr_home_dir() -> Path:
+    """Owned turnkey bundle dir ``D`` (env override ``AIHR_HOME_DIR`` for tests).
+
+    POSIX ``~/.aihr``; Windows ``%LOCALAPPDATA%\\aihr`` (HOME-based fallback
+    when LOCALAPPDATA is unset). Resolved at call time like every other
+    discovery point, so redirected env always wins.
+    """
+    env = os.environ.get("AIHR_HOME_DIR")
+    if env:
+        return Path(env).expanduser()
+    if sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            return Path(local).expanduser() / "aihr"
+    return home_dir() / ".aihr"
+
+
+def bundled_db_env_file() -> Path:
+    """The embedded-Postgres backend's db env file: ``<D>/db.env``."""
+    return aihr_home_dir() / "db.env"
+
+
+def db_env_file_candidates() -> tuple[Path, Path, Path]:
+    """``(primary, fallback, bundled)`` locations of the AIHR db env file.
 
     *primary* is ``<hr_home>/docker/.env``, next to the shipped compose file;
     when that directory is not writable (read-only install), db-up falls back
-    to ``<XDG data dir or ~/.local/share>/aihr/db.env``.
+    to ``<XDG data dir or ~/.local/share>/aihr/db.env``. *bundled* is
+    ``<D>/db.env``, written by the embedded-Postgres backend of ``hr db-up``
+    (turnkey bundle installs have no compose file, so docker/.env never
+    exists there; docker/.env stays primary when both are present).
     """
     primary = hr_home() / "docker" / ".env"
     xdg = os.environ.get("XDG_DATA_HOME")
     data_root = Path(xdg) if xdg else home_dir() / ".local" / "share"
-    return primary, data_root / "aihr" / "db.env"
+    return primary, data_root / "aihr" / "db.env", bundled_db_env_file()
 
 
 def _can_write_dir(path: Path) -> bool:
@@ -90,9 +118,11 @@ def db_env_file(*, for_write: bool = False) -> Path | None:
     ``None`` — never creates anything. Write mode: an existing candidate,
     else the primary path when its directory is writable, else the fallback.
     """
-    primary, fallback = db_env_file_candidates()
+    primary, fallback, bundled = db_env_file_candidates()
     if primary.is_file():
         return primary
+    if bundled.is_file():
+        return bundled
     if fallback.is_file():
         return fallback
     if not for_write:
@@ -191,7 +221,14 @@ def compose_db_password(compose_path: Path) -> str:
 
 
 def hr_home() -> Path:
-    """Resolve resources from an override, source checkout, or installation."""
+    """Resolve resources from an override, source checkout, or installation.
+
+    Bundle-mode note: a PyInstaller onedir build runs with the package under
+    ``D/app/_internal``; resources must resolve to ``D/share/aihr`` next to
+    the binary, NEVER to the ``sys._MEIPASS`` extraction temp (its content is
+    ephemeral — user edits there would vanish). ``HR_HOME`` keeps first
+    precedence (unchanged contract).
+    """
     env = os.environ.get("HR_HOME")
     if env:
         return Path(env).expanduser().resolve()
@@ -201,6 +238,9 @@ def hr_home() -> Path:
     target_root = source_root / "share" / "aihr"
     if (target_root / "configs").is_dir():
         return target_root
+    bundle_root = Path(sys.executable).resolve().parent.parent / "share" / "aihr"
+    if (bundle_root / "configs").is_dir():
+        return bundle_root
     installed_root = Path(sys.prefix).resolve() / "share" / "aihr"
     if (installed_root / "configs").is_dir():
         return installed_root

@@ -200,30 +200,37 @@ maintainer's call):
    like `opencode-hr-agent@0.2.2` (this is the convention adopted since 0.2.1);
    agents never tag.
 
-## 6. Verify from the second machine
+## 6. The Testbed Acceptance Protocol — the permanent turnkey courtroom
 
-```bash
-# engine (primary — PyPI):
-pip install "aihr[vision]"
-hr --help                                # expect all 27 commands
-hr db-up && hr status                    # turnkey DB: docker required, ZERO env exports
-# engine (mirror — Release wheel, no PyPI required):
-pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.2/aihr-0.2.2-py3-none-any.whl"
-npm view opencode-hr-agent               # expect 0.2.2
-npm view opencode-fastdraw               # expect 1.1.1
-# One-shot plugin bootstrap (installs the pair at @latest via npm AND registers
-# both opencode config files):
-hr setup
-hr setup --no-npm                        # re-run registration only; expect already-registered OK
-# Fallback (config-only, no npm): add to ~/.config/opencode/opencode.json
-# "plugin": "opencode-hr-agent@latest", "opencode-fastdraw@latest" and to
-# ~/.config/opencode/tui.json "plugin": "opencode-fastdraw@latest" — a bare
-# `npm install -g` alone is NEVER visible to opencode (prefix not scanned).
-# Restart opencode; expect hr_* + fastdraw_* agent tools, /fastdraw + <leader>m in TUI.
-# (Machine-readable discovery-contract proof recipe: see docs/PLUGIN_SECURITY.md notes
-#  or ops/dev-env-pitfalls wiki page — /experimental/tool/ids probe.)
-git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGundam
-```
+Box **REDACTED-TESTBED-IP** (Ubuntu 26.04, system python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is this project's permanent turnkey courtroom — the exact machine where 0.3.0's "turnkey" claim died with "docker not found". Every bundle-version ship passes this protocol on the testbed box from factory state before it ships: it is the standing release gate, not a one-off (HR_EVOLUTION_BACKLOG Item 11, `~/workspace/AIHR/HR_EVOLUTION_BACKLOG.md`).
+
+Steps run in order, on a clean box, nothing skipped:
+
+1. **One command. Nothing preinstalled, zero sudo, zero prerequisites:**
+
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh
+   ```
+
+2. **Green database on the embedded backend.** Fresh shell so the `~/.aihr/bin` shim is on PATH:
+
+   ```bash
+   hr db-up && hr status      # expect: green, ZERO env exports, no sudo
+   ```
+
+   `hr db-status` must name the embedded vendored Postgres as the live backend — the testbed has no Docker, so the compose lane cannot even mask a broken default.
+
+3. **opencode tool surface.** Restart opencode on the testbed box and verify BOTH halves of the dual registration written by `hr install-post`: the `plugin` array in `~/.config/opencode/opencode.jsonc` (on this box the file IS `.jsonc` — there is no `opencode.json`) and the array in `tui.json`. Expect `hr_*` / `fastdraw_*` agent tools enumerable and `/fastdraw` + `<leader>m` alive in the TUI. (Machine-readable discovery-contract proof: the `/experimental/tool/ids` probe — see docs/PLUGIN_SECURITY.md notes or the ops/dev-env-pitfalls wiki page.) No npm step is run by hand — opencode/bun auto-fetches the package specs at startup.
+
+4. **Full reversal:**
+
+   ```bash
+   hr self-uninstall --yes
+   ```
+
+5. **Filesystem audit == printed residual manifest, EXACTLY.** Walk the box (owned-dir remnants, shell rc files, the two opencode configs, bin dirs, caches) and diff every leftover against the residual manifest printed in step 4. Every surviving path must appear there with its exact removal command (e.g. the bun plugin cache under `~/.cache/opencode/packages/…`); any leftover absent from the manifest is a release blocker. Contract law: uninstall removes ALL it placed or reports each residual — nothing silent.
+
+The same protocol then runs on the Windows and macOS boxes when available. A bundle version without a green testbed-box run does not ship.
 
 > **Takeover posture:** npm's `allow-same-user` default is `true`, so the same
 > account can still overwrite an already-published tarball of the same version;
@@ -235,6 +242,8 @@ git clone git@github.com:TachikomaGundam/AIHR.git    # history: all TachikomaGun
 
 ## What must NOT happen
 
+- The installers (`install.sh` / `install.ps1`) and their tail `hr install-post` NEVER run sudo or request elevation — on a box without passwordless sudo (the testbed is that box, permanently) the install must complete clean or the release fails the gate.
+- Installer writes are limited to: the owned directory (`~/.aihr` / `%LOCALAPPDATA%\aihr`), one clearly-marked PATH block in the shell rc, the two opencode config arrays (`plugin` in `opencode.jsonc` + `tui.json`), and the `~/.local/bin`-style PATH shim. The rc block, the two config arrays and the shim are the ONLY sanctioned writes outside the owned dir, and every one of them is receipted; anything written off-receipt is a contract violation that `hr self-uninstall` will surface as an unexplained residual.
 - Do not reuse this machine's local scratch PostgreSQL DSN on the second box —
   the CLI takes `HR_TEST_PG_DSN`/per-provider keys from `hr.toml` / env that
   you configure locally (template: `hr.toml.example`).
