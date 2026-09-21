@@ -1,0 +1,32 @@
+{
+  "$schema_note": "Pinned vendored PostgreSQL for AIHR turnkey bundles. Source: theseus-rs/postgresql-binaries GitHub releases. sha256 values were fetched from the official per-asset .sha256 sidecars on release tag 18.6.0 (2026-09-21). Refresh procedure: scripts/README-build.md.",
+  "source_repo": "theseus-rs/postgresql-binaries",
+  "release_tag": "18.6.0",
+  "pg_version": "18.6.0",
+  "targets": {
+    "linux-x86_64": {
+      "triple": "x86_64-unknown-linux-gnu",
+      "asset": "postgresql-18.6.0-x86_64-unknown-linux-gnu.tar.gz",
+      "kind": "tar.gz",
+      "sha256": "bb3d09f876b2383e25a8c9ce09e32d185a03656a23d074f5195542b1b1b3ca61"
+    },
+    "windows-x86_64": {
+      "triple": "x86_64-pc-windows-msvc",
+      "asset": "postgresql-18.6.0-x86_64-pc-windows-msvc.zip",
+      "kind": "zip",
+      "sha256": "dd4bcd50b38bf5b9f8a6e0d6736bd4412a79a066639cb855479d4d58b1dd74ac"
+    },
+    "macos-aarch64": {
+      "triple": "aarch64-apple-darwin",
+      "asset": "postgresql-18.6.0-aarch64-apple-darwin.tar.gz",
+      "kind": "tar.gz",
+      "sha256": "a257bcdb8aa3301a13d6a5bcec48f8c9517045b7cbae71e50788b2615539e95b"
+    },
+    "macos-x86_64": {
+      "triple": "x86_64-apple-darwin",
+      "asset": "postgresql-18.6.0-x86_64-apple-darwin.tar.gz",
+      "kind": "tar.gz",
+      "sha256": "f8918fbe747e0d79bda58ad8f8afcf23ac384b847ff3af18856f0825ba54b031"
+    }
+  }
+}

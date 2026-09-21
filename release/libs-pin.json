@@ -1,0 +1,27 @@
+{
+  "$schema_note": "Pinned system-library closure re-distributed inside linux turnkey bundles under pg/lib/ (MUST-DO: vendor all OS-level deps beyond glibc — Ubuntu 26.04 ships libxml2 SONAME .16 only, breaking theseus-rs postgres's DT_NEEDED libxml2.so.2). Sources: Ubuntu noble security-pool .deb files; sha256 of the raw .deb. Extract-only upstream binaries, unmodified; licenses MIT (libxml2), 0BSD-like (liblzma).",
+  "debs": [
+    {
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/libx/libxml2/libxml2_2.12.7+dfsg+really2.9.14-0.4ubuntu0.4_amd64.deb",
+      "sha256": "685e94ff7fd7ad869894c2317ab9473075536a5c74c092ca5a9cd5876acaaf6c",
+      "extract": [
+        {
+          "member": "usr/lib/x86_64-linux-gnu/libxml2.so.2.9.14",
+          "dest": "libxml2.so.2.9.14",
+          "symlink": "libxml2.so.2"
+        }
+      ]
+    },
+    {
+      "url": "http://archive.ubuntu.com/ubuntu/pool/main/x/xz-utils/liblzma5_5.8.1-1ubuntu0.1_amd64.deb",
+      "sha256": "4f92374e351dd5ac945410906c7a964f5ad5e50337c77a4fe1ebf3132f4fa4b4",
+      "extract": [
+        {
+          "member": "usr/lib/x86_64-linux-gnu/liblzma.so.5.8.1",
+          "dest": "liblzma.so.5.8.1",
+          "symlink": "liblzma.so.5"
+        }
+      ]
+    }
+  ]
+}

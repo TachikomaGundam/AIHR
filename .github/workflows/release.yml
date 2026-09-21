@@ -1,0 +1,185 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]*"
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target_os: linux
+            arch: x86_64
+            experimental: false
+          - runner: windows-2025
+            target_os: windows
+            arch: x86_64
+            experimental: false
+          - runner: macos-14
+            target_os: macos
+            arch: aarch64
+            experimental: false
+          - runner: macos-13
+            target_os: macos
+            arch: x86_64
+            experimental: true
+    name: bundle ${{ matrix.target_os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Resolve version from tag
+        shell: bash
+        run: echo "AIHR_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Vendorless builder self-test
+        shell: bash
+        run: uv run --no-project python scripts/build_bundle.py --self-test
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/aihr-build/pg
+          key: aihr-pg-${{ hashFiles('release/pg-pin.json') }}-${{ matrix.target_os }}-${{ matrix.arch }}
+
+      - name: Build turnkey bundle
+        shell: bash
+        run: |
+          uv sync
+          uv run --with pyinstaller python scripts/build_bundle.py \
+            --os "${{ matrix.target_os }}" --arch "${{ matrix.arch }}" \
+            --version "$AIHR_VERSION" --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aihr-bundle-${{ matrix.target_os }}-${{ matrix.arch }}
+          path: dist/aihr-*
+          if-no-files-found: error
+
+  publish:
+    needs: bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: aihr-bundle-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create draft release with bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(dist/aihr-*)
+          [ "${#files[@]}" -gt 0 ] || { echo "no bundle artifacts" >&2; exit 1; }
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+              --title "AIHR $GITHUB_REF_NAME" \
+              --notes "Turnkey bundles for commit $GITHUB_SHA (built by $GITHUB_WORKFLOW)." \
+              "${files[@]}"
+          fi
+
+  turnkey-smoke-linux:
+    needs: bundle
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck the installer (gate)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          shellcheck -s sh scripts/install.sh
+
+      - name: Resolve version from tag
+        shell: bash
+        run: echo "AIHR_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: aihr-bundle-linux-x86_64
+          path: dist
+
+      - name: install.sh end-for-end (turnkey lane)
+        shell: bash
+        run: |
+          set -x
+          sh scripts/install.sh --bundle "dist/aihr-${AIHR_VERSION}-linux-x86_64.tar.gz" --port 5433
+          test -d "$HOME/.aihr"
+          test -x "$HOME/.aihr/app/hr"
+          test -x "$HOME/.aihr/pg/bin/initdb"
+          test -f "$HOME/.aihr/share/aihr/hr.toml.example"
+
+      - name: app + install-post receipt + db status
+        shell: bash
+        run: |
+          "$HOME/.aihr/app/hr" --help > /dev/null
+          test -f "$HOME/.aihr/receipt.json"
+          python3 -m json.tool "$HOME/.aihr/receipt.json"
+          test -d "$HOME/.aihr/bin"
+          "$HOME/.aihr/app/hr" db-status | tee db-status.txt
+          grep -qi backend db-status.txt
+
+      - name: uninstall leaves nothing behind
+        shell: bash
+        run: |
+          "$HOME/.aihr/app/hr" self-uninstall --yes
+          test ! -d "$HOME/.aihr"
+
+  turnkey-smoke-windows:
+    needs: bundle
+    runs-on: windows-2025
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        run: |
+          "AIHR_VERSION=$($env:GITHUB_REF_NAME -replace '^v', '')" |
+              Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: aihr-bundle-windows-x86_64
+          path: dist
+
+      - name: install.ps1 end-for-end (turnkey lane)
+        run: |
+          & scripts/install.ps1 -Bundle "dist/aihr-$env:AIHR_VERSION-windows-x86_64.zip" -Port 5433 -AllowElevated
+          $D = Join-Path $env:LOCALAPPDATA "aihr"
+          if (-not (Test-Path $D)) { throw "missing $D" }
+          if (-not (Test-Path (Join-Path $D "app\hr.exe"))) { throw "missing app\hr.exe" }
+          if (-not (Test-Path (Join-Path $D "pg\bin\initdb.exe"))) { throw "missing pg\bin\initdb.exe" }
+          & (Join-Path $D "app\hr.exe") --help | Out-Null
+
+      - name: embedded pg answers SELECT 1
+        run: |
+          $D = Join-Path $env:LOCALAPPDATA "aihr"
+          $cfg = @{}
+          Get-Content (Join-Path $D "db.env") | ForEach-Object {
+            if ($_ -match '^(\w+)=(.*)$') { $cfg[$Matches[1]] = $Matches[2] }
+          }
+          $env:PGPASSWORD = $cfg["AIHR_DB_PASSWORD"]
+          $out = & (Join-Path $D "pg\bin\psql.exe") -h 127.0.0.1 -p $cfg["AIHR_DB_PORT"] `
+            -U aihr -d aihr -tAc "SELECT 1"
+          if ($out -ne "1") { throw "embedded pg returned: $out" }
+
+      - name: uninstall leaves nothing behind
+        run: |
+          $D = Join-Path $env:LOCALAPPDATA "aihr"
+          & (Join-Path $D "app\hr.exe") self-uninstall --yes
+          if (Test-Path $D) { throw "$D still exists after self-uninstall" }

@@ -9,7 +9,7 @@ Design rules
 ------------
 * ``INCLUDED_HR_MODULES`` — the modules shipped in a release build: the
   runtime import closure of the shipped CLI entry points (``hr/__init__.py``,
-  ``hr/__main__.py``, ``hr/cli.py`` — the 27-command unified facade), plus
+  ``hr/__main__.py``, ``hr/cli.py`` — the 29-command unified facade), plus
   modules this commit tracks for other consumers (stage facades, committed
   tests). Computed against committed blobs (HEAD), not the dirty working
   tree. At a fresh checkout of this commit every one of them must exist and
@@ -52,7 +52,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     # candidate alone — no editable-install leakage).
     "hr/__init__.py",                      # package marker; ships in the built candidate
     "hr/__main__.py",                      # ``python -m hr`` entry: from .cli import app; app()
-    "hr/cli.py",                           # 27-command unified CLI facade: imports every cluster + register_release_commands
+    "hr/cli.py",                           # 29-command unified CLI facade: imports every cluster + register_release_commands
     # CLI command cluster (self-registering onto hr/cli_app.py's shared app)
     "hr/cli_app.py",                       # the shared typer app (no_args_is_help, retirement epilog); imported by every cluster
     "hr/cli_apply.py",                     # apply/status + apply-preview/rollback/backups/prune family
@@ -64,7 +64,16 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/cli_selection.py",                 # interactive model picker / selection indices
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
     "hr/cli_db.py",                        # `hr db-up/db-down/db-status` — turnkey database lifecycle wrappers
-    "hr/db_admin.py",                      # turnkey database logic (compose plumbing, env file, probes); imported by cli_db
+    "hr/cli_lifecycle.py",                 # `hr install-post/self-uninstall` — turnkey bundle lifecycle wrappers
+    "hr/db_admin.py",                      # turnkey database backend decision tree (compose vs embedded); imported by cli_db
+    "hr/db_compose.py",                    # compose-lane plumbing (runner seam, compose argv, env file, probes); re-exported by db_admin
+    "hr/db_embedded.py",                   # embedded-lane orchestration (env → initdb → pg_ctl → ready → schema init)
+    "hr/pg_launcher.py",                   # vendored Postgres runtime: discovery, start/stop/ready, LD_LIBRARY_PATH env
+    "hr/pg_env.py",                        # vendored Postgres provisioning: db.env, initdb bootstrap, postgresql.conf/pg_hba.conf
+    "hr/lifecycle.py",                     # `hr install-post` core: bundle wiring + placement receipt
+    "hr/lifecycle_uninstall.py",           # `hr self-uninstall` core: receipt reverse-replay + residual manifest
+    "hr/opencfg_editor.py",                # line-scoped JSONC plugin-array editor (comments preserved verbatim)
+    "hr/jsonc_scan.py",                    # position-tracking JSONC scanner (spans for the editor's line splices)
     "hr/setup_env.py",                     # PATH persistence closure (posix rc blocks / HKCU Environment) imported by cli_setup
     # Runtime import closure of the entry points above (top-level imports)
     "hr/db.py",                            # connect/init_schema etc.; imported unguarded by the facade and cli_app

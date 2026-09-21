@@ -16,6 +16,25 @@ Replace `<AIHR>` with your local clone path (the repository is `TachikomaGundam/
 
 The package installs globally in editable mode. The `hr` console script works from any directory.
 
+## Fresh-machine recipe (0.4.0+)
+
+One command per OS, zero sudo, zero prerequisites (the turnkey bundle, aihr 0.4.0, 2026-09):
+
+```bash
+# Linux / macOS
+curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh
+# Windows (PowerShell)
+powershell -c "irm https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.ps1 | iex"
+```
+
+Installer flags: `--version X.Y.Z`, `--bundle <path>`, `--port N`, `--reinstall`. Then, in a fresh shell so the `~/.aihr/bin` shim is on PATH:
+
+```bash
+hr db-up && hr status
+```
+
+Everything lives in one owned directory, `~/.aihr` (`%LOCALAPPDATA%\aihr` on Windows): the embedded Postgres and its data (`~/.aihr/data/pgdata`, password/port in `~/.aihr/db.env`), and the receipt `~/.aihr/receipt.json`. `hr install-post` (the idempotent installer tail) registers the opencode plugin arrays in `opencode.jsonc` + `tui.json`, and opencode/bun auto-fetches the npm packages, so npm is not an install step. Full reversal: `hr self-uninstall --yes`, which removes everything it placed and then prints a residual manifest of everything it does not own, each residual with its exact removal command.
+
 ## Model Providers
 
 HR evaluates every model reachable through registered providers. The fleet is configured in `configs/fleet.yaml`, which defines scope (IN vs OUT) and per-provider details.
@@ -39,7 +58,7 @@ Both providers speak the Anthropic Messages wire format (`POST {endpoint}/messag
 
 If a provider has no API key configured, its models are skipped (not errored).
 
-## The Sixteen Commands
+## The Eighteen Commands
 
 ```bash
 # Full pipeline: discover, bench, verdict, apply
@@ -70,9 +89,13 @@ hr apply --preset <name>             # custom preset name (default: verdict-<tod
 hr apply --set-state                 # write .fastdraw.json (needs opencode restart)
 
 # Database lifecycle (turnkey)
-hr db-up [--port N] [--force]        # create/start the aihr database (default 127.0.0.1:5433; N overrides the port; --force takes over an aihr-db container owned by another install)
+hr db-up [--port N] [--force]        # create/start the aihr database (backend auto-selected among three — compose / embedded / BYO, see Connection resolution; default 127.0.0.1:5433; N overrides the port; --force takes over an aihr-db container owned by another install)
 hr db-down [--purge --yes]           # stop it (--purge also removes the data volume, --yes skips the confirmation)
 hr db-status                         # show aihr database status
+
+# Lifecycle (0.4.0+ turnkey)
+hr install-post                      # idempotent installer tail: PATH shim, opencode config array registration, receipt at ~/.aihr/receipt.json
+hr self-uninstall --yes              # receipt-driven full reversal; then prints a RESIDUAL MANIFEST of everything not owned, each with its exact removal command
 ```
 
 ## The v4 Livebench — Eight Batteries
@@ -228,7 +251,7 @@ hr apply                     # write preset (verdict-<today>)
 
 ## Database Schema
 
-HR stores data in its own AIHR-native PostgreSQL database (`aihr` database, schema `hr`, tables prefixed `hr_`). It is managed by the turnkey lifecycle: `hr db-up` creates and starts it, `hr db-down` stops it, `hr db-status` reports its state:
+HR stores data in its own AIHR-native PostgreSQL database (`aihr` database, schema `hr`, tables prefixed `hr_`). It is managed by the turnkey lifecycle: `hr db-up` creates and starts it (one of three backends picked automatically: compose container, embedded vendored Postgres, or BYO; see Connection resolution below), `hr db-down` stops it, `hr db-status` reports its state and names the live backend:
 
 | Table | Purpose |
 |-------|---------|
@@ -242,22 +265,23 @@ HR stores data in its own AIHR-native PostgreSQL database (`aihr` database, sche
 
 ### Connection resolution
 
+`hr db-up [--port N] [--force]` decides between THREE backends automatically; `hr db-down` and `hr db-status` span all three, and `hr db-status` reports which backend is live. Docker is one backend among three, never the requirement:
+
+1. **Compose container** (the existing lane, kept): the `aihr-db` postgres:16-alpine container driven by `docker/docker-compose.yml`.
+2. **Embedded vendored Postgres** (turnkey bundle installs, 0.4.0+): needs no Docker. Data at `~/.aihr/data/pgdata`; password and port in `~/.aihr/db.env`.
+3. **BYO PostgreSQL**: any server you already run, described by `HR_DSN` or `hr.toml`.
+
 The DSN resolves in this order (first hit wins):
 
 1. `HR_DSN` env var (full connection string, returned verbatim).
 2. `hr.toml` at the monorepo root (secret-free by contract: `db_host`, `db_port`, `db_name`, `db_user`) plus the `HR_DB_PASSWORD` env var.
-3. `docker/.env` managed by `hr db-up` (the `aihr-db` container's first-boot random password, persisted with `0600` permissions).
-4. `HR_COMPOSE_FILE` (legacy footnote only): opt-in docker-compose fallback for pre-turnkey setups. Not recommended for new installs.
+3. `docker/.env` for the compose lane (primary, managed by `hr db-up`: the `aihr-db` container's first-boot random password, persisted with `0600` permissions; a bundle install has no compose file, so this file simply never exists there).
+4. `~/.aihr/db.env` for the embedded backend (password/port persisted `0600` by `hr db-up`; `docker/.env` stays primary when both are present).
+5. `HR_COMPOSE_FILE` (legacy footnote only): opt-in docker-compose fallback for pre-turnkey setups. Not recommended for new installs.
 
-Fresh-machine recipe, zero env exports:
+The zero-export fresh-machine path is the "Fresh-machine recipe (0.4.0+)" section above: bundle install, then `hr db-up && hr status`.
 
-```bash
-pip install aihr
-hr db-up      # turnkey aihr database on 127.0.0.1:5433
-hr status     # works with no further setup
-```
-
-Why a dedicated database: least privilege (HR no longer holds Wiki.js superuser credentials) and port hygiene (the `127.0.0.1:5433` default cannot collide with a host PostgreSQL on 5432). `hr db-up` generates a random password on first boot and persists it `0600` in `docker/.env`. This turnkey arrangement supersedes the pre-2026-09-10 shared-wiki-db setup. Wiki.js remains the publish target for `hr publish`, over the GraphQL API with an API key; that path is unchanged.
+Why a dedicated database: least privilege (HR no longer holds Wiki.js superuser credentials) and port hygiene (the `127.0.0.1:5433` default cannot collide with a host PostgreSQL on 5432). `hr db-up` generates a random password on first boot and persists it `0600` (`~/.aihr/db.env` on the embedded backend, `docker/.env` on the compose lane). The Docker-free turnkey shipped with aihr 0.4.0 (2026-09) and supersedes 0.3.0's preinstalled-Docker requirement (the "docker not found" era); the turnkey database itself supersedes the pre-2026-09-10 shared-wiki-db setup. Wiki.js remains the publish target for `hr publish`, over the GraphQL API with an API key; that path is unchanged.
 
 ## Wiki.js Publishing
 
