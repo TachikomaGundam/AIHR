@@ -79,10 +79,19 @@ def render_db_env(password: str, port: int) -> str:
 
 
 def write_db_env_file(path: Path, password: str, port: int) -> None:
+    """Write the credentials file born 0600 (O_EXCL open) — never a
+    world-readable plaintext window; an overwrite re-creates, never in-place."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_db_env(password, port), encoding="utf-8")
+    payload = render_db_env(password, port)
     try:
-        os.chmod(path, 0o600)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        path.unlink()
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(payload)
+    try:
+        os.chmod(path, 0o600)  # normalizes mode on re-created overwrite paths
     except OSError:
         pass  # best-effort: POSIX mode unsupported (Windows) must not fail db-up
 

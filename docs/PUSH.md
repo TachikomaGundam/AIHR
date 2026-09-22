@@ -206,7 +206,7 @@ Box **REDACTED-TESTBED-IP** (Ubuntu 26.04, system python 3.14 under PEP 668, **n
 
 Steps run in order, on a clean box, nothing skipped:
 
-1. **One command. Nothing preinstalled, zero sudo, zero prerequisites:**
+1. **One command. Nothing preinstalled, zero sudo, zero prerequisites:** (Linux floor: glibc ≥ 2.28 — the vendored-PostgreSQL baseline; nothing else.)
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh

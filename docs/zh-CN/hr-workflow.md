@@ -23,7 +23,7 @@ hr/
 
 ## 新机器配方（0.4.0+）
 
-每个操作系统一条命令，零 sudo、零前置依赖（turnkey bundle，随 aihr 0.4.0 于 2026-09 落地）：
+每个操作系统一条命令，零 sudo、零前置依赖（Linux 下限 glibc ≥ 2.28，即内嵌 PostgreSQL 基线；turnkey bundle，随 aihr 0.4.0 于 2026-09 落地）：
 
 ```bash
 # Linux / macOS
