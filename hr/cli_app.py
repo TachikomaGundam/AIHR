@@ -9,6 +9,26 @@ from rich.console import Console
 from .decision import latest_sweep_id
 
 
+def _harden_windows_streams() -> None:
+    """Win32 only: replace (never crash) chars the console/pipe codec cannot
+    encode. typer's rich help draws box-drawing glyphs that cp1252 lacks — a
+    plain ``hr --help`` aborted with UnicodeEncodeError on the CI windows
+    runner (release run 35728085524, B-5 first-fire courtroom)."""
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="replace")
+        except (OSError, ValueError):
+            pass
+
+
+_harden_windows_streams()
+
+
 class _PinnedNameTyper(typer.Typer):
     def __call__(self, *args: object, **kwargs: object) -> object:
         if kwargs.get("prog_name") is None:
