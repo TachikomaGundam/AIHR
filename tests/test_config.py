@@ -45,6 +45,12 @@ def test_hr_home_uses_installed_share_when_source_configs_are_absent(
     monkeypatch.delenv("HR_HOME", raising=False)
     monkeypatch.setattr(config_resources, "__file__", str(package_file))
     monkeypatch.setattr(config_resources.sys, "prefix", str(tmp_path))
+    # The bundle probe (sys.executable grandparent) runs BEFORE the prefix one:
+    # a wheel-installed interpreter prefix carrying share/aihr (CI's layout)
+    # must not out-resolve the fabricated tree, so pin executable too.
+    monkeypatch.setattr(
+        config_resources.sys, "executable", str(tmp_path / "bin" / "python3")
+    )
 
     # When/Then: resource resolution chooses installed data, not site-packages.
     assert config.hr_home() == installed_home
