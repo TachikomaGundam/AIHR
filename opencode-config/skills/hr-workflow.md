@@ -18,7 +18,7 @@ The package installs globally in editable mode. The `hr` console script works fr
 
 ## Fresh-machine recipe (0.4.0+)
 
-One command per OS, zero sudo, zero prerequisites (the turnkey bundle, aihr 0.4.0, 2026-09):
+One command per OS, zero sudo, zero prerequisites (Linux floor: glibc >= 2.28, the vendored-PostgreSQL baseline; the turnkey bundle, aihr 0.4.0, 2026-09):
 
 ```bash
 # Linux / macOS

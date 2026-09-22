@@ -56,7 +56,7 @@ Stage 0 低成本缩小模型池，Stage 1 用完整题库复测 finalist。测�
 
 ## Install
 
-每个操作系统一条命令。零 sudo、零前置依赖：turnkey bundle 自带引擎，也自带数据库。
+每个操作系统一条命令。零 sudo、零前置依赖：turnkey bundle 自带引擎，也自带数据库。（Linux 下限：glibc ≥ 2.28——内嵌 PostgreSQL 的基线；此外别无前提。）
 
 ```bash
 # Linux / macOS

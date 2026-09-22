@@ -65,7 +65,7 @@ The database stores sweeps, runs, measurements, infra incidents, separations, an
 
 ## Install
 
-One command per OS. Zero sudo, zero prerequisites: the turnkey bundle ships its own engine and its own database.
+One command per OS. Zero sudo, zero prerequisites: the turnkey bundle ships its own engine and its own database. (Linux floor: glibc ≥ 2.28 — the vendored PostgreSQL baseline; nothing else.)
 
 ```bash
 # Linux / macOS
