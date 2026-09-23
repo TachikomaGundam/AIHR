@@ -26,7 +26,7 @@ jobs:
             target_os: macos
             arch: aarch64
             experimental: false
-          - runner: macos-13
+          - runner: macos-15
             target_os: macos
             arch: x86_64
             experimental: true
