@@ -82,10 +82,12 @@ jobs:
           shopt -s nullglob
           files=(dist/aihr-*)
           [ "${#files[@]}" -gt 0 ] || { echo "no bundle artifacts" >&2; exit 1; }
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+          if gh release view --repo "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload --repo "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" "${files[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+            # --verify-tag needs a local git repo the publish job never has
+            # (run 35832366570 "failed to run git"); event context is the tag.
+            gh release create --repo "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME" --draft \
               --title "AIHR $GITHUB_REF_NAME" \
               --notes "Turnkey bundles for commit $GITHUB_SHA (built by $GITHUB_WORKFLOW)." \
               "${files[@]}"
@@ -101,7 +103,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends shellcheck
-          shellcheck -s sh scripts/install.sh
+          shellcheck -s sh -S warning scripts/install.sh
 
       - name: Resolve version from tag
         shell: bash

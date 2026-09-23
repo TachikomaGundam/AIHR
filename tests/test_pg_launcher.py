@@ -317,3 +317,23 @@ def test_ensure_database_real_failure_propagates(monkeypatch, tmp_path) -> None:
             return ProcessResult(0, "", "")
 
     assert pg_launcher.ensure_database(d, 5433, root=d / "pg", pg_run=Boom()).rc == 1
+
+
+def test_pg_home_windows_suffix_probe(monkeypatch, tmp_path) -> None:
+    """Win bundles carry initdb.exe — the bare-name probe returned None on the
+    0.4.0 windows smoke (run 35832366570), silently disabling the embedded lane."""
+    monkeypatch.setattr(pg_launcher, "TOOL_SUFFIX", ".exe")
+    d = tmp_path / "aihr"
+    (d / "pg" / "bin").mkdir(parents=True)
+    (d / "pg" / "bin" / "initdb.exe").write_text("", encoding="utf-8")
+    assert pg_launcher.pg_home(d) == d / "pg"
+    e = tmp_path / "bare"  # a POSIX-style name must NOT satisfy the win probe
+    (e / "pg" / "bin").mkdir(parents=True)
+    (e / "pg" / "bin" / "initdb").write_text("", encoding="utf-8")
+    monkeypatch.setenv("AIHR_PG_HOME", "")
+    assert pg_launcher.pg_home(e) is None
+
+
+def test_pg_bin_dir_windows_suffix(monkeypatch) -> None:
+    monkeypatch.setattr(pg_launcher, "TOOL_SUFFIX", ".exe")
+    assert pg_launcher.pg_bin_dir(Path("/x"), "pg_ctl") == "/x/bin/pg_ctl.exe"

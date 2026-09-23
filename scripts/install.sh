@@ -114,11 +114,11 @@ else
     ARCHIVE="$WORK/$ASSET"
 fi
 
-ARCHIVE_DIR=$(CDPATH= cd -- "$(dirname -- "$ARCHIVE")" && pwd)
+ARCHIVE_DIR=$(unset CDPATH; cd -- "$(dirname -- "$ARCHIVE")" && pwd)
 ARCHIVE_NAME=$(basename -- "$ARCHIVE")
 if [ -f "$ARCHIVE_DIR/$ARCHIVE_NAME.sha256" ]; then
     say "verifying sha256..."
-    (CDPATH= cd -- "$ARCHIVE_DIR" && $SHA_TOOL -c "$ARCHIVE_NAME.sha256" >/dev/null) \
+    (unset CDPATH; cd -- "$ARCHIVE_DIR" && $SHA_TOOL -c "$ARCHIVE_NAME.sha256" >/dev/null) \
         || err "checksum mismatch for $ARCHIVE_NAME — refusing to install"
     say "checksum ok"
 elif [ -z "$WORK" ]; then
