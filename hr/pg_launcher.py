@@ -86,22 +86,28 @@ def bundled_mode() -> bool:
     return (Path(sys.executable).resolve().parent.parent / "pg").exists()
 
 
+# Windows bundles ship .exe-suffixed tools; the bare-name probe returned None
+# on the 0.4.0 windows smoke (run 35832366570) and silently disabled the
+# embedded lane. Read at call time so tests can monkeypatch the win shape.
+TOOL_SUFFIX = ".exe" if os.name == "nt" else ""
+
+
 def pg_home(d: Optional[Path] = None) -> Optional[Path]:
     """Vendored Postgres root: ``D/pg`` when complete, else ``$AIHR_PG_HOME``
     when that points at a usable tree, else ``None`` (embedded unavailable)."""
     root = (aihr_home_dir() if d is None else d) / "pg"
-    if (root / "bin" / "initdb").is_file():
+    if (root / "bin" / ("initdb" + TOOL_SUFFIX)).is_file():
         return root
     env = os.environ.get("AIHR_PG_HOME")
     if env:
         alt = Path(env).expanduser()
-        if (alt / "bin" / "initdb").is_file():
+        if (alt / "bin" / ("initdb" + TOOL_SUFFIX)).is_file():
             return alt
     return None
 
 
 def pg_bin_dir(root: Path, tool: str) -> str:
-    return str(root / "bin" / tool)
+    return str(root / "bin" / (tool + TOOL_SUFFIX))
 
 
 def pg_data_dir(d: Path) -> Path:
