@@ -337,3 +337,31 @@ def test_pg_home_windows_suffix_probe(monkeypatch, tmp_path) -> None:
 def test_pg_bin_dir_windows_suffix(monkeypatch) -> None:
     monkeypatch.setattr(pg_launcher, "TOOL_SUFFIX", ".exe")
     assert pg_launcher.pg_bin_dir(Path("/x"), "pg_ctl") == "/x/bin/pg_ctl.exe"
+
+def test_daemon_start_log_recognizes_only_pg_ctl_start() -> None:
+    hit = pg_launcher._daemon_start_log(["/d/pg/bin/pg_ctl", "-l", "/d/log/pg.log", "start"])
+    assert hit == Path("/d/log/pg.log")
+    win = pg_launcher._daemon_start_log(["/c/aihr/pg/bin/pg_ctl.exe", "-l", "c:/aihr/log/pg.log", "start"])
+    assert win is not None and win.name == "pg.log"
+    assert pg_launcher._daemon_start_log(["/d/pg/bin/pg_ctl", "-m", "fast", "stop"]) is None
+    assert pg_launcher._daemon_start_log(["/d/pg/bin/psql", "dsn", "-c", "SELECT 1"]) is None
+    assert pg_launcher._daemon_start_log(["/d/pg/bin/pg_ctl", "start"]) is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="shebang shim is POSIX-only; the win verdict is the CI smoke")
+def test_default_pg_runner_daemon_start_writes_log_not_pipes(tmp_path: Path) -> None:
+    shim = tmp_path / "pg_ctl"
+    shim.write_text('#!/bin/sh\necho "pg_ctl: server started"\necho "pg_ctl: boom" >&2\n', encoding="utf-8")
+    shim.chmod(0o755)
+    logf = tmp_path / "pg.log"
+    res = pg_launcher.default_pg_runner([str(shim), "-l", str(logf), "start"], 10, {})
+    assert res.rc == 0
+    assert res.stdout == ""
+    assert res.stderr.startswith("see ")
+    text = logf.read_text(encoding="utf-8")
+    assert "server started" in text and "boom" in text
+
+
+def test_default_pg_runner_plain_capture_unchanged() -> None:
+    res = pg_launcher.default_pg_runner([sys.executable, "-c", "print('hi')"], 10, {})
+    assert res.rc == 0 and res.stdout == "hi\n"
