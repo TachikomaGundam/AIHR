@@ -56,7 +56,32 @@ class ProcessResult:
 PgRunner = Callable[[list[str], int, Mapping[str, str]], ProcessResult]
 
 
+def _daemon_start_log(argv: list[str]) -> Optional[Path]:
+    """``pg_ctl -l <file> start`` hands its postmaster the same stdout the
+    capture pipes would use; the daemon outlives pg_ctl and never closes them,
+    so ``communicate`` waits for an EOF that can never arrive — the windows
+    smoke of run 35864013688 hung 71 minutes exactly there (a daemon spawn is
+    never captured through pipes; its output goes to the ``-l`` log instead).
+    Every other vendored invocation (initdb/stop/psql/createdb) exits itself."""
+    name = Path(argv[0]).name
+    if (name == "pg_ctl" or name.lower() == "pg_ctl.exe") and "start" in argv and "-l" in argv:
+        return Path(argv[argv.index("-l") + 1])
+    return None
+
+
 def default_pg_runner(argv: list[str], timeout: int, env: Mapping[str, str]) -> ProcessResult:
+    log = _daemon_start_log(argv)
+    if log is not None:
+        with log.open("ab") as sink:
+            proc = subprocess.run(  # noqa: S603 — argv list, no shell, argv/env fully controlled above
+                argv,
+                stdout=sink,
+                stderr=subprocess.STDOUT,
+                timeout=timeout,
+                env=dict(env),
+                check=False,
+            )
+        return ProcessResult(proc.returncode, "", f"see {log}")
     proc = subprocess.run(  # noqa: S603 — argv list, no shell, argv/env fully controlled above
         argv,
         capture_output=True,
