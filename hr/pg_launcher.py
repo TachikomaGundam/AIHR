@@ -72,15 +72,18 @@ def _daemon_start_log(argv: list[str]) -> Optional[Path]:
 def default_pg_runner(argv: list[str], timeout: int, env: Mapping[str, str]) -> ProcessResult:
     log = _daemon_start_log(argv)
     if log is not None:
-        with log.open("ab") as sink:
-            proc = subprocess.run(  # noqa: S603 — argv list, no shell, argv/env fully controlled above
-                argv,
-                stdout=sink,
-                stderr=subprocess.STDOUT,
-                timeout=timeout,
-                env=dict(env),
-                check=False,
-            )
+        # DEVNULL, never the -l file handle: pg_ctl opens that file itself with
+        # share-read only, so our own write handle on it deadlocks the open with
+        # ERROR_SHARING_VIOLATION (run 35964400542 pg.log transcript: "The process
+        # cannot access the file because it is being used by another process").
+        proc = subprocess.run(  # noqa: S603 — argv list, no shell, argv/env fully controlled above
+            argv,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+            env=dict(env),
+            check=False,
+        )
         return ProcessResult(proc.returncode, "", f"see {log}")
     proc = subprocess.run(  # noqa: S603 — argv list, no shell, argv/env fully controlled above
         argv,
