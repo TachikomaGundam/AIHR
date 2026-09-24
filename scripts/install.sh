@@ -109,7 +109,7 @@ asset_id() { # the numeric id that precedes the wanted "name" in api JSON
 fetch_api_asset() { # authoritative download through the api octet lane
     aid=$(asset_id "$1")
     [ -n "$aid" ] || return 1
-    curl -fL --connect-timeout 10 --retry 2 --proto '=https' \
+    curl -fL --connect-timeout 10 --retry 2 --speed-limit 4096 --speed-time 30 --proto '=https' \
         -H 'Accept: application/octet-stream' \
         "https://api.github.com/repos/$REPO/releases/assets/$aid" -o "$2"
 }
@@ -144,7 +144,8 @@ else
     WORK=$(mktemp -d "${TMPDIR:-/tmp}/aihr-install.XXXXXX")
     say "downloading $BASE"
     # sidecar first, and never through the mirror: it is the integrity anchor
-    curl -fL --connect-timeout 10 --retry 2 --proto '=https' -o "$WORK/$ASSET.sha256" "$BASE.sha256" \
+    curl -fL --connect-timeout 10 --retry 2 --speed-limit 4096 --speed-time 30 --proto '=https' \
+        -o "$WORK/$ASSET.sha256" "$BASE.sha256" \
         || fetch_api_asset "$ASSET.sha256" "$WORK/$ASSET.sha256" \
         || err "checksum sidecar missing for $ASSET"
     fetch_bulk "$BASE" "$WORK/$ASSET" \
