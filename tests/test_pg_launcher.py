@@ -8,6 +8,7 @@ fixture is a fake value.
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -349,7 +350,7 @@ def test_daemon_start_log_recognizes_only_pg_ctl_start() -> None:
 
 
 @pytest.mark.skipif(os.name == "nt", reason="shebang shim is POSIX-only; the win verdict is the CI smoke")
-def test_default_pg_runner_daemon_start_writes_log_not_pipes(tmp_path: Path) -> None:
+def test_default_pg_runner_daemon_start_never_touches_the_log(tmp_path: Path) -> None:
     shim = tmp_path / "pg_ctl"
     shim.write_text('#!/bin/sh\necho "pg_ctl: server started"\necho "pg_ctl: boom" >&2\n', encoding="utf-8")
     shim.chmod(0o755)
@@ -357,9 +358,23 @@ def test_default_pg_runner_daemon_start_writes_log_not_pipes(tmp_path: Path) -> 
     res = pg_launcher.default_pg_runner([str(shim), "-l", str(logf), "start"], 10, {})
     assert res.rc == 0
     assert res.stdout == ""
-    assert res.stderr.startswith("see ")
-    text = logf.read_text(encoding="utf-8")
-    assert "server started" in text and "boom" in text
+    assert res.stderr == f"see {logf}"
+    assert not logf.exists()
+
+
+def test_default_pg_runner_daemon_uses_devnull(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_run(argv: list[str], **kwargs: object):  # type: ignore[no-untyped-def]
+        captured.update(kwargs)
+        return subprocess.CompletedProcess(argv, 3)
+
+    monkeypatch.setattr(pg_launcher.subprocess, "run", fake_run)
+    res = pg_launcher.default_pg_runner(["pg_ctl", "-l", "/tmp/pg.log", "start"], 5, {})
+    assert captured["stdout"] is subprocess.DEVNULL
+    assert captured["stderr"] is subprocess.DEVNULL
+    assert "capture_output" not in captured
+    assert res.rc == 3 and res.stdout == "" and res.stderr == "see /tmp/pg.log"
 
 
 def test_default_pg_runner_plain_capture_unchanged() -> None:
