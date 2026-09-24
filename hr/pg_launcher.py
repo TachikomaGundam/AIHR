@@ -205,6 +205,37 @@ def stop(d: Path, *, root: Path, pg_run: PgRunner = default_pg_runner) -> Proces
     return pg_run(argv, _PGCTL_TIMEOUT_S, process_env(root))
 
 
+def _pid_alive(pid: int) -> bool:
+    """Side-effect-free liveness: os.kill(pid, 0) hard-kills live processes on
+    Windows (TerminateProcess semantics, VERDICT-0.4.0-FINAL F-1); win32 probes
+    via a query-only handle instead."""
+    if os.name == "nt":
+        import ctypes
+
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        STILL_ACTIVE = 259
+        kernel32 = ctypes.CDLL("kernel32")
+        kernel32.OpenProcess.restype = ctypes.c_void_p
+        kernel32.OpenProcess.argtypes = (ctypes.c_ulong, ctypes.c_bool, ctypes.c_ulong)
+        kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong))
+        kernel32.CloseHandle.argtypes = (ctypes.c_void_p,)
+        handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            return False
+        try:
+            code = ctypes.c_ulong()
+            if kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return code.value == STILL_ACTIVE
+            return True
+        finally:
+            kernel32.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
 def embedded_pid(d: Path) -> Optional[int]:
     """PID from ``postmaster.pid`` when that process is alive, else ``None``.
 
@@ -216,11 +247,7 @@ def embedded_pid(d: Path) -> Optional[int]:
         pid = int(raw.strip())
     except (OSError, ValueError, IndexError):
         return None
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return None
-    return pid
+    return pid if _pid_alive(pid) else None
 
 
 # ---------------------------------------------------------------------------

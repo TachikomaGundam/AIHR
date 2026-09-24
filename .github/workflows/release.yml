@@ -135,7 +135,7 @@ jobs:
           python3 -m json.tool "$HOME/.aihr/receipt.json"
           test -d "$HOME/.aihr/bin"
           "$HOME/.aihr/app/hr" db-status | tee db-status.txt
-          grep -qi backend db-status.txt
+          grep -qiE "backend: .*running" db-status.txt
 
       - name: uninstall leaves nothing behind
         shell: bash
@@ -192,5 +192,15 @@ jobs:
       - name: uninstall leaves nothing behind
         run: |
           $D = Join-Path $env:LOCALAPPDATA "aihr"
-          & (Join-Path $D "app\hr.exe") self-uninstall --yes
+          $cfg = @{}
+          Get-Content (Join-Path $D "db.env") | ForEach-Object {
+            if ($_ -match '^(\w+)=(.*)$') { $cfg[$Matches[1]] = $Matches[2] }
+          }
+          $env:PGPASSWORD = $cfg["AIHR_DB_PASSWORD"]
+          & (Join-Path $D "app\hr.exe") db-status | Out-Null
+          $again = & (Join-Path $D "pg\bin\psql.exe") -h 127.0.0.1 -p $cfg["AIHR_DB_PORT"] -U aihr -d aihr -tAc "SELECT 1"
+          if ($again -ne "1") { throw "db-status probe killed the server (F-1): SELECT 1 returned: $again" }
+          $un = & (Join-Path $D "app\hr.exe") self-uninstall --yes | Out-String
+          Write-Host $un
+          if ($un -match "pg_ctl stop failed") { throw "uninstall stopped a dead server (F-1 fingerprint)" }
           if (Test-Path $D) { throw "$D still exists after self-uninstall" }

@@ -380,3 +380,26 @@ def test_default_pg_runner_daemon_uses_devnull(monkeypatch: pytest.MonkeyPatch) 
 def test_default_pg_runner_plain_capture_unchanged() -> None:
     res = pg_launcher.default_pg_runner([sys.executable, "-c", "print('hi')"], 10, {})
     assert res.rc == 0 and res.stdout == "hi\n"
+
+
+def test_pid_alive_posix_semantics(tmp_path: Path) -> None:
+    assert pg_launcher._pid_alive(os.getpid())
+    proc = subprocess.Popen([sys.executable, "-c", "pass"])
+    assert proc.wait() == 0
+    assert not pg_launcher._pid_alive(proc.pid)
+    assert not pg_launcher._pid_alive(0x7FFFFFFF)
+
+
+def test_embedded_pid_uses_pid_alive_probe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    d = tmp_path / "d"
+    pf = pg_launcher.pid_file(d)
+    pf.parent.mkdir(parents=True)
+    pf.write_text("424242\n", encoding="utf-8")
+    seen: list[int] = []
+
+    monkeypatch.setattr(pg_launcher, "_pid_alive", lambda pid: seen.append(pid) or True)
+    assert pg_launcher.embedded_pid(d) == 424242
+    assert seen == [424242]
+
+    monkeypatch.setattr(pg_launcher, "_pid_alive", lambda pid: False)
+    assert pg_launcher.embedded_pid(d) is None
