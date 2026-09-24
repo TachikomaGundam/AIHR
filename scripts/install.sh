@@ -35,6 +35,10 @@ usage: sh install.sh [--version V] [--bundle FILE.tar.gz] [--port N]
   --reinstall            replace app/ pg/ share/ in an existing install
                          (data/ is never touched)
   --no-run-installer     place files only; skip `hr install-post` / `hr db-up`
+
+  env AIHR_MIRROR=URL    fallback download mirror prefix
+                         (default https://gh-proxy.com/; bytes always stay
+                         pinned to the github-issued checksum sidecar)
 USAGE
 }
 
@@ -94,6 +98,38 @@ resolve_latest() {
     say "resolved latest version: v$VERSION"
 }
 
+asset_id() { # the numeric id that precedes the wanted "name" in api JSON
+    curl -fsS --connect-timeout 10 -H 'Accept: application/vnd.github+json' \
+        "https://api.github.com/repos/$REPO/releases/tags/v$VERSION" \
+        | awk -v want="\"name\": \"$1\"" \
+            'match($0, /"id": [0-9]+/) {id = substr($0, RSTART + 6, RLENGTH - 6)}
+             index($0, want) {print id; exit}'
+}
+
+fetch_api_asset() { # authoritative download through the api octet lane
+    aid=$(asset_id "$1")
+    [ -n "$aid" ] || return 1
+    curl -fL --connect-timeout 10 --retry 2 --proto '=https' \
+        -H 'Accept: application/octet-stream' \
+        "https://api.github.com/repos/$REPO/releases/assets/$aid" -o "$2"
+}
+
+fetch_bulk() { # bulk bytes: github, mirror, api octet, in that order. Each
+    # lane is only a pipe: integrity is pinned later by the github-lane
+    # sidecar, so a lying or stalling lane can delay the install but can
+    # never substitute bytes. Stall guards (--speed-limit/--speed-time)
+    # bound each attempt instead of the hours-long curl --retry hangs
+    # (testbed acceptance run of 2026-09-24: github.com redirect target
+    # stalled at 0 B/s while gh-proxy served 1.4 MB/s on the same LAN).
+    curl -fL --connect-timeout 15 --speed-limit 4096 --speed-time 30 --retry 1 --proto '=https' \
+        -o "$2" "$1" && return 0
+    say "github lane failed or stalled; trying mirror"
+    curl -fL --connect-timeout 15 --speed-limit 4096 --speed-time 60 --retry 1 --proto '=https' \
+        -o "$2" "${AIHR_MIRROR:-https://gh-proxy.com/}$1" && return 0
+    say "mirror lane failed; trying api octet lane (slow, but authoritative)"
+    fetch_api_asset "$(basename -- "$1")" "$2"
+}
+
 if [ -n "$BUNDLE" ]; then
     [ -f "$BUNDLE" ] || err "bundle not found: $BUNDLE"
     ARCHIVE=$BUNDLE
@@ -107,10 +143,12 @@ else
     BASE="https://github.com/$REPO/releases/download/v$VERSION/$ASSET"
     WORK=$(mktemp -d "${TMPDIR:-/tmp}/aihr-install.XXXXXX")
     say "downloading $BASE"
-    curl -fL --retry 3 --proto '=https' -o "$WORK/$ASSET" "$BASE" \
-        || err "download failed: $BASE (exists for $OS-$ARCH? pass --version)"
-    curl -fL --retry 3 --proto '=https' -o "$WORK/$ASSET.sha256" "$BASE.sha256" \
+    # sidecar first, and never through the mirror: it is the integrity anchor
+    curl -fL --connect-timeout 10 --retry 2 --proto '=https' -o "$WORK/$ASSET.sha256" "$BASE.sha256" \
+        || fetch_api_asset "$ASSET.sha256" "$WORK/$ASSET.sha256" \
         || err "checksum sidecar missing for $ASSET"
+    fetch_bulk "$BASE" "$WORK/$ASSET" \
+        || err "download failed: $BASE (exists for $OS-$ARCH? pass --version)"
     ARCHIVE="$WORK/$ASSET"
 fi
 
