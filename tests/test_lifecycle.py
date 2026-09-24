@@ -15,6 +15,7 @@ import pytest
 
 from hr import lifecycle, setup_env
 from hr.lifecycle import install_post, receipt_path
+from hr import lifecycle_uninstall
 from hr.lifecycle_uninstall import self_uninstall
 from hr.opencfg import strip_jsonc_comments
 
@@ -223,3 +224,45 @@ def test_place_shim_windows_stub_is_byte_exact(monkeypatch, tmp_path) -> None:
     assert shim.read_bytes() == value.encode("utf-8") == lifecycle.SHIM_CMD_TEXT.encode("utf-8")
     again = lifecycle.place_shim(d, platform="win32")
     assert again[2] is False  # idempotent: byte-identical stub not rewritten
+
+
+# ---------------------------------------------------------------------------
+# windows deferred bundle-dir removal (run 35971371134: rmtree over the
+# live exe's own images raises WinError 5 inline)
+# ---------------------------------------------------------------------------
+
+
+def test_self_uninstall_windows_defers_bundle_removal(monkeypatch, tmp_path) -> None:
+    d, _home, _cfg = _sandbox(monkeypatch, tmp_path)
+    assert install_post(say=lambda _s: None) == 0
+    calls: list[list[str]] = []
+    monkeypatch.setattr(lifecycle_uninstall, "_spawn_detached", lambda argv: calls.append(argv))
+    monkeypatch.setattr(lifecycle_uninstall.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(
+        lifecycle_uninstall, "_reverse", lambda entry, **_kw: calls.append(["replayed", entry.kind])
+    )
+    lines: list[str] = []
+    assert self_uninstall(yes=True, platform="win32", say=lines.append) == 0
+    assert d.exists()  # deferred: the detached batch owns D's removal, not this process
+    spawns = [c for c in calls if c[0] == "cmd"]
+    assert len(spawns) == 1 and spawns[0][1:3] == ["/c", str(tmp_path / f"aihr-cleanup-{os.getpid()}.cmd")]
+    script = Path(spawns[0][2])
+    body = script.read_text(encoding="ascii")
+    assert str(d) in body
+    assert 'rmdir /s /q "%TARGET%"' in body and "goto retry" in body and "lss 20" in body
+    assert any("deferred cleanup" in line for line in lines)
+    assert not any("[bundle dir]" in line for line in lines)  # reported as deferred, not residue
+
+
+def test_self_uninstall_posix_still_removes_inline(monkeypatch, tmp_path) -> None:
+    d, _home, _cfg = _sandbox(monkeypatch, tmp_path)
+    assert install_post(say=lambda _s: None) == 0
+
+    def no_spawn(_argv: list[str]) -> None:  # posix path must never reach the win deferral
+        raise AssertionError("deferred removal scheduled on posix")
+
+    monkeypatch.setattr(lifecycle_uninstall, "_spawn_detached", no_spawn)
+    lines: list[str] = []
+    assert self_uninstall(yes=True, platform="linux", say=lines.append) == 0
+    assert not d.exists()
+    assert any("removed bundle dir" in line for line in lines)

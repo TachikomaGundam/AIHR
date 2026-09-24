@@ -12,7 +12,10 @@ silently removed and never treated as an error.
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
+import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -94,7 +97,48 @@ def _manual_steps(d: Path, *, windows: bool, say: Callable[[str], None]) -> None
     )
 
 
-def residual_manifest(d: Path, *, windows: bool, say: Callable[[str], None]) -> list[Path]:
+_CLEANUP_BAT = (
+    "@echo off\r\n"
+    'set "TARGET={target}"\r\n'
+    "set /a tries=0\r\n"
+    ":retry\r\n"
+    "ping -n 4 127.0.0.1 >nul\r\n"
+    'rmdir /s /q "%TARGET%"\r\n'
+    'if exist "%TARGET%" (\r\n'
+    "  set /a tries+=1\r\n"
+    "  if %tries% lss 20 goto retry\r\n"
+    ")\r\n"
+    'del "%~f0" >nul 2>&1\r\n'
+)
+
+
+def _spawn_detached(argv: list[str]) -> None:
+    subprocess.Popen(
+        argv,
+        creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def _schedule_deferred_removal(root: Path, *, temp_dir: Optional[Path] = None) -> Path:
+    """Windows cannot unlink the images of the live process (run 35971371134:
+    ``rmtree`` died on WinError 5 over the running exe's own package dir).
+    Hand ``D`` to a detached batch outside ``D``: pause, retry ``rmdir`` up
+    to 20 times (~60s, covers process teardown and transient AV locks), then
+    best-effort self-delete. POSIX unlinks live images and removes ``D``
+    inline instead (:func:`shutil.rmtree`)."""
+    base = Path(tempfile.gettempdir()) if temp_dir is None else temp_dir
+    script = base / f"aihr-cleanup-{os.getpid()}.cmd"
+    script.write_text(_CLEANUP_BAT.format(target=root), encoding="ascii")
+    _spawn_detached(["cmd", "/c", str(script)])
+    return script
+
+
+def residual_manifest(
+    d: Path, *, windows: bool, say: Callable[[str], None], deferred: bool = False
+) -> list[Path]:
     """Print (and return) leftovers owned by OTHER layers — reported, not errors."""
     found: list[tuple[str, Path]] = []
     cache_root = home_dir() / ".cache" / "opencode" / "packages"
@@ -103,7 +147,7 @@ def residual_manifest(d: Path, *, windows: bool, say: Callable[[str], None]) -> 
     user_hr = home_dir() / ".local" / "bin" / "hr"
     if user_hr.exists():
         found.append(("console script", user_hr))
-    if d.exists():
+    if d.exists() and not deferred:
         found.append(("bundle dir", d))
     say("residual manifest (reported, not errors):")
     if not found:
@@ -140,9 +184,15 @@ def self_uninstall(
         db_embedded.down(root, root=root_r, pg_run=pg_run, say=say)
     for entry in reversed(_entries(receipt)):
         _reverse(entry, windows=windows, say=say)
+    deferred = False
     if root.exists():
-        shutil.rmtree(root)
-        say(f"removed bundle dir {root}")
-    residual_manifest(root, windows=windows, say=say)
+        if windows:
+            script = _schedule_deferred_removal(root)
+            deferred = True
+            say(f"deferred cleanup: {script} owns {root} (removes it within ~60s of process exit)")
+        else:
+            shutil.rmtree(root)
+            say(f"removed bundle dir {root}")
+    residual_manifest(root, windows=windows, say=say, deferred=deferred)
     say("self-uninstall: done. The engine wheel itself (if pip-installed): pip uninstall aihr")
     return 0
