@@ -203,4 +203,7 @@ jobs:
           $un = & (Join-Path $D "app\hr.exe") self-uninstall --yes | Out-String
           Write-Host $un
           if ($un -match "pg_ctl stop failed") { throw "uninstall stopped a dead server (F-1 fingerprint)" }
-          if (Test-Path $D) { throw "$D still exists after self-uninstall" }
+          if ($un -notmatch "deferred cleanup") { throw "win uninstall took the inline-rmtree path (run 35971371134 WinError 5)" }
+          $deadline = (Get-Date).AddSeconds(90)
+          while ((Get-Date) -lt $deadline -and (Test-Path $D)) { Start-Sleep -Seconds 3 }
+          if (Test-Path $D) { throw "$D still exists 90s after self-uninstall deferred it" }
