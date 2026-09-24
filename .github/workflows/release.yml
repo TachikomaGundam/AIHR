@@ -182,7 +182,12 @@ jobs:
           $env:PGPASSWORD = $cfg["AIHR_DB_PASSWORD"]
           $out = & (Join-Path $D "pg\bin\psql.exe") -h 127.0.0.1 -p $cfg["AIHR_DB_PORT"] `
             -U aihr -d aihr -tAc "SELECT 1"
-          if ($out -ne "1") { throw "embedded pg returned: $out" }
+          if ($out -ne "1") {
+            Write-Host "::group::pg.log failure evidence (fifth-fire redacted this)"
+            Get-Content (Join-Path $D "log\pg.log") -Tail 80 -ErrorAction Continue
+            Write-Host "::endgroup::"
+            throw "embedded pg returned: $out"
+          }
 
       - name: uninstall leaves nothing behind
         run: |
