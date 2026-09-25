@@ -183,7 +183,7 @@ class DebPin:
 
 
 #: Members ``pg/lib`` gains on linux targets; the missing SONAME that killed
-#: testbed acceptance of the first 0.4.0 build (Ubuntu 26.04 ships libxml2 .16
+#: testbed-box acceptance of the first 0.4.0 build (Ubuntu 26.04 ships libxml2 .16
 #: only while the vendored server still DT_NEEDEDs ``libxml2.so.2``).
 PG_LINUX_LIBS: Final[tuple[str, ...]] = ("pg/lib/libxml2.so.2", "pg/lib/liblzma.so.5")
 
