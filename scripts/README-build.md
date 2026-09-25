@@ -98,10 +98,11 @@ uv run --with pyinstaller python scripts/build_bundle.py \
     --os linux --arch x86_64 --version "$V" --out dist
 
 # ship BOTH the bundle and its sidecar
-scp dist/aihr-$V-linux-x86_64.tar.gz* lab@REDACTED-TESTBED-IP:/tmp/
+# TESTBED = user@host of the designated bare-ubuntu box (address+creds live ONLY in the machine-owner ops layer, by design not in any repo)
+scp dist/aihr-$V-linux-x86_64.tar.gz* "$TESTBED":/tmp/
 
 # on the target machine (user account, NOT root)
-ssh lab@REDACTED-TESTBED-IP
+ssh "$TESTBED"
 sh /tmp/install.sh --bundle /tmp/aihr-$V-linux-x86_64.tar.gz
 ls ~/.aihr/{app/pg,pg/bin,share/aihr} ~/.aihr/receipt.json
 ~/.aihr/app/hr db-status | grep -i backend

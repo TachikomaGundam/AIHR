@@ -11,7 +11,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 // Floating @latest specs: a registered config must never decay into a stale
-// pin (that is what rotted the REDACTED-TESTBED-IP fresh-machine deploy). `hr setup`
+// pin (that is what rotted the pinned-testbed fresh-machine deploy). `hr setup`
 // prints the concrete resolved versions right after install for auditability.
 const PLUGINS = {
   server: ["opencode-hr-agent@latest", "opencode-fastdraw@latest"],

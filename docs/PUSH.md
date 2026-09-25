@@ -202,7 +202,7 @@ maintainer's call):
 
 ## 6. The Testbed Acceptance Protocol — the permanent turnkey courtroom
 
-Box **REDACTED-TESTBED-IP** (Ubuntu 26.04, system python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is this project's permanent turnkey courtroom — the exact machine where 0.3.0's "turnkey" claim died with "docker not found". Every bundle-version ship passes this protocol on the testbed box from factory state before it ships: it is the standing release gate, not a one-off (HR_EVOLUTION_BACKLOG Item 11, `~/workspace/AIHR/HR_EVOLUTION_BACKLOG.md`).
+The designated turnkey testbed box (address + SSH credentials deliberately NOT recorded in this repo — identity here is the hardware profile only; the machine owner keeps the live address in the ops layer) (Ubuntu 26.04, system python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is this project's permanent turnkey courtroom — the exact machine where 0.3.0's "turnkey" claim died with "docker not found". Every bundle-version ship passes this protocol on the testbed box from factory state before it ships: it is the standing release gate, not a one-off (HR_EVOLUTION_BACKLOG Item 11, `~/workspace/AIHR/HR_EVOLUTION_BACKLOG.md`).
 
 Steps run in order, on a clean box, nothing skipped:
 
