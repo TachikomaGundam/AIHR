@@ -200,7 +200,7 @@ maintainer's call):
    like `opencode-hr-agent@0.2.2` (this is the convention adopted since 0.2.1);
    agents never tag.
 
-## 6. The Testbed Acceptance Protocol — the permanent turnkey courtroom
+## 6. The Turnkey Acceptance Protocol — the permanent turnkey courtroom
 
 The designated turnkey testbed box (address + SSH credentials deliberately NOT recorded in this repo — identity here is the hardware profile only; the machine owner keeps the live address in the ops layer) (Ubuntu 26.04, system python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is this project's permanent turnkey courtroom — the exact machine where 0.3.0's "turnkey" claim died with "docker not found". Every bundle-version ship passes this protocol on the testbed box from factory state before it ships: it is the standing release gate, not a one-off (HR_EVOLUTION_BACKLOG Item 11, `~/workspace/AIHR/HR_EVOLUTION_BACKLOG.md`).
 
@@ -218,7 +218,7 @@ Steps run in order, on a clean box, nothing skipped:
    hr db-up && hr status      # expect: green, ZERO env exports, no sudo
    ```
 
-   `hr db-status` must name the embedded vendored Postgres as the live backend — the testbed has no Docker, so the compose lane cannot even mask a broken default.
+   `hr db-status` must name the embedded vendored Postgres as the live backend — the testbed box has no Docker, so the compose lane cannot even mask a broken default.
 
 3. **opencode tool surface.** Restart opencode on the testbed box and verify BOTH halves of the dual registration written by `hr install-post`: the `plugin` array in `~/.config/opencode/opencode.jsonc` (on this box the file IS `.jsonc` — there is no `opencode.json`) and the array in `tui.json`. Expect `hr_*` / `fastdraw_*` agent tools enumerable and `/fastdraw` + `<leader>m` alive in the TUI. (Machine-readable discovery-contract proof: the `/experimental/tool/ids` probe — see docs/PLUGIN_SECURITY.md notes or the ops/dev-env-pitfalls wiki page.) No npm step is run by hand — opencode/bun auto-fetches the package specs at startup.
 
@@ -242,7 +242,7 @@ The same protocol then runs on the Windows and macOS boxes when available. A bun
 
 ## What must NOT happen
 
-- The installers (`install.sh` / `install.ps1`) and their tail `hr install-post` NEVER run sudo or request elevation — on a box without passwordless sudo (the testbed is that box, permanently) the install must complete clean or the release fails the gate.
+- The installers (`install.sh` / `install.ps1`) and their tail `hr install-post` NEVER run sudo or request elevation — on a box without passwordless sudo (the box is that box, permanently) the install must complete clean or the release fails the gate.
 - Installer writes are limited to: the owned directory (`~/.aihr` / `%LOCALAPPDATA%\aihr`), one clearly-marked PATH block in the shell rc, the two opencode config arrays (`plugin` in `opencode.jsonc` + `tui.json`), and the `~/.local/bin`-style PATH shim. The rc block, the two config arrays and the shim are the ONLY sanctioned writes outside the owned dir, and every one of them is receipted; anything written off-receipt is a contract violation that `hr self-uninstall` will surface as an unexplained residual.
 - Do not reuse this machine's local scratch PostgreSQL DSN on the second box —
   the CLI takes `HR_TEST_PG_DSN`/per-provider keys from `hr.toml` / env that
