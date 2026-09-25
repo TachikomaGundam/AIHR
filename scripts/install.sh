@@ -119,7 +119,7 @@ fetch_bulk() { # bulk bytes: github, mirror, api octet, in that order. Each
     # sidecar, so a lying or stalling lane can delay the install but can
     # never substitute bytes. Stall guards (--speed-limit/--speed-time)
     # bound each attempt instead of the hours-long curl --retry hangs
-    # (testbed acceptance run of 2026-09-24: github.com redirect target
+    # (testbed-box acceptance run of 2026-09-24: github.com redirect target
     # stalled at 0 B/s while gh-proxy served 1.4 MB/s on the same LAN).
     curl -fL --connect-timeout 15 --speed-limit 4096 --speed-time 30 --retry 1 --proto '=https' \
         -o "$2" "$1" && return 0
