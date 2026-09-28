@@ -58,6 +58,34 @@ def test_install_post_requires_staged_bundle(monkeypatch, tmp_path) -> None:
     assert not (d / "bin").exists()  # nothing placed on a failed precheck
 
 
+def _pyproject_version() -> str:
+    """The one authored source of the product version (pyproject [project].version)."""
+    import tomllib
+
+    root = Path(__file__).resolve().parents[1]
+    data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    version: str = data["project"]["version"]
+    return version
+
+
+def test_version_is_single_sourced_from_packaging_metadata() -> None:
+    """hr.__version__ must derive from installed distribution metadata, whose
+    sole authored source is pyproject [project].version.  Regression lock for
+    the incident where the byte-exact 0.4.0 bundle stamped itself a "0.2.1"
+    receipt because a second hardcoded literal in hr/__init__.py rotted."""
+    from hr import __version__
+
+    assert __version__ != "0.0.0+unknown"  # metadata must resolve in every real lane
+    assert __version__ == _pyproject_version()
+
+
+def test_receipt_stamps_the_resolved_version(monkeypatch, tmp_path) -> None:
+    d, _home, _cfg = _sandbox(monkeypatch, tmp_path)
+    assert install_post(say=lambda _line: None) == 0
+    receipt = json.loads(receipt_path(d).read_text(encoding="utf-8"))
+    assert receipt["version"] == _pyproject_version()
+
+
 def test_install_post_places_everything_and_records_the_receipt(monkeypatch, tmp_path) -> None:
     d, home, cfg = _sandbox(monkeypatch, tmp_path)
     lines: list[str] = []
