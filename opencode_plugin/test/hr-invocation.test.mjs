@@ -21,7 +21,14 @@ let hr;
 try {
   hr = await import("../hr-invocation.ts");
 } catch (err) {
-  if (err?.code === "ERR_UNKNOWN_FILE_EXTENSION" || err?.code === "ERR_MODULE_NOT_FOUND") {
+  // Ubuntu's node 22.22.1 raises ERR_NO_TYPESCRIPT (compiled without the TS
+  // translator) where official node raises ERR_UNKNOWN_FILE_EXTENSION — pin
+  // both, or the A1 fallback dead-ends on exactly the boxes it was made for.
+  if (
+    err?.code === "ERR_UNKNOWN_FILE_EXTENSION" ||
+    err?.code === "ERR_NO_TYPESCRIPT" ||
+    err?.code === "ERR_MODULE_NOT_FOUND"
+  ) {
     hr = await import("../hr-invocation.js"); // tsc-erased build (A1 local recipe)
   } else {
     throw err;
@@ -234,10 +241,62 @@ const hrHomeUnusable = (p) =>
   `HR command failed: HR_HOME "${p}" is not usable. ` +
   "Fix its permissions (e.g. chmod) or export HR_HOME=<writable path>, then retry.";
 
+// Turnkey-first remediation (2026-09-29 incident: the old text led a session
+// agent to pip-install --break-system-packages on a bundle-lane box, violating
+// the product's own self-containment contract; the installer one-liner must
+// come first and the pip-lane escape hatch must be named as secondary).
 const ENGINE_MISSING =
-  "HR command failed: the HR engine package is missing (`No module named 'hr'`). " +
-  "Install it with `python3 -m pip install --user -U aihr`. " +
-  "On PEP 668 managed distributions add `--break-system-packages` to that command, or use a virtual environment.";
+  "HR command failed: no HR engine resolved for this plugin (`No module named 'hr'`). " +
+  "Recommended: install the turnkey bundle (user-scoped, privilege-free): " +
+  "`curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh` " +
+  "then open a new shell so `~/.aihr/bin` joins PATH. " +
+  "Pip-lane alternative (dev boxes only): `python3 -m pip install --user -U aihr` — on PEP 668 " +
+  "managed distributions this is refused unless you add `--break-system-packages` or use a " +
+  "virtual environment; prefer the turnkey installer.";
+
+// ---------------------------------------------------------------------------
+// resolveHrLaunch — engine resolution chain (turnkey-first). Regression lock
+// for the 2026-09-29 structural gap: the plugin only knew the pip-lane model
+// (`python3 -m hr`, PYTHONPATH=~/hr), so every hr_* call failed on a bare
+// turnkey box and its remediation text taught agents to contaminate user-site.
+// ---------------------------------------------------------------------------
+
+test("resolveHrLaunch: HR_BIN explicit override wins over everything", () => {
+  const l = hr.resolveHrLaunch({ HR_BIN: "/opt/custom/hr" }, "/home/x", () => true);
+  assert.equal(l.command, "/opt/custom/hr");
+  assert.deepEqual([...l.prefixArgs], []);
+  assert.equal(l.pythonpath, null);
+  assert.equal(l.ensureHome, false);
+});
+
+test("resolveHrLaunch: turnkey bundle shim is preferred over the pip lane", () => {
+  const shim = path.join("/home/x", ".aihr", "bin", "hr");
+  const l = hr.resolveHrLaunch({}, "/home/x", (p) => p === shim);
+  assert.equal(l.command, shim);
+  assert.deepEqual([...l.prefixArgs], []);
+  assert.equal(l.pythonpath, null);
+  // no phantom ~/hr mkdir on bundle lanes (the empty ~/hr was device-observed
+  // pollution from the legacy ensureHrHome-always-ran model)
+  assert.equal(l.ensureHome, false);
+});
+
+test("resolveHrLaunch: pip-lane fallback preserves the legacy launch shape", () => {
+  const l = hr.resolveHrLaunch({}, "/home/x", () => false);
+  assert.equal(l.command, "python3");
+  assert.deepEqual([...l.prefixArgs], ["-m", "hr"]);
+  assert.equal(l.cwd, path.join("/home/x", "hr"));
+  assert.equal(l.pythonpath, path.join("/home/x", "hr"));
+  assert.equal(l.ensureHome, true);
+});
+
+test("resolveHrLaunch: HR_HOME redirects only the pip lane, never the bundle shim", () => {
+  const pip = hr.resolveHrLaunch({ HR_HOME: "/data/hrhome" }, "/home/x", () => false);
+  assert.equal(pip.cwd, "/data/hrhome");
+  assert.equal(pip.pythonpath, "/data/hrhome");
+  const shim = path.join("/home/x", ".aihr", "bin", "hr");
+  const bundle = hr.resolveHrLaunch({ HR_HOME: "/data/hrhome" }, "/home/x", (p) => p === shim);
+  assert.equal(bundle.command, shim);
+});
 
 const fallback = (detail) => `HR command failed: ${detail}\nRun \`hr --help\` for command usage.`;
 
