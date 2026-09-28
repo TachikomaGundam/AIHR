@@ -11,9 +11,10 @@ import path from "node:path"
 
 /**
  * Create (recursively) the HR engine home and return its resolved path.
- * The default mirrors server.ts:9 EXACTLY: `HR_HOME` env ?? `~/hr` resolved
- * via os.homedir() (NOT process.env.HOME). Throws on failure; the caller
- * classifies via classifyHrError.
+ * Only the pip lane calls this (see resolveHrLaunch.ensureHome). The default
+ * mirrors resolveHrLaunch's pip-lane home EXACTLY: `HR_HOME` env ?? `~/hr`
+ * resolved via os.homedir() (NOT process.env.HOME). Throws on failure; the
+ * caller classifies via classifyHrError.
  */
 export function ensureHrHome(
   hrHome: string = process.env.HR_HOME ?? path.join(homedir(), "hr"),
@@ -100,6 +101,58 @@ const LAUNCH_SYSCALL_PREFIX = "sp" + "awn"
 const MISSING_HR_MODULE = /No module named ["']?hr["']?/
 
 /**
+ * A fully-resolved way to launch the HR engine, produced by resolveHrLaunch.
+ * The plugin never hardcodes one lane: turnkey bundles ship a frozen binary,
+ * dev boxes ship a pip-installed package, and operators may point at either
+ * explicitly. See resolveHrLaunch for the precedence order.
+ */
+export interface HrLaunch {
+  /** Executable to spawn (frozen `hr`, `python3`, or an operator override). */
+  readonly command: string
+  /** argv placed BEFORE the tool args (pip lane: `["-m", "hr"]`; else empty). */
+  readonly prefixArgs: readonly string[]
+  /** Working directory for the spawn. */
+  readonly cwd: string
+  /** PYTHONPATH to inject, or null to inherit the environment untouched. */
+  readonly pythonpath: string | null
+  /** True only for the pip lane: only there may the home dir be created. */
+  readonly ensureHome: boolean
+}
+
+/**
+ * Engine resolution chain — single source of the "how do we reach hr" answer.
+ * Precedence (2026-09-29 turnkey-first amendment; before it, the plugin was
+ * pip-lane-only and every hr_* call on a bare bundle box failed with an
+ * "engine package missing" guidance whose fix contaminated user-site via
+ * `pip install --break-system-packages`, violating the product contract):
+ *   1. HR_BIN            — explicit operator override, trusted verbatim.
+ *   2. ~/.aihr/bin/hr    — the turnkey bundle shim (the product's primary
+ *                          lane): frozen binary, self-contained, no PYTHONPATH,
+ *                          no home-dir creation (the old always-mkdir left a
+ *                          phantom ~/hr on bundle boxes).
+ *   3. pip lane          — legacy model, unchanged byte-for-byte: `python3
+ *                          -m hr` with cwd=HR_HOME (default ~/hr) and
+ *                          PYTHONPATH=HR_HOME, home created on demand.
+ * `exists` is injected (not imported from node:fs) to keep this leaf pure.
+ */
+export function resolveHrLaunch(
+  env: NodeJS.ProcessEnv,
+  homeDir: string,
+  exists: (candidate: string) => boolean,
+): HrLaunch {
+  const explicit = env.HR_BIN
+  if (explicit) {
+    return { command: explicit, prefixArgs: [], cwd: homeDir, pythonpath: null, ensureHome: false }
+  }
+  const bundleShim = path.join(homeDir, ".aihr", "bin", "hr")
+  if (exists(bundleShim)) {
+    return { command: bundleShim, prefixArgs: [], cwd: homeDir, pythonpath: null, ensureHome: false }
+  }
+  const hrHome = env.HR_HOME ?? path.join(homeDir, "hr")
+  return { command: "python3", prefixArgs: ["-m", "hr"], cwd: hrHome, pythonpath: hrHome, ensureHome: true }
+}
+
+/**
  * Map any HR invocation failure to actionable user guidance. Exactly four
  * branches, in order: (a) interpreter not launchable, (b) HR_HOME unusable
  * (thrown by ensureHrHome), (c) engine package missing (tested against
@@ -136,10 +189,14 @@ export function classifyHrError(err: unknown, hrHome: string): string {
 
   if (MISSING_HR_MODULE.test(String(shape.stderr ?? ""))) {
     return (
-      "HR command failed: the HR engine package is missing (`No module named 'hr'`). " +
-      "Install it with `python3 -m pip install --user -U aihr`. " +
-      "On PEP 668 managed distributions add `--break-system-packages` to that command, or use a virtual environment."
-    )
+      "HR command failed: no HR engine resolved for this plugin (`No module named 'hr'`). " +
+      "Recommended: install the turnkey bundle (user-scoped, privilege-free): " +
+      "`curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh` " +
+      "then open a new shell so `~/.aihr/bin` joins PATH. " +
+      "Pip-lane alternative (dev boxes only): `python3 -m pip install --user -U aihr` — on PEP 668 " +
+      "managed distributions this is refused unless you add `--break-system-packages` or use a " +
+      "virtual environment; prefer the turnkey installer."
+    );
   }
 
   const detail = err instanceof Error ? err.message : String(err)

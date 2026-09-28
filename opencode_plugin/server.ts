@@ -1,32 +1,33 @@
 import { execFile } from "node:child_process"
+import { existsSync } from "node:fs"
 import { homedir } from "node:os"
-import path from "node:path"
 import { promisify } from "node:util"
 
 import { tool } from "@opencode-ai/plugin"
 
-import { ensureHrHome, buildHrArgs, classifyHrError } from "./hr-invocation.js"
+import { ensureHrHome, buildHrArgs, classifyHrError, resolveHrLaunch } from "./hr-invocation.js"
 
 const executeFile = promisify(execFile)
-const HR_HOME = process.env.HR_HOME ?? path.join(homedir(), "hr")
-const HR_PYTHON = "python3"
 
 async function runHr(args: readonly string[]): Promise<string> {
-  try {
-    ensureHrHome(HR_HOME)
-  } catch (error) {
-    return classifyHrError(error, HR_HOME)
+  const launch = resolveHrLaunch(process.env, homedir(), existsSync)
+  if (launch.ensureHome) {
+    try {
+      ensureHrHome(launch.cwd)
+    } catch (error) {
+      return classifyHrError(error, launch.cwd)
+    }
   }
   try {
-    const result = await executeFile(HR_PYTHON, ["-m", "hr", ...args], {
-      cwd: HR_HOME,
-      env: { ...process.env, PYTHONPATH: HR_HOME },
+    const result = await executeFile(launch.command, [...launch.prefixArgs, ...args], {
+      cwd: launch.cwd,
+      env: launch.pythonpath === null ? { ...process.env } : { ...process.env, PYTHONPATH: launch.pythonpath },
       maxBuffer: 1024 * 1024,
       timeout: 30_000,
     })
     return result.stdout.trim() || result.stderr.trim() || "HR command completed."
   } catch (error) {
-    return classifyHrError(error, HR_HOME)
+    return classifyHrError(error, launch.cwd)
   }
 }
 
