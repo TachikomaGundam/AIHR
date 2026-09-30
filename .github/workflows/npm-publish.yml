@@ -79,20 +79,20 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Assert the registry serves at least the tag's plugin versions
+      - name: Assert the registry serves the tag's plugin versions (CDN-tolerant)
+        # first guard iteration died at 16:07:0x while the provenance PUT for
+        # 0.2.3 was accepted at 16:08:10Z — single-shot assertions against a
+        # CDN-cached read surface are a race, not a check. Poll with backoff.
         run: |
           set -eu
           for spec in "opencode_plugin:opencode-hr-agent" "fastdraw:opencode-fastdraw"; do
             dir="${spec%%:*}"; name="${spec##*:}"
             want="$(node -p "require('./$dir/package.json').version")"
-            curl -sf "https://registry.npmjs.org/$name" -o "/tmp/$name.json"
-            node -e '
-              const [f, n, w] = [process.argv[1], process.argv[2], process.argv[3]];
-              const reg = require(f);
-              if (!(w in reg.versions)) {
-                console.error(`${n}@${w} missing from registry (latest=${reg["dist-tags"].latest})`);
-                process.exit(1);
-              }
-              console.log(`${n}@${w} present on registry`);
-            ' "/tmp/$name.json" "$name" "$want"
+            ok=""
+            for i in 1 2 3 4 5 6; do
+              code="$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/$name/$want" || echo 000)"
+              if [ "$code" = "200" ]; then ok=1; echo "$name@$want present (attempt $i)"; break; fi
+              echo "attempt $i: http $code — registry CDN lag? retry in 30s"; sleep 30
+            done
+            [ -n "$ok" ] || { echo "GUARD-FAIL: $name@$want never appeared (last http $code)" >&2; exit 1; }
           done
