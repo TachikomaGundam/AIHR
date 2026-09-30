@@ -1,0 +1,89 @@
+# One train: an AIHR engine release tag publishes BOTH bundled npm plugins
+# from this repo's source at that tag. Before this file existed, the npm
+# half had no release lane at all — plugins were published manually and
+# drifted (v0.4.0 shipped while opencode-hr-agent@latest still served the
+# pre-turnkey 0.2.2, which sent a fresh-machine user into a pip-install
+# attempt on 2026-09-30). Invariant now enforced: after every v* tag, the
+# registry serves plugin packages >= the source of that tag.
+#
+# Mechanism: npm Trusted Publishing (GitHub OIDC). No npm tokens exist in
+# this repo or its secrets — by design. Binding face (human, once per
+# package, npmjs.com -> package -> Access -> Trusted Publisher):
+#   repository:  TachikomaGundam/AIHR
+#   workflow:    npm-publish.yml
+#   environment: github
+#
+# Idempotent: a plugin whose package.json version already exists in the
+# registry is skipped (engine releases without plugin changes stay green);
+# a genuinely new version is published with provenance. The guard job then
+# asserts both registry versions match the tag's source — a red there
+# means the train shed a wagon.
+name: npm-publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {} # manual re-fire against any ref via the Actions UI
+
+permissions:
+  contents: read
+  id-token: write # OIDC attestation for npm provenance
+
+jobs:
+  plugins:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dir: opencode_plugin
+            name: opencode-hr-agent
+          - dir: fastdraw
+            name: opencode-fastdraw
+    name: npm ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    environment: github
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22 # npm >= 11.5.1: provenance floor
+
+      - name: Publish unless this exact version is already on the registry
+        working-directory: ${{ matrix.dir }}
+        run: |
+          set -eu
+          VER="$(node -p 'require("./package.json").version')"
+          code="$(curl -s -o /dev/null -w '%{http_code}' \
+            "https://registry.npmjs.org/${{ matrix.name }}/$VER")"
+          case "$code" in
+            200) echo "${{ matrix.name }}@$VER already published — skipping (idempotent)";;
+            404) echo "publishing ${{ matrix.name }}@$VER from ${GITHUB_SHA}";
+                 npm publish --provenance --access public;;
+            *)   echo "unexpected registry code $code — refusing to guess" >&2; exit 1;;
+          esac
+
+  guard:
+    name: registry == tag source
+    needs: plugins
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert the registry serves at least the tag's plugin versions
+        run: |
+          set -eu
+          for spec in "opencode_plugin:opencode-hr-agent" "fastdraw:opencode-fastdraw"; do
+            dir="${spec%%:*}"; name="${spec##*:}"
+            want="$(node -p "require('./$dir/package.json').version")"
+            curl -sf "https://registry.npmjs.org/$name" -o "/tmp/$name.json"
+            node -e '
+              const [f, n, w] = [process.argv[1], process.argv[2], process.argv[3]];
+              const reg = require(f);
+              if (!(w in reg.versions)) {
+                console.error(`${n}@${w} missing from registry (latest=${reg["dist-tags"].latest})`);
+                process.exit(1);
+              }
+              console.log(`${n}@${w} present on registry`);
+            ' "/tmp/$name.json" "$name" "$want"
+          done
