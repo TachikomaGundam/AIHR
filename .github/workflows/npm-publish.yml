@@ -48,7 +48,16 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22 # npm >= 11.5.1: provenance floor
+          node-version: 22
+
+      - name: npm >= 11.5.1 floor (tokenless trusted publishing requires it; first fire 2026-09-30 died ENEEDAUTH on runner-bundled npm 10.x)
+        run: |
+          set -eu
+          cur="$(npm --version)"
+          if [ "$(printf "%s\n11.5.1\n" "$cur" | sort -V | head -1)" != "11.5.1" ]; then
+            echo "runner npm $cur < 11.5.1 — upgrading"; npm install -g npm@11; cur="$(npm --version)"
+          fi
+          echo "publishing with npm $cur"
 
       - name: Publish unless this exact version is already on the registry
         working-directory: ${{ matrix.dir }}
