@@ -126,3 +126,19 @@ def discover_env(hr_sandbox: dict):
     _write_global_config(hr_sandbox["config_dir"])
     _write_auth_v2(hr_sandbox["home"], {"bailian-token-plan": [{"type": "api", "key": "sk-fake"}]})
     return hr_sandbox["tmp_path"]
+
+
+def test_discovered_models_skips_unresolvable_provider(capsys):
+    """Item 14: unknown npm warns on stderr + skips; the rest of the fleet survives."""
+    from hr import fleet, fleet_policy
+
+    providers = {
+        "good": {"npm": "@ai-sdk/openai-compatible", "models": {"m1": {"name": "M1"}}},
+        "weird": {"models": {"m2": {}}},  # no npm, no override -> unresolvable
+    }
+    models = fleet.discovered_models(
+        providers=providers, overrides=fleet_policy.empty_overrides()
+    )
+    assert [m.provider for m in models] == ["good"]
+    err = capsys.readouterr().err
+    assert "weird" in err and "wire_overrides" in err

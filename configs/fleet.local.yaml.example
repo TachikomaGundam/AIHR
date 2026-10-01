@@ -1,0 +1,24 @@
+# Local overlay template (Item 14): copy to configs/fleet.local.yaml and edit.
+# load_yaml() merges this overlay OVER the tracked configs/fleet.yaml
+# (local wins). Machine-local routing data belongs HERE, never in tracked
+# files - before this template shipped, fresh installs had no way to know
+# the overlay existed and sat config-naked while benchmarks failed.
+#
+# This is routing data, not credentials: keep real API keys in the opencode
+# config / auth files, never here.
+
+# Providers whose opencode block has no resolvable `npm` field (raw vLLM,
+# azure-style gateways) must declare their wire here or discover skips the
+# provider with a warning naming it. Valid wires: openai-compat,
+# anthropic-compat.
+# wire_overrides:
+#   my-gateway: openai-compat
+
+# Provider -> gateway base URL fallback, used when the provider's opencode
+# block carries no options.baseURL.
+# gateway_urls:
+#   my-gateway: http://127.0.0.1:8000/v1
+
+# Providers visible in the opencode config that must stay OUT of
+# discover/sweep scope.
+# scope_excludes: [some-provider]

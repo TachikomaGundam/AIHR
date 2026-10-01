@@ -63,7 +63,7 @@ def test_npm_wire_table_maps_each_known_package(fleet_env) -> None:  # noqa: F81
         "oai-compatible": "openai-compat",
     }
 
-def test_unknown_npm_fails_loud_naming_provider(fleet_env) -> None:  # noqa: F811 (fixture param shadows re-export)
+def test_unknown_npm_warns_and_skips_naming_provider(fleet_env, capsys) -> None:  # noqa: F811 (fixture param shadows re-export)
     _write_opencode(
         fleet_env["config_dir"],
         _providers(
@@ -75,22 +75,23 @@ def test_unknown_npm_fails_loud_naming_provider(fleet_env) -> None:  # noqa: F81
             }
         ),
     )
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError):  # offender skipped -> fleet empty -> loud
         fleet.fleet_models()
-    msg = str(exc.value)
-    assert "alpha" in msg
-    assert "@ai-sdk/mystery-vendor" in msg
-    assert "wire_overrides" in msg
+    err = capsys.readouterr().err
+    assert "alpha" in err
+    assert "@ai-sdk/mystery-vendor" in err
+    assert "wire_overrides" in err
 
-def test_config_provider_without_npm_fails_loud(fleet_env) -> None:  # noqa: F811 (fixture param shadows re-export)
+def test_config_provider_without_npm_warns_and_skips(fleet_env, capsys) -> None:  # noqa: F811 (fixture param shadows re-export)
     _write_opencode(
         fleet_env["config_dir"],
         _providers({"alpha": {"models": {"m1": {}}}}),
     )
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(ValueError):
         fleet.fleet_models()
-    assert "alpha" in str(exc.value)
-    assert "wire_overrides" in str(exc.value)
+    err = capsys.readouterr().err
+    assert "alpha" in err
+    assert "wire_overrides" in err
 
 def test_wire_override_file_honored_for_registry_provider(fleet_env) -> None:  # noqa: F811 (fixture param shadows re-export)
     """A provider NOT in the opencode config routes via wire_overrides."""

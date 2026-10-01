@@ -199,6 +199,14 @@ def bench(
             for b in batteries:
                 outcome = engine.run_battery(model_id, b)
                 engine.store(conn, sweep_id, model_id, b, outcome)
+                if not outcome.items:
+                    err = (getattr(outcome, "raw_output", "") or "").strip()
+                    if err:
+                        head = "\n".join(err.splitlines()[:8])
+                        console.print(
+                            f"[yellow]no measurements for {model_id}/"
+                            f"{battery_code(b)} - recorded error:[/yellow]\n{head}"
+                        )
                 if not manifest_stored:
                     engine.store_manifest(conn, sweep_id, manifest)
                     manifest_stored = True

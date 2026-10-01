@@ -75,6 +75,7 @@ class EngineStorageMixin:
         measurement row per graded item with the ACTUAL requested_max_output.
         """
         from hr.stage0_storage import (
+            _insert_infra_incident,
             _insert_measurement,
             _insert_run,
             _insert_sweep,
@@ -107,6 +108,19 @@ class EngineStorageMixin:
             status=outcome.status,
             failure_reason=failure_reason,
         )
+        if failure_reason == "adapter_setup_failure":
+            # Item 14: the run row keeps the full text; incident rows make
+            # failures queryable for the ops surface without DB spelunking.
+            _insert_infra_incident(
+                conn,
+                run_id,
+                "adapter_setup_failure",
+                {
+                    "model_id": model_id,
+                    "battery": battery_code(battery),
+                    "error": (getattr(outcome, "raw_output", "") or "")[:500],
+                },
+            )
         # An unavailable capability or failed transport is not a zero-score
         # observation. Keep the run as audit evidence, but do not inject fake
         # failures into the score distribution used for selection.

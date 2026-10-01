@@ -231,6 +231,12 @@ Steps run in order, on a clean box, nothing skipped:
 
 5. **Filesystem audit == printed residual manifest, EXACTLY.** Walk the box (owned-dir remnants, shell rc files, the two opencode configs, bin dirs, caches) and diff every leftover against the residual manifest printed in step 4. Every surviving path must appear there with its exact removal command (e.g. the bun plugin cache under `~/.cache/opencode/packages/…`); any leftover absent from the manifest is a release blocker. Contract law: uninstall removes ALL it placed or reports each residual — nothing silent.
 
+6. **First-boot live bench (Item 14 standing gate):** on the freshly installed
+   machine run the owner's real thing - `hr discover`, then `hr run` on one
+   discoverable model against a live endpoint. Acceptance = measurements > 0
+   and no `adapter_setup_failure` rows. Artifact checks alone never close
+   this courtroom; the machine must produce observations.
+
 The same protocol then runs on the Windows and macOS boxes when available. A bundle version without a green testbed-box run does not ship.
 
 > **Takeover posture:** npm's `allow-same-user` default is `true`, so the same
