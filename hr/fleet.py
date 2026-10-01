@@ -11,8 +11,9 @@ ZERO edits in this repo.
 
 Wire types come from the provider's ``npm`` field via an explicit mapping
 table (:data:`NPM_WIRE`); an npm-less / unknown-npm config provider is a
-FAIL-LOUD error naming the provider and where to declare its wire — the
-wire is never guessed. Providers opencode does not declare (registry-only
+loud stderr warning naming the provider and where to declare its wire;
+that provider is skipped and never guessed (Item 14) — one unknown
+gateway must not blind the whole fleet inventory. Providers opencode does not declare (registry-only
 ones like ``kimi-for-coding`` / ``deepseek``, whose configs live in
 opencode's own registry) get their wire from ``configs/fleet.yaml``
 ``wire_overrides:`` — and their MODELS from ``configs/deployable.yaml``
@@ -33,6 +34,8 @@ Consumers:
 """
 
 from __future__ import annotations
+
+import sys
 
 from dataclasses import dataclass
 
@@ -80,8 +83,9 @@ def discovered_models(
     """Every ``provider.models[*]`` entry of the merged config as FleetModel.
 
     Providers without a ``models`` block contribute nothing. An unresolvable
-    wire raises (fail loud) — the inventory never carries a model whose
-    routing is unknown.
+    wire is reported on stderr and its provider skipped (Item 14) — guidance
+    is loud, but one unknown gateway no longer kills discovery of the fleet;
+    no model with unknown routing is ever carried.
     """
     providers = read_providers() if providers is None else providers
     overrides = read_overrides() if overrides is None else overrides
@@ -92,7 +96,15 @@ def discovered_models(
         models_block = block.get("models")
         if not isinstance(models_block, dict) or not models_block:
             continue
-        wire = resolve_wire(pid, block, overrides)
+        try:
+            wire = resolve_wire(pid, block, overrides)
+        except ValueError as exc:
+            # Item 14: one unresolvable provider (unknown npm, no override)
+            # must not blind the whole inventory - report on stderr naming the
+            # provider and the remedy, skip only that provider. No model with
+            # unknown routing is ever carried (fail-loud guidance preserved).
+            print(f"warning: skipping provider {pid}: {exc}", file=sys.stderr)
+            continue
         for slug, entry in models_block.items():
             if not isinstance(entry, dict):
                 continue

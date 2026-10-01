@@ -212,6 +212,7 @@ RELEASE_ASSETS: List[str] = [
     "hr.toml.example",
     "configs/deployable.yaml",
     "configs/fleet.yaml",
+    "configs/fleet.local.yaml.example",
     "configs/knowledge.yaml",
     "configs/models.yaml",
     "configs/seats.yaml",
