@@ -111,6 +111,26 @@ def _api_base_from_gateway_urls(provider: str) -> str | None:
     return base if isinstance(base, str) and base.strip() else None
 
 
+def _api_key_from_inline_config(provider: str) -> str | None:
+    """Inline ``options.apiKey`` of the provider block (Item 14 root cause).
+
+    discover, hr/config.py and the anthropic adapter all honour the inline
+    key - the openai endpoint read only the auth files, so a local vLLM
+    declared the README way (options: {baseURL, apiKey}) failed every run
+    with adapter_setup_failure. Auth files keep priority; this is the last
+    resolution lane before the error.
+    """
+    from hr import opencfg
+
+    try:
+        blocks = opencfg.read_providers()
+    except (OSError, ValueError):
+        return None
+    options = (blocks.get(provider) or {}).get("options") or {}
+    key = options.get("apiKey")
+    return key.strip() if isinstance(key, str) and key.strip() else None
+
+
 def _api_key_from_auth(provider: str, auth_path: str) -> str:
     """API key for ``provider`` from the opencode auth files.
 
@@ -124,22 +144,30 @@ def _api_key_from_auth(provider: str, auth_path: str) -> str:
     v2_key = provider_api_key(provider, data_dir=Path(auth_path).parent)
     if v2_key is not None:
         return v2_key
+    inline = _api_key_from_inline_config(provider)
     try:
         with open(auth_path, encoding="utf-8") as auth_file:
             auth = json.load(auth_file)
     except OSError as exc:
+        if inline is not None:
+            return inline
         raise AdapterError(
             f"Cannot read auth.json at {auth_path} (no usable auth-v2.json "
             f"key beside it): {exc}"
         ) from exc
     entry = auth.get(provider)
     if not isinstance(entry, dict):
+        if inline is not None:
+            return inline
         raise AdapterError(
-            f"No auth entry for provider '{provider}' in auth-v2.json beside "
-            f"{auth_path} or in {auth_path}"
+            f"No auth entry for provider '{provider}': declare it in "
+            f"auth-v2.json beside {auth_path}, in {auth_path}, or as inline "
+            f"'options.apiKey' in the opencode.jsonc provider block"
         )
     key = entry.get("key")
     if not isinstance(key, str) or not key:
+        if inline is not None:
+            return inline
         raise AdapterError(
             f"Auth entry for '{provider}' in {auth_path} has no 'key' field "
             f"(auth-v2.json beside it yielded no key either)"

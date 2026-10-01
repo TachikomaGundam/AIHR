@@ -349,3 +349,48 @@ def test_default_models_cache_path_falls_back_to_home_cache(tmp_path, monkeypatc
     assert default_models_cache_path() == (
         tmp_path / "home" / ".cache" / "opencode" / "models.json"
     )
+
+
+# ---------------------------------------------------------------------------
+# OpenAI-lane inline apiKey fallback (Item 14 root cause: local vLLM declared
+# the README way — options: {baseURL, apiKey} — failed every run because this
+# lane read keys ONLY from auth files while discover/config/anthropic honour
+# the inline key.)
+# ---------------------------------------------------------------------------
+def test_openai_lane_inline_api_key_fallback(tmp_path: Path, monkeypatch) -> None:
+    from hr import opencfg
+    from hr.adapters import openai_endpoint as OE
+
+    monkeypatch.setattr(
+        opencfg, "read_providers",
+        lambda *a, **k: {"local-vllm": {"options": {"apiKey": "sk-inline-1"}}},
+    )
+    missing_auth = tmp_path / "auth.json"  # deliberately nonexistent
+    assert OE._api_key_from_auth("local-vllm", str(missing_auth)) == "sk-inline-1"
+
+
+def test_openai_lane_auth_file_wins_over_inline(tmp_path: Path, monkeypatch) -> None:
+    from hr import opencfg
+    from hr.adapters import openai_endpoint as OE
+
+    monkeypatch.setattr(
+        opencfg, "read_providers",
+        lambda *a, **k: {"p1": {"options": {"apiKey": "sk-inline"}}},
+    )
+    auth = tmp_path / "auth.json"
+    auth.write_text(json.dumps({"p1": {"key": "sk-file"}}), encoding="utf-8")
+    assert OE._api_key_from_auth("p1", str(auth)) == "sk-file"
+
+
+def test_openai_lane_no_key_anywhere_names_all_three_places(
+    tmp_path: Path, monkeypatch
+) -> None:
+    from hr import opencfg
+    from hr.adapters import openai_endpoint as OE
+    from hr.adapters.base import AdapterError
+
+    monkeypatch.setattr(opencfg, "read_providers", lambda *a, **k: {})
+    auth = tmp_path / "auth.json"
+    auth.write_text("{}", encoding="utf-8")
+    with pytest.raises(AdapterError, match="options.apiKey"):
+        OE._api_key_from_auth("ghost", str(auth))
