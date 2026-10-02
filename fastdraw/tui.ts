@@ -790,54 +790,177 @@ function loadPresetFlow(ui: Ui) {
   }).catch((e) => flowError(ui, e))
 }
 
-/** Flow: prompt path → import preset(s). */
-function importPresetFlow(ui: Ui) {
+/* ── Import candidate discovery ───────────────────────────────────── */
+
+/** Filename hint for portable exports / store dumps worth probing. */
+const IMPORT_NAME_HINT = /(fastdraw|preset)[^/\\]*\.json$/i
+
+export interface ImportCandidate {
+  file: string
+  label: string
+  mtimeMs: number
+}
+
+/** True only for content that is unmistakably fastdraw-shaped: a portable
+ *  export (`fastdraw: 1`), a whole store (`presets`), or v2 sections
+ *  (`omo`/`custom`). Bare legacy `{agents}` dumps are NOT auto-listed —
+ *  they stay reachable via the manual-path fallback. */
+function looksLikeFastdrawFile(obj: unknown): boolean {
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return false
+  const o = obj as Record<string, unknown>
+  return o.fastdraw === 1 || "presets" in o || "omo" in o || "custom" in o
+}
+
+/** One-line preview shown beside each candidate in the picker. */
+export function describeImport(parsed: ReturnType<typeof parseImport>, file: string): string {
+  if (parsed.kind === "bulk") {
+    const names = Object.keys(parsed.presets).sort()
+    const total = names.reduce(
+      (s, n) => s + Object.keys(presetAgents(parsed.presets[n])).length,
+      0,
+    )
+    return `preset store — ${names.length} preset${names.length === 1 ? "" : "s"}, ${total} bindings: ${names.join(", ")}`
+  }
+  const name =
+    parsed.name ?? path.basename(file, ".json").replace(/^fastdraw-preset-/, "")
+  const count = Object.keys(parsed.omo).length + Object.keys(parsed.custom).length
+  return `preset "${name}" — ${count} agent${count === 1 ? "" : "s"}`
+}
+
+/** Scan the given roots (depth 1) for fastdraw-preset-*.json / preset-ish
+ *  JSON files that parse cleanly, newest first. The live presets store and
+ *  state file are never offered as import candidates. */
+export async function findImportCandidates(
+  roots: string[] = [process.cwd(), homedir(), CONFIG_DIR],
+  cap = 60,
+): Promise<ImportCandidate[]> {
+  const seen = new Set<string>()
+  const skip = new Set([path.resolve(PRESETS_FILE), path.resolve(STATE_FILE)])
+  const out: ImportCandidate[] = []
+  for (const root of roots) {
+    let names: string[] = []
+    try {
+      names = await fs.readdir(root)
+    } catch {
+      continue // root missing/unreadable — not an error, just no candidates there
+    }
+    for (const name of names.sort()) {
+      if (!IMPORT_NAME_HINT.test(name)) continue
+      const file = path.resolve(root, name)
+      if (skip.has(file) || seen.has(file)) continue
+      seen.add(file)
+      try {
+        const st = await fs.stat(file)
+        if (!st.isFile()) continue
+        const raw = JSON.parse(await fs.readFile(file, "utf-8"))
+        if (!looksLikeFastdrawFile(raw)) continue
+        out.push({ file, label: describeImport(parseImport(raw), file), mtimeMs: st.mtimeMs })
+      } catch {
+        // unreadable or not importable — leave it to the manual path prompt
+      }
+    }
+  }
+  out.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  return out.slice(0, cap)
+}
+
+/** Import one file into the live store. Shared by picker and manual prompt. */
+export async function applyImportFile(ui: Ui, file: string): Promise<void> {
+  try {
+    const raw = JSON.parse(await fs.readFile(file, "utf-8"))
+    const parsed = parseImport(raw)
+    const store = await loadPresets()
+    if (parsed.kind === "bulk") {
+      for (const [n, p] of Object.entries(parsed.presets)) {
+        store.presets[n] = p
+      }
+      await savePresets(store)
+      toast(
+        ui,
+        `Imported ${Object.keys(parsed.presets).length} presets: ${Object.keys(parsed.presets).sort().join(", ")}`,
+        "success",
+      )
+    } else {
+      const name =
+        parsed.name ?? path.basename(file, ".json").replace(/^fastdraw-preset-/, "")
+      store.presets[name] = {
+        schemaVersion: SCHEMA_VERSION,
+        description: parsed.description,
+        createdAt: new Date().toISOString(),
+        omo: parsed.omo,
+        custom: parsed.custom,
+      }
+      await savePresets(store)
+      toast(
+        ui,
+        `Preset "${name}" imported (${Object.keys(presetAgents(store.presets[name])).length} agents)`,
+        "success",
+      )
+    }
+  } catch (e) {
+    flowError(ui, e)
+  }
+}
+
+/** Fallback flow: type any path (~ and relative supported). */
+function promptManualImport(ui: Ui) {
   ui.dialog.setSize("medium")
   ui.dialog.replace(() =>
     ui.DialogPrompt({
       title: "FastDraw — Import Preset: file path",
       placeholder: "~/preset.json or ./preset.json",
       onCancel: () => ui.dialog.clear(),
-      onConfirm: async (input: string) => {
+      onConfirm: (input: string) => {
         ui.dialog.clear()
-        const file = expandPath(input.trim())
-        try {
-          const raw = JSON.parse(await fs.readFile(file, "utf-8"))
-          const parsed = parseImport(raw)
-          const store = await loadPresets()
-          if (parsed.kind === "bulk") {
-            for (const [n, p] of Object.entries(parsed.presets)) {
-              store.presets[n] = p
-            }
-            await savePresets(store)
-            toast(
-              ui,
-              `Imported ${Object.keys(parsed.presets).length} presets: ${Object.keys(parsed.presets).sort().join(", ")}`,
-              "success",
-            )
-          } else {
-            const name =
-              parsed.name ?? path.basename(file, ".json").replace(/^fastdraw-preset-/, "")
-            store.presets[name] = {
-              schemaVersion: SCHEMA_VERSION,
-              description: parsed.description,
-              createdAt: new Date().toISOString(),
-              omo: parsed.omo,
-              custom: parsed.custom,
-            }
-            await savePresets(store)
-            toast(
-              ui,
-              `Preset "${name}" imported (${Object.keys(presetAgents(store.presets[name])).length} agents)`,
-              "success",
-            )
-          }
-        } catch (e) {
-          flowError(ui, e)
-        }
+        void applyImportFile(ui, expandPath(input.trim()))
       },
     }),
   )
+}
+
+/** Flow: scan nearby preset files → pick from list → import.
+ *  Manual path entry stays as an explicit option (and as the direct
+ *  fallback when nothing decodable is found nearby). */
+function importPresetFlow(ui: Ui) {
+  void (async () => {
+    try {
+      const candidates = await findImportCandidates()
+      if (!candidates.length) {
+        toast(ui, "FastDraw: no preset files found in workspace/home — enter a path", "info")
+        promptManualImport(ui)
+        return
+      }
+      ui.dialog.setSize("large")
+      ui.dialog.replace(() =>
+        ui.DialogSelect<string>({
+          title: "FastDraw — Import Preset: choose file",
+          options: [
+            ...candidates.map((c) => ({
+              title: path.basename(c.file),
+              value: c.file,
+              description: `${c.label}  ·  ${path.dirname(c.file)}`,
+            })),
+            {
+              title: "Other file path…",
+              value: "__manual__",
+              description: "type an absolute or ~/ path",
+            },
+          ],
+          onSelect: (opt: any) => {
+            if (!opt) {
+              ui.dialog.clear()
+              return
+            }
+            ui.dialog.clear()
+            if (opt.value === "__manual__") promptManualImport(ui)
+            else void applyImportFile(ui, opt.value)
+          },
+        }),
+      )
+    } catch (e) {
+      flowError(ui, e)
+    }
+  })()
 }
 
 /** Flow: pick preset → prompt output path → write file. */
@@ -924,7 +1047,7 @@ function buildDialogHandler(
             { title: "Assign Model", value: "assign" as const, description: "Bind a model to an agent" },
             { title: "Save Current as Preset", value: "save" as const, description: "Snapshot all current assignments" },
             { title: "Load Preset", value: "load" as const, description: "Preview bindings, then apply" },
-            { title: "Import Preset from File", value: "import" as const, description: "Load preset(s) from a JSON file" },
+            { title: "Import Preset from File", value: "import" as const, description: "Pick a nearby preset file or enter a path" },
             { title: "Export Preset to File", value: "export" as const, description: "Share a preset as JSON" },
             { title: "Delete Preset", value: "delete" as const, description: "Remove a saved preset" },
           ],

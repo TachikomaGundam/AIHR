@@ -8,7 +8,7 @@ Built for heavy [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagen
 
 - **Assign models from the TUI** — `/fastdraw` or `<leader>m` → pick agent → pick model. Agents grouped by OMO Roles / OMO Categories / Overrideable / Custom; models grouped by provider. After each binding you land back on the agent list with the new model shown.
 - **Presets** — save the current assignment set as a named preset; loading a preset shows a **full preview of every role's binding** before you confirm.
-- **Export / Import** — share presets as portable JSON files (`fastdraw-preset-<name>.json`), or import a whole preset store at once.
+- **Export / Import** — share presets as portable JSON files (`fastdraw-preset-<name>.json`); importing opens a **file picker** listing decodable preset files found in your workspace and home (newest first, with content previews), with manual path entry as the fallback. Whole preset stores import in one shot.
 - **Hot-apply** — `fastdraw_*` tools mutate the live config immediately for opencode-side agents (agents not in a freshly loaded preset revert to their original models). OMO roles/categories bind in OMO's own config file and take effect on next start. TUI changes persist and apply on restart.
 - **Config-respecting** — assignments live in `~/.config/opencode/.fastdraw.json`; presets in `fastdraw-presets.json`. Your `opencode.jsonc` is never modified by assignment — the only write path is *load preset* in a restore mode (`global` / `original` / `path`), and even then only for custom/built-in roles. OMO roles and categories are bound in `~/.omo/omo.jsonc` (or `omo.json`, matching OMO's detection order) and every file is backed up as `<file>.bak-<timestamp>` before being touched.
 
@@ -54,7 +54,7 @@ FastDraw — Model Assignments & Presets
   Assign Model              Bind a model to an agent
   Save Current as Preset    Snapshot all current assignments
   Load Preset               Preview bindings, then apply
-  Import Preset from File   Load preset(s) from a JSON file
+  Import Preset from File   Pick a nearby preset file or enter a path
   Export Preset to File     Share a preset as JSON
   Delete Preset             Remove a saved preset
 ```

@@ -1,8 +1,8 @@
 {
   "name": "opencode-fastdraw",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "hrContractVersion": "1.0.0",
-  "description": "Quick-draw model switching for opencode agents — bind models to roles/agents from the TUI, snapshot them as presets, preview, share, and hot-swap instantly",
+  "description": "Quick-draw model switching for opencode agents \u2014 bind models to roles/agents from the TUI, snapshot them as presets, preview, share, and hot-swap instantly",
   "type": "module",
   "exports": {
     "./server": "./server.ts",
@@ -28,8 +28,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "pretest": "esbuild server.ts --format=esm --platform=node --bundle --outfile=test/.build/server.mjs --log-level=error && esbuild origins.ts --format=esm --platform=node --bundle --outfile=test/.build/origins.mjs --log-level=error && esbuild omo.ts --format=esm --platform=node --bundle --outfile=test/.build/omo.mjs --log-level=error && esbuild home-reach.ts --format=esm --platform=node --bundle --outfile=test/.build/home-reach.mjs --log-level=error",
-    "test": "node test/preset.test.mjs && node test/preset-split.test.mjs && node test/origins.test.mjs && node test/omo.test.mjs && node test/omo-routing.test.mjs && node test/home-reach.test.mjs"
+    "pretest": "esbuild server.ts --format=esm --platform=node --bundle --outfile=test/.build/server.mjs --log-level=error && esbuild origins.ts --format=esm --platform=node --bundle --outfile=test/.build/origins.mjs --log-level=error && esbuild omo.ts --format=esm --platform=node --bundle --outfile=test/.build/omo.mjs --log-level=error && esbuild home-reach.ts --format=esm --platform=node --bundle --outfile=test/.build/home-reach.mjs --log-level=error && esbuild tui.ts --format=esm --platform=node --bundle --outfile=test/.build/tui.mjs --log-level=error",
+    "test": "node test/preset.test.mjs && node test/preset-split.test.mjs && node test/origins.test.mjs && node test/omo.test.mjs && node test/omo-routing.test.mjs && node test/home-reach.test.mjs && node test/import-picker.test.mjs"
   },
   "keywords": [
     "opencode",
