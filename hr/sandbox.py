@@ -33,6 +33,8 @@ def run_sandboxed(
     if reason is not None:
         raise SandboxUnavailableError(reason)
     bubblewrap = shutil.which("bwrap")
+    if bubblewrap is None:
+        raise SandboxUnavailableError("bwrap not installed")
 
     runtime = Path(sys.base_prefix).resolve()
     interpreter = Path(sys.executable).resolve()
