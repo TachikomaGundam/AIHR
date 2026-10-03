@@ -17,6 +17,7 @@ from hr.adapters.openai_protocol import (
     extract_int,
     parse_sse_stream,
     to_messages,
+    StreamAccumulator,
 )
 
 
@@ -184,3 +185,15 @@ def test_plain_and_image_lists_pass_through_unchanged() -> None:
     assert to_messages([{"role": "user", "content": image_list}]) == [
         {"role": "user", "content": image_list}
     ]
+
+
+def test_vllm_reasoning_delta_key_is_captured() -> None:
+    """vLLM's reasoning parser writes delta key 'reasoning' (probed live on
+    10.118.16.3:8000); the accumulator must not leave thinking empty."""
+    acc = StreamAccumulator()
+    acc.apply_delta({"reasoning": "thinking hard"})
+    acc.apply_delta({"reasoning_content": "deepseek style"})
+    acc.apply_delta({"content": "answer"})
+    text, thinking, _, _ = acc.finalize()
+    assert "thinking hard" in thinking and "deepseek style" in thinking
+    assert text == "answer"

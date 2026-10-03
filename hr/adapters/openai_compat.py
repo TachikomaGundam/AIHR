@@ -136,6 +136,9 @@ class OpenAICompatAdapter(Adapter):
             "messages": _to_oai_messages(messages, images),
             "max_tokens": max_output,
             "stream": True,
+            # vLLM/OpenAI emit usage only when asked (testbed 191: tokens were
+            # dead 0 in this lane without it -> speed battery unusable).
+            "stream_options": {"include_usage": True},
         }
         effort = _thinking_budget_to_effort(thinking_budget)
         if effort:
@@ -211,6 +214,7 @@ class OpenAICompatAdapter(Adapter):
             finally:
                 response.close()
             text, thinking, tool_calls, usage = accumulator.finalize()
+            latency = int((time.monotonic() - started_at) * 1000)
             if not text and not tool_calls and not thinking:
                 failure = classify_failure(
                     status_code=status,

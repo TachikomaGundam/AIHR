@@ -220,3 +220,38 @@ def test_chat_closes_response_after_stream(sandbox_adapter, monkeypatch) -> None
     _script_post(monkeypatch, stream)
     sandbox_adapter.chat("acme/m", [{"role": "user", "content": "hi"}])
     assert stream.closed == 1
+
+def test_chat_requests_stream_usage_inclusion(sandbox_adapter, monkeypatch) -> None:
+    """Testbed 191: vLLM emits usage only with stream_options.include_usage;
+    without it every openai-compat run recorded dead-0 tokens."""
+    resp = FakeStreamResponse(
+        200,
+        _sse(
+            {"choices": [{"delta": {"content": "ok"}}]},
+            SSE_USAGE,
+            "[DONE]",
+        ),
+    )
+    calls = _script_post(monkeypatch, resp)
+    model = sandbox_adapter.chat("acme/model-x", [{"role": "user", "content": "go"}])
+    assert calls[0]["json"]["stream_options"] == {"include_usage": True}
+    assert model.tokens_in == 11 and model.tokens_out == 5
+
+
+def test_chat_latency_covers_full_stream(sandbox_adapter, monkeypatch) -> None:
+    import time as _t
+
+    class SlowStream(FakeStreamResponse):
+        def iter_lines(self, decode_unicode=True):
+            for line in self._lines:
+                deadline = _t.perf_counter() + 0.02  # fixture no-ops time.sleep
+                while _t.perf_counter() < deadline:
+                    pass
+                yield line
+
+    resp = SlowStream(200, _sse({"choices": [{"delta": {"content": "x"}}]}, SSE_USAGE, "[DONE]"))
+    _script_post(monkeypatch, resp)
+    model = sandbox_adapter.chat("acme/model-x", [{"role": "user", "content": "go"}])
+    assert model.latency_ms >= 30, (
+        "latency must be measured after the stream is fully consumed (191: 43ms fakes)"
+    )

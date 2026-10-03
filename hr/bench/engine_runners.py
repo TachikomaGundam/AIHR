@@ -9,6 +9,7 @@ from hr.bench.engine_results import _RunResult
 from hr.bench.scorers import score_attention_probe, score_code_gen, score_instruction_follow, score_long_context, score_long_horizon, score_reasoning, score_speed, score_vision, skip_vision_outcome
 from hr.graders.base import ModelResponse
 from hr.models import BenchmarkCategory
+from hr.sandbox import sandbox_available
 
 class EngineRunnersMixin(Protocol):
     _timeout_s: int
@@ -17,6 +18,10 @@ class EngineRunnersMixin(Protocol):
     _rng_for: Callable[[str, BenchmarkCategory], random.Random]
 
     def _run_code_gen(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
+        reason = sandbox_available()
+        if reason is not None:
+            from hr.bench.scorer_runtime import skip_sandbox_outcome
+            return _RunResult(outcome=skip_sandbox_outcome(reason))
         return self._single_call(
             model_id, adapter, caps,
             ChatRequest(
