@@ -113,3 +113,74 @@ def test_extract_int_handles_missing_non_numeric_and_bool() -> None:
     assert extract_int({"k": True}, "k") == 1
     assert extract_int({"k": 42}, "k") == 42
     assert extract_int({"k": 4.9}, "k") == 4
+
+def test_tool_use_block_becomes_openai_tool_calls() -> None:
+    [msg] = to_messages([
+        {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": "computing"},
+                {"type": "tool_use", "id": "toolu_0", "name": "calculate",
+                 "input": {"expression": "2+2"}},
+            ],
+        }
+    ])
+    assert msg["role"] == "assistant"
+    assert msg["content"] == "computing"
+    assert msg["tool_calls"] == [
+        {
+            "id": "toolu_0",
+            "type": "function",
+            "function": {"name": "calculate", "arguments": '{"expression": "2+2"}'},
+        }
+    ]
+
+
+def test_tool_result_block_becomes_role_tool_message() -> None:
+    out = to_messages([
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_0", "content": "4"},
+        ]}
+    ])
+    assert out == [{"role": "tool", "tool_call_id": "toolu_0", "content": "4"}]
+
+
+def test_engine_tool_replay_sequence_has_no_anthropic_parts() -> None:
+    """Testbed 191 regression: vLLM 400 'Unsupported chat content part type:
+    tool_use' when the livebench tool loop replayed Anthropic blocks."""
+    messages = [
+        {"role": "user", "content": "compute the total"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": ""},
+            {"type": "tool_use", "id": "toolu_0", "name": "calculate",
+             "input": {"expression": "12*9"}},
+        ]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "toolu_0", "content": "108"},
+        ]},
+        {"role": "assistant", "content": [{"type": "text", "text": "TOTAL: 108"}]},
+    ]
+    out = to_messages(messages)
+    assert [m["role"] for m in out] == ["user", "assistant", "tool", "assistant"]
+    assert out[2] == {"role": "tool", "tool_call_id": "toolu_0", "content": "108"}
+    kinds = {
+        part.get("type")
+        for m in out if isinstance(m["content"], list)
+        for part in m["content"] if isinstance(part, dict)
+    }
+    assert "tool_use" not in kinds and "tool_result" not in kinds
+    assert all(
+        part.get("type") == "text"
+        for part in out[3]["content"]
+    ), "text-only lists pass through as lists (prod-proven shape)"
+
+
+def test_plain_and_image_lists_pass_through_unchanged() -> None:
+    text_list = [{"type": "text", "text": "hi"}]
+    assert to_messages([{"role": "assistant", "content": text_list}]) == [
+        {"role": "assistant", "content": text_list}
+    ]
+    image_list = [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}}]
+    assert to_messages([{"role": "user", "content": image_list}]) == [
+        {"role": "user", "content": image_list}
+    ]
