@@ -15,14 +15,24 @@ class SandboxUnavailableError(RuntimeError):
         return f"required sandbox executable is unavailable: {self.executable}"
 
 
+def sandbox_available() -> str | None:
+    """None when the code-gen sandbox can run here; otherwise the reason."""
+    if getattr(sys, "frozen", False):
+        return "frozen-binary: bundle ships no host CPython (vendored python pending)"
+    if shutil.which("bwrap") is None:
+        return "bwrap not installed"
+    return None
+
+
 def run_sandboxed(
     workdir: Path,
     python_args: list[str],
     timeout: int,
 ) -> subprocess.CompletedProcess[str]:
+    reason = sandbox_available()
+    if reason is not None:
+        raise SandboxUnavailableError(reason)
     bubblewrap = shutil.which("bwrap")
-    if bubblewrap is None:
-        raise SandboxUnavailableError("bwrap")
 
     runtime = Path(sys.base_prefix).resolve()
     interpreter = Path(sys.executable).resolve()

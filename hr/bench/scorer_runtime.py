@@ -43,6 +43,13 @@ def skip_vision_outcome() -> _BenchmarkOutcome:
     )
 
 
+def skip_sandbox_outcome(reason: str) -> _BenchmarkOutcome:
+    return _BenchmarkOutcome(
+        score=0.0, passed=False, raw_output=f"SKIP: sandbox unavailable ({reason})",
+        status="not_applicable",
+    )
+
+
 # ---------------------------------------------------------------------------
 # speed — tok/s tiers (same constants as v1), scored from response metadata
 # ---------------------------------------------------------------------------

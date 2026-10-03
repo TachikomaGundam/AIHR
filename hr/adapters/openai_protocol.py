@@ -165,7 +165,7 @@ class StreamAccumulator:
     last_usage: dict[str, int] | None = None
 
     def apply_delta(self, delta: dict) -> None:
-        reasoning = delta.get("reasoning_content")
+        reasoning = delta.get("reasoning_content") or delta.get("reasoning")
         if reasoning:
             self.thinking_parts.append(reasoning)
         content = delta.get("content")
