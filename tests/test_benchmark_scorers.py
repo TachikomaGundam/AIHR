@@ -318,3 +318,20 @@ def test_vision_vague():
     r = score_vision(text)
     assert r.score < 50.0
     assert r.passed is False
+
+def test_tool_use_scorer_total_not_hijacked_by_subtotal() -> None:
+    """Testbed 191 regression (2026-10-02 run-de256d6b): model answered the
+    cart task correctly ending in 'TOTAL: 105.63' but the scorer's strategy-1
+    regex matched the trailing 'total' inside 'subtotal = $102.48' and graded
+    the intermediate subtotal -> false 0."""
+    fixture = (
+        "Steps:\n1. **Subtotal:** 3 \u00d7 $17.50 = $52.50; 2 \u00d7 $24.99 = $49.98; "
+        "subtotal = $102.48\n2. **Loyalty discount** (subtotal > $100): 5% off \u2192 "
+        "$102.48 \u00d7 0.95 = $97.36\n3. **Sales tax** (8.5% on discounted subtotal): "
+        "$97.356 \u00d7 1.085 = $105.63126\n\nTOTAL: 105.63\n"
+    )
+    assert fixture.rstrip().endswith("TOTAL: 105.63")
+    out = score_tool_use_text(fixture, tool_used=True)
+    assert out.score == 100.0, f"strategy-1 regex still hijacked: {out.raw_output}"
+    out2 = score_tool_use_text(fixture, tool_used=False)
+    assert out2.score == 60.0

@@ -208,7 +208,7 @@ def score_tool_use_text(text: str, tool_used: bool) -> _BenchmarkOutcome:
     got_num: float | None = None
 
     # Strategy 1: explicit 'TOTAL:' / 'TOTAL =' header.
-    m = re.search(r"TOTAL\s*[=:]\s*([-\d.]+)", clean, re.IGNORECASE)
+    m = re.search(r"\bTOTAL\s*[=:]\s*([-\d.]+)", clean, re.IGNORECASE)
     if m:
         got_num = _parse_number(m.group(1))
 
