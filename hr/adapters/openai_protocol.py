@@ -15,10 +15,9 @@ def to_messages(
     messages: list[dict[str, Any]],
     images: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    out = [
-        {"role": message["role"], "content": message.get("content") or ""}
-        for message in messages
-    ]
+    out: list[dict[str, Any]] = []
+    for message in messages:
+        out.extend(_translate_message(message))
     if not images:
         return out
     user_index = next(
@@ -49,6 +48,69 @@ def to_messages(
     )
     out[user_index]["content"] = content
     return out
+
+
+def _flatten_tool_content(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "".join(
+            part.get("text", "") if isinstance(part, dict) and part.get("type") == "text" else ""
+            for part in value
+        )
+    return json.dumps(value)
+
+
+def _translate_message(message: dict[str, Any]) -> list[dict[str, Any]]:
+    role = message["role"]
+    content = message.get("content") or ""
+    if not isinstance(content, list):
+        return [{"role": role, "content": content}]
+
+    tool_calls: list[dict[str, Any]] = []
+    tool_msgs: list[dict[str, Any]] = []
+    kept: list[Any] = []
+    for part in content:
+        if isinstance(part, dict) and part.get("type") == "tool_use":
+            tool_calls.append(
+                {
+                    "id": part.get("id") or f"toolu_{len(tool_calls)}",
+                    "type": "function",
+                    "function": {
+                        "name": part.get("name", ""),
+                        "arguments": json.dumps(part.get("input") or {}),
+                    },
+                }
+            )
+        elif isinstance(part, dict) and part.get("type") == "tool_result":
+            tool_msgs.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": part.get("tool_use_id", ""),
+                    "content": _flatten_tool_content(part.get("content")),
+                }
+            )
+        else:
+            kept.append(part)
+
+    if tool_msgs:
+        translated = [*tool_msgs]
+        if kept:
+            translated.append({"role": role, "content": kept})
+        return translated
+    if tool_calls:
+        text_parts = [p for p in kept if isinstance(p, dict) and p.get("type") == "text"]
+        translated = {"role": role}
+        # OpenAI replay accepts a plain string next to tool_calls; keep the
+        # part list only when non-text parts (images) ride along.
+        translated["content"] = (
+            "".join(p.get("text", "") for p in text_parts)
+            if len(text_parts) == len(kept)
+            else kept
+        )
+        translated["tool_calls"] = tool_calls
+        return [translated]
+    return [{"role": role, "content": kept}]
 
 
 def build_tools_payload(tools: list[dict[str, Any]] | None) -> list[dict] | None:
