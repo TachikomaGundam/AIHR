@@ -76,3 +76,12 @@ def migrate_measurement_scorer_columns(conn: psycopg2.extensions.connection) -> 
             "ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS scorer_version TEXT"
         )
     conn.commit()
+
+
+def migrate_dialect_contract_columns(conn: psycopg2.extensions.connection) -> None:
+    """Bind scored history to the dialect contract that justified it."""
+    with conn.cursor() as cur:
+        cur.execute("ALTER TABLE hr.run ADD COLUMN IF NOT EXISTS contract_id TEXT")
+        cur.execute("ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS contract_id TEXT")
+        cur.execute("ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS flags TEXT")
+    conn.commit()

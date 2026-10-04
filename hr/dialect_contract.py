@@ -1,0 +1,330 @@
+"""Dialect contracts: never score what we have not measured.
+
+A contract is the set of facts this server demonstrated when probed
+(accepted reasoning-effort vocabulary, which thinking delta key it uses,
+whether it reports usage, whether it honours tool calls, how much answer
+survives its default thinking at a small budget). Every battery run is
+gated on the facts its request shape depends on; every measurement row is
+bound to the contract that justified it. Unknown dialects become honest
+gaps, never loud lies.
+
+Probe budget: at most 7 tiny requests per endpoint per validity window.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+from typing import Any, Callable
+
+import psycopg2.extensions
+
+from hr.models import BenchmarkCategory
+
+PROBE_VERSION = 1
+VALID_DAYS = 14
+
+# batteries whose request shape leans on a server dialect fact
+HARD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
+    "thinking": ("accepted_efforts",),
+    "tool_calls": ("tool_calls_ok",),
+}
+BATTERY_REQUIRES: dict[BenchmarkCategory, tuple[str, ...]] = {
+    BenchmarkCategory.reasoning: ("thinking",),
+    BenchmarkCategory.long_horizon: ("thinking",),
+    BenchmarkCategory.attention_probe: ("thinking",),
+    BenchmarkCategory.attention_stress: ("thinking",),
+    BenchmarkCategory.tool_use: ("tool_calls",),
+}
+
+
+@dataclass(slots=True)
+class DialectFacts:
+    endpoint_url: str
+    model_slug: str
+    accepted_efforts: list[str] = field(default_factory=list)
+    thinking_key: str | None = None
+    usage_in_stream: bool = False
+    tool_calls_ok: bool = False
+    answer_chars_at_small_budget: int | None = None
+    probe_version: int = PROBE_VERSION
+
+    def to_json(self) -> str:
+        return json.dumps(self.__dict__)
+
+    @staticmethod
+    def from_json(raw: str) -> "DialectFacts":
+        return DialectFacts(**json.loads(raw))
+
+
+def probe_dialect(
+    url: str,
+    headers: dict[str, str],
+    slug: str,
+    post: Callable[..., Any],
+    iter_lines: Callable[[Any], Any] | None = None,
+) -> DialectFacts:
+    """Run the dialect probe battery against an openai-compatible endpoint.
+
+    ``post(url, *, headers, json, timeout, stream)`` mirrors requests.post.
+    ``iter_lines(response)`` yields SSE lines when streaming.
+    """
+    facts = DialectFacts(endpoint_url=url, model_slug=slug)
+    for effort in ("low", "medium", "high", "xhigh", "max"):
+        try:
+            resp = post(
+                f"{url}/chat/completions",
+                headers=headers,
+                json={
+                    "model": slug,
+                    "messages": [{"role": "user", "content": "Reply with the single word: ok"}],
+                    "max_tokens": 1,
+                    "reasoning_effort": effort,
+                },
+                timeout=60,
+            )
+            if resp.status_code == 200:
+                facts.accepted_efforts.append(effort)
+        except Exception:  # noqa: BLE001 — a probe call failing is itself a fact
+            continue
+
+    # one streaming call decides thinking-key, usage, and budget survival
+    try:
+        resp = post(
+            f"{url}/chat/completions",
+            headers=headers,
+            json={
+                "model": slug,
+                "messages": [{"role": "user", "content": "Count slowly from 1 to 30, then answer 30."}],
+                "max_tokens": 256,
+                "stream": True,
+                "stream_options": {"include_usage": True},
+            },
+            timeout=120,
+            stream=True,
+        )
+        content_chars = 0
+        lines = list(iter_lines(resp)) if iter_lines else list(resp.iter_lines(decode_unicode=True))
+        for line in lines:
+            if not line or not line.startswith("data: "):
+                continue
+            payload = line[6:].strip()
+            if payload == "[DONE]":
+                continue
+            chunk = json.loads(payload)
+            if chunk.get("usage"):
+                facts.usage_in_stream = True
+            for choice in chunk.get("choices", []):
+                delta = choice.get("delta", {})
+                if delta.get("reasoning_content"):
+                    facts.thinking_key = "reasoning_content"
+                elif delta.get("reasoning"):
+                    facts.thinking_key = "reasoning" if facts.thinking_key is None else facts.thinking_key
+                if delta.get("content"):
+                    content_chars += len(delta["content"])
+        facts.answer_chars_at_small_budget = content_chars
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        resp = post(
+            f"{url}/chat/completions",
+            headers=headers,
+            json={
+                "model": slug,
+                "messages": [{"role": "user", "content": "What is 2+3? You must call the calc tool."}],
+                "max_tokens": 128,
+                "tools": [{
+                    "type": "function",
+                    "function": {
+                        "name": "calc",
+                        "description": "add two numbers",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {"a": {"type": "number"}, "b": {"type": "number"}},
+                            "required": ["a", "b"],
+                        },
+                    },
+                }],
+                "tool_choice": "required",
+            },
+            timeout=120,
+        )
+        if resp.status_code == 200:
+            body = resp.json()
+            msg = (body.get("choices") or [{}])[0].get("message", {})
+            facts.tool_calls_ok = bool(msg.get("tool_calls"))
+    except Exception:  # noqa: BLE001
+        pass
+
+    return facts
+
+
+# ---------------------------------------------------------------------------
+# persistence (hr.model_contract)
+# ---------------------------------------------------------------------------
+
+def contract_id_for(facts: DialectFacts) -> str:
+    seed = f"{facts.endpoint_url}|{facts.model_slug}|{facts.probe_version}|{sorted(facts.accepted_efforts)}|{facts.thinking_key}|{facts.tool_calls_ok}|{facts.usage_in_stream}"
+    return f"dc-{hashlib.sha256(seed.encode()).hexdigest()[:16]}"
+
+
+def upsert_contract(conn: psycopg2.extensions.connection, model_id: str, facts: DialectFacts) -> str:
+    cid = contract_id_for(facts)
+    now = datetime.now(timezone.utc)
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO hr.model_contract (contract_id, model_id, endpoint_url, model_slug, facts_json, probe_version, probed_at) "
+            "VALUES (%s, %s, %s, %s, %s::jsonb, %s, %s) "
+            "ON CONFLICT (contract_id) DO UPDATE SET probed_at = EXCLUDED.probed_at",
+            (cid, model_id, facts.endpoint_url, facts.model_slug, facts.to_json(), facts.probe_version, now),
+        )
+    conn.commit()
+    return cid
+
+
+def load_valid_facts(
+    conn: psycopg2.extensions.connection, model_id: str, endpoint_url: str, slug: str
+) -> DialectFacts | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT facts_json::text FROM hr.model_contract "
+            "WHERE model_id = %s AND endpoint_url = %s AND model_slug = %s AND probe_version = %s "
+            "AND probed_at > %s ORDER BY probed_at DESC LIMIT 1",
+            (model_id, endpoint_url, slug, PROBE_VERSION, datetime.now(timezone.utc) - timedelta(days=VALID_DAYS)),
+        )
+        row = cur.fetchone()
+    return DialectFacts.from_json(row[0]) if row else None
+
+
+# ---------------------------------------------------------------------------
+# gating + adaptation decisions (pure)
+# ---------------------------------------------------------------------------
+
+def unmet_requirements(
+    battery: BenchmarkCategory, caps_supports_thinking: bool, facts: DialectFacts | None
+) -> str | None:
+    """None = this battery may be scored; else the honest skip reason."""
+    if facts is None:
+        return "no dialect contract (probe did not run)"
+    needs = BATTERY_REQUIRES.get(battery, ())
+    for need in needs:
+        if need == "thinking" and not caps_supports_thinking:
+            continue  # battery runs without thinking params; nothing to prove
+        for fact_key in HARD_REQUIREMENTS.get(need, ()):
+            value = getattr(facts, fact_key)
+            if not value:
+                return f"{fact_key} unproven for {need}"
+    return None
+
+
+def pick_effort(facts: DialectFacts | None, budget: int, fallback: str) -> str | None:
+    """Choose an effort the server actually accepted; None = do not send one."""
+    accepted = facts.accepted_efforts if facts else []
+    if not accepted:
+        return fallback if facts is None else None
+    if budget >= 16384 and "xhigh" in accepted:
+        return "xhigh"
+    if budget >= 4096 and "medium" in accepted:
+        return "medium"
+    if "low" in accepted:
+        return "low"
+    return accepted[0]
+
+
+def measurement_flags(
+    response_text: str | None, tokens_in: int | None, tokens_out: int | None, latency_ms: int | None
+) -> str | None:
+    """Canary: shapes that historically meant fake measurement data."""
+    flags: list[str] = []
+    if response_text and not tokens_in and not tokens_out:
+        flags.append("zero_usage_with_text")
+    if response_text and len(response_text) > 200 and latency_ms is not None and latency_ms < 50:
+        flags.append("implausible_latency")
+    return json.dumps(flags) if flags else None
+
+
+def valid_contract_id(conn: psycopg2.extensions.connection, model_id: str) -> str | None:
+    """Latest contract id inside the validity window; None when unproven."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT contract_id FROM hr.model_contract WHERE model_id = %s "
+            "AND probe_version = %s AND probed_at > %s ORDER BY probed_at DESC LIMIT 1",
+            (model_id, PROBE_VERSION, datetime.now(timezone.utc) - timedelta(days=VALID_DAYS)),
+        )
+        row = cur.fetchone()
+    return str(row[0]) if row else None
+
+
+_PROBE_CACHE: dict[tuple[str, str, str], DialectFacts | None] = {}
+
+
+def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
+    """Facts for this adapter's endpoint: process cache, then DB, then probe.
+
+    Persistence and probing are best-effort: any failure yields None, which
+    the gate treats as unproven — fail-closed on scores, never a crash.
+    """
+    try:
+        url, headers, slug = adapter.endpoint_for(model_id)  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001
+        return None
+    key = (model_id, url, slug)
+    if key in _PROBE_CACHE:
+        return _PROBE_CACHE[key]
+    facts: DialectFacts | None = None
+    conn = None
+    try:
+        from hr.db import connect
+        conn = connect()
+        facts = load_valid_facts(conn, model_id, url, slug)
+    except Exception:  # noqa: BLE001 — no DB in this context is tolerated
+        conn = None
+    if facts is None:
+        import requests
+        try:
+            facts = probe_dialect(url, headers, slug, requests.post)
+        except Exception:  # noqa: BLE001
+            facts = None
+        if facts is not None and conn is not None:
+            try:
+                upsert_contract(conn, model_id, facts)
+            except Exception:  # noqa: BLE001
+                pass
+    if conn is not None:
+        try:
+            conn.close()
+        except Exception:  # noqa: BLE001
+            pass
+    _PROBE_CACHE[key] = facts
+    if facts is not None:
+        _BINDING[model_id] = contract_id_for(facts)
+    return facts
+
+
+_BINDING: dict[str, str] = {}
+
+
+def bound_contract_id(model_id: str) -> str | None:
+    """Contract id established this process (zero extra SQL at write time)."""
+    return _BINDING.get(model_id)
+
+
+__all__ = [
+    "PROBE_VERSION",
+    "VALID_DAYS",
+    "DialectFacts",
+    "probe_dialect",
+    "contract_id_for",
+    "upsert_contract",
+    "load_valid_facts",
+    "unmet_requirements",
+    "pick_effort",
+    "measurement_flags",
+    "valid_contract_id",
+    "ensure_facts",
+    "bound_contract_id",
+]

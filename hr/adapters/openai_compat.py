@@ -141,6 +141,9 @@ class OpenAICompatAdapter(Adapter):
             "stream_options": {"include_usage": True},
         }
         effort = _thinking_budget_to_effort(thinking_budget)
+        if effort is not None:
+            from hr.dialect_contract import pick_effort
+            effort = pick_effort(getattr(self, "_contract", None), thinking_budget or 0, effort)
         if effort:
             body["reasoning_effort"] = effort
         tools_payload = _build_tools_payload(tools)
@@ -257,6 +260,14 @@ class OpenAICompatAdapter(Adapter):
             )
 
         raise AssertionError("retry loop exhausted without returning or raising")
+
+    def endpoint_for(self, model_id: str) -> tuple[str, dict[str, str], str]:
+        endpoint = self._resolve_endpoint_cached(model_id)
+        slug = model_id.split("/", 1)[1] if "/" in model_id else model_id
+        return endpoint.url, endpoint.headers, slug
+
+    def attach_contract(self, facts: object) -> None:
+        self._contract = facts
 
     def _resolve_endpoint_cached(self, model_id: str) -> _Endpoint:
         if model_id not in self._endpoint_cache:

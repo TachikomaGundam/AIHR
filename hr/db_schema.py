@@ -148,6 +148,15 @@ CREATE TABLE IF NOT EXISTS hr.infra_incident (
     details_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS hr.model_contract (
+    contract_id   TEXT PRIMARY KEY,
+    model_id      TEXT NOT NULL,
+    endpoint_url  TEXT NOT NULL,
+    model_slug    TEXT NOT NULL,
+    facts_json    JSONB NOT NULL,
+    probe_version INTEGER NOT NULL,
+    probed_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS hr.control_reading (
     reading_id      TEXT PRIMARY KEY,
     control_model_fk TEXT NOT NULL REFERENCES hr.model(model_id),
