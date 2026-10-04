@@ -24,7 +24,9 @@ blocks (via :mod:`hr.setup_env`) and opencode JSONC configs (via
 from __future__ import annotations
 
 import hashlib
+import os
 import json
+import shutil
 import sys
 import time
 from collections.abc import Callable
@@ -123,6 +125,34 @@ def place_shim(d: Path, platform: Optional[str] = None) -> tuple[Path, str, bool
     return shim, f"symlink:{SHIM_LINK_TARGET}", True
 
 
+def _plugin_cache_dirs() -> list[Path]:
+    cache_home = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache"))
+    base = cache_home / "opencode" / "packages"
+    return [base / HR_AGENT_PLUGIN, base / FASTDRAW_PLUGIN]
+
+
+def refresh_plugin_cache(say: Callable[[str], None] = print) -> None:
+    """Purge stale @latest plugin caches whose wrapper pins an old version.
+
+    Field evidence (testbed 191, 2026-10-04): the reinstall landed with the
+    fastdraw cache still pinned to 1.2.0 by the leftover wrapper package.json
+    — @latest directory presence short-circuits re-resolution, so the customer
+    ran a plugin version two releases behind. install-post means "wire this
+    machine to current": make opencode re-resolve @latest on its next start.
+    """
+    for cache in _plugin_cache_dirs():
+        pin_file = cache / "package.json"
+        try:
+            deps = json.loads(pin_file.read_text()).get("dependencies", {})
+        except (OSError, ValueError):
+            continue
+        if not deps:
+            continue
+        shutil.rmtree(cache, ignore_errors=True)
+        pins = ", ".join(f"{name}@{ver}" for name, ver in sorted(deps.items()))
+        say(f"plugin cache: purged {cache} (was pinned {pins}); opencode re-resolves @latest on next start")
+
+
 def install_post(
     port: Optional[int] = None,
     *,
@@ -167,6 +197,7 @@ def install_post(
         _added, note = ensure_plugin_entry(config_file, plugin)
         say(f"plugin: {note}")
         entries.append(Entry(str(config_file), KIND_CONFIG_ENTRY, plugin, prior_sha256=prior))
+    refresh_plugin_cache(say)
     from hr import __version__  # noqa: PLC0415 — avoid widening the package import surface for one string
 
     receipt = save_receipt(root, __version__, entries)

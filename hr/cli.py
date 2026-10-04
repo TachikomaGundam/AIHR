@@ -30,6 +30,7 @@ from .cli_knowledge import publish, recommend, reference, research
 from .cli_apply import apply, status
 from .cli_db import db_down, db_status, db_up
 from .cli_lifecycle import install_post, self_uninstall
+from .support_bundle import support_bundle
 from .cli_setup import setup
 from .deployment_manager import register_release_commands
 
@@ -64,6 +65,7 @@ __all__ = [
     "seat_rows",
     "seed",
     "self_uninstall",
+    "support_bundle",
     "setup",
     "status",
     "sweeps",
