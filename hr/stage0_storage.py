@@ -153,6 +153,13 @@ def _insert_run(
                 failure_reason,
             ),
         )
+        try:
+            from hr.dialect_contract import bound_contract_id
+            cid = bound_contract_id(model_id)
+            if cid:
+                cur.execute("UPDATE hr.run SET contract_id = %s WHERE run_id = %s", (cid, run_id))
+        except Exception:  # noqa: BLE001 — binding must never break persistence
+            pass
     conn.commit()
 
 
@@ -256,6 +263,18 @@ def _insert_measurement(
                 scorer_version,
             ),
         )
+        try:
+            from hr.dialect_contract import measurement_flags
+            flags = measurement_flags(response_text, tokens_in, tokens_out, latency_ms)
+            if flags is not None:
+                cur.execute(
+                    "UPDATE hr.measurement SET flags = %s, "
+                    "contract_id = (SELECT contract_id FROM hr.run WHERE run_id = %s) "
+                    "WHERE measurement_id = %s",
+                    (flags, run_id, measurement_id),
+                )
+        except Exception:  # noqa: BLE001
+            pass
     conn.commit()
 
 

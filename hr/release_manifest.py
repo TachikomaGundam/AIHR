@@ -76,7 +76,9 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/jsonc_scan.py",                    # position-tracking JSONC scanner (spans for the editor's line splices)
     "hr/setup_env.py",                     # PATH persistence closure (posix rc blocks / HKCU Environment) imported by cli_setup
     # Runtime import closure of the entry points above (top-level imports)
-    "hr/db.py",                            # connect/init_schema etc.; imported unguarded by the facade and cli_app
+    "hr/db.py",
+    "hr/dialect_contract.py",              # server-dialect contracts: probe, gate, binding
+    "hr/db_schema.py",                            # connect/init_schema etc.; imported unguarded by the facade and cli_app
     "hr/decision.py",                      # latest_sweep_id/seat_assignments/battery_codes/capability_means/model_capabilities/seat_rows
     "hr/deployable.py",                    # load_deployable (facade + apply.py)
     "hr/config.py",                        # config resolution (cli_app/deployment_manager/apply.py)

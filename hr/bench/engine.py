@@ -182,6 +182,21 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
             )
             return self._to_outcome(battery, model_id, result)
 
+        if hasattr(adapter, "endpoint_for"):
+            from hr.dialect_contract import ensure_facts, unmet_requirements
+            facts = ensure_facts(model_id, adapter)
+            if hasattr(adapter, "attach_contract"):
+                adapter.attach_contract(facts)
+            reason = unmet_requirements(battery, caps.supports_thinking, facts)
+            if reason is not None:
+                return self._to_outcome(
+                    battery, model_id,
+                    _RunResult(outcome=_BenchmarkOutcome(
+                        score=0.0, passed=False,
+                        raw_output=f"SKIP: dialect_unproven ({reason})",
+                        status="not_applicable",
+                    )),
+                )
         runner = self._RUNNERS[battery]
         for attempt in range(3):
             try:
