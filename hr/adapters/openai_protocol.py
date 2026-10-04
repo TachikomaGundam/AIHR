@@ -231,8 +231,8 @@ def thinking_budget_to_effort(thinking_budget: int | None) -> str | None:
     if thinking_budget < 1000:
         return "low"
     if thinking_budget <= 16_384:
-        return "high"
-    return "max"
+        return "medium"
+    return "xhigh"
 
 
 def extract_int(values: dict | None, key: str) -> int:

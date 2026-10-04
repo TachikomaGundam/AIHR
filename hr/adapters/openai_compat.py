@@ -201,6 +201,17 @@ class OpenAICompatAdapter(Adapter):
                 )
             if status >= 400:
                 snippet = response.text[:500] if response.text else ""
+                if "reasoning_effort" in body and "reasoning effort" in snippet.lower():
+                    # Server whitelist rejects our effort word (field-proven on
+                    # the 191 vLLM: only xhigh/medium/low exist). Degrade to the
+                    # server's default thinking and retry without the param.
+                    log.warning(
+                        "[openai_compat] %s rejected reasoning_effort=%s; retrying without it",
+                        model_id, body.get("reasoning_effort"),
+                    )
+                    del body["reasoning_effort"]
+                    response.close()
+                    continue
                 failure = classify_failure(status_code=status, error_message=snippet)
                 response.close()
                 raise AdapterError(

@@ -51,7 +51,7 @@ def _write_open_code(root, provider: str, base_url: str) -> None:
 
 def test_standard_thinking_budget_remains_bounded() -> None:
     # Given / When / Then
-    assert _thinking_budget_to_effort(16_384) == "high"
+    assert _thinking_budget_to_effort(16_384) == "medium"
 
 
 def test_chat_defaults_match_adapter_protocol() -> None:
