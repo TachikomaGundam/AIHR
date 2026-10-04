@@ -141,9 +141,9 @@ def test_parse_sse_stream_stops_at_done() -> None:
         (None, None),
         (0, "low"),
         (999, "low"),
-        (1000, "high"),
-        (16384, "high"),
-        (16385, "max"),
+        (1000, "medium"),
+        (16384, "medium"),
+        (16385, "xhigh"),
     ],
 )
 def test_thinking_budget_to_effort(budget: int | None, expected: str | None) -> None:

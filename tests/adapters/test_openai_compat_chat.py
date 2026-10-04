@@ -86,7 +86,7 @@ def _script_post(monkeypatch: pytest.MonkeyPatch, *responses: object) -> list[di
     calls: list[dict] = []
 
     def fake_post(url, headers=None, json=None, stream=None, timeout=None):
-        calls.append({"url": url, "json": json})
+        calls.append({"url": url, "json": dict(json) if isinstance(json, dict) else json})
         if not queue:
             raise AssertionError("scripted post queue exhausted")
         item = queue.pop(0)
@@ -183,7 +183,7 @@ def test_chat_streams_text_thinking_tool_calls_and_usage(sandbox_adapter, monkey
     assert body["model"] == "m"
     assert body["max_tokens"] == 2048
     assert body["stream"] is True
-    assert body["reasoning_effort"] == "max"
+    assert body["reasoning_effort"] == "xhigh"
     assert body["tools"][0]["function"]["name"] == "calc"
     assert body["messages"] == [{"role": "user", "content": "hi"}]
 
@@ -255,3 +255,23 @@ def test_chat_latency_covers_full_stream(sandbox_adapter, monkeypatch) -> None:
     assert model.latency_ms >= 30, (
         "latency must be measured after the stream is fully consumed (191: 43ms fakes)"
     )
+
+
+def test_chat_degrades_rejected_reasoning_effort(sandbox_adapter, monkeypatch) -> None:
+    """Field-proven on 191's vLLM (bug #8): server whitelist is
+    xhigh/medium/low; an effort rejection must degrade to the server
+    default, not burn the battery in a 400."""
+    rejected = FakeStreamResponse(
+        400,
+        text='{"error":{"message":"Unexpected reasoning effort xhigh. Supported types are medium, and low."}}',
+    )
+    ok = FakeStreamResponse(
+        200, _sse({"choices": [{"delta": {"content": "fine"}}]}, SSE_USAGE, "[DONE]")
+    )
+    calls = _script_post(monkeypatch, rejected, ok)
+    model = sandbox_adapter.chat(
+        "acme/model-x", [{"role": "user", "content": "go"}], thinking_budget=20_000
+    )
+    assert calls[0]["json"]["reasoning_effort"] == "xhigh"
+    assert "reasoning_effort" not in calls[1]["json"], "retry must drop the rejected param"
+    assert model.text == "fine"
