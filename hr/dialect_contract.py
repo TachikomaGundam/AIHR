@@ -305,6 +305,33 @@ def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
     return facts
 
 
+CONTRACT_STATUS_SQL = (
+    "SELECT model_id, endpoint_url, accepted_efforts, thinking_key, "
+    "usage_in_stream, tool_calls_ok, answer_chars_at_small_budget, probed_at "
+    "FROM hr.model_contract ORDER BY probed_at DESC"
+)
+
+
+def status_lines(conn) -> str:
+    """Human-readable dialect-contract block for hr status."""
+    with conn.cursor() as cur:
+        cur.execute(CONTRACT_STATUS_SQL)
+        rows = cur.fetchall()
+    if not rows:
+        return "dialect contracts: none yet — formed on first openai-compatible bench"
+    lines = [
+        "model | efforts accepted | thinking key | usage | tools | survival chars | probed",
+        "---|---|---|---|---|---|---|",
+    ]
+    for model_id, endpoint, efforts, tkey, usage, tools, survival, probed in rows:
+        lines.append(
+            f"{model_id} | {','.join(efforts or []) or 'none (never send)'} | "
+            f"{tkey or '—'} | {'yes' if usage else 'no'} | {'yes' if tools else 'no'} | "
+            f"{survival if survival is not None else '—'} | {probed}"
+        )
+    return "\n".join(lines)
+
+
 _BINDING: dict[str, str] = {}
 
 
@@ -327,4 +354,6 @@ __all__ = [
     "valid_contract_id",
     "ensure_facts",
     "bound_contract_id",
+    "status_lines",
+    "CONTRACT_STATUS_SQL",
 ]

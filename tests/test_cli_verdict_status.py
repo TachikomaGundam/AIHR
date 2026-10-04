@@ -141,11 +141,13 @@ def test_status_dispatch_marks_retired_models(monkeypatch):
     assert result.exit_code == 0
     assert "| m_dead ⚠ retired |" in result.output
 
-def test_status_empty_db_error_surfaces_cleanly(monkeypatch):
+def test_status_empty_board_is_friendly(monkeypatch):
+    """Owner-approved contract change (2026-10-04): the empty board is a fact,
+    not an error — status explains what to do instead of exiting 1."""
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn({}))
     result = runner.invoke(app, ["status"])
-    assert result.exit_code == 1
-    assert "error: no sweeps found" in result.output
+    assert result.exit_code == 0
+    assert "board is empty" in result.output
 
 def test_build_health_report_passes_cap_through():
     rows = [

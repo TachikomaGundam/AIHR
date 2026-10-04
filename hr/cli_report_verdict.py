@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from .cli_app import _runtime_load_deployable
 from .cli_report_base import (
+    _fetch,
     _tag_retired_rows,
     _verdict_gates,
     _verdict_seats,
     build_sweeps_report,
 )
+LATEST_SWEEP_SQL = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1"
+
 from .decision import (
     battery_codes,
     capability_means,
@@ -135,7 +138,17 @@ def build_status_report(conn) -> str:
     mirroring ``sweeps``/``verdict``. Retired models (not in the deployable
     pool) are tagged ⚠ like ``build_verdict_report`` does.
     """
-    sweep_id = latest_sweep_id(conn)
+    board = _fetch(conn, LATEST_SWEEP_SQL)
+    if not board:
+        from .dialect_contract import status_lines as _contract_lines
+
+        return (
+            "board is empty — no sweeps yet. Run `hr bench <model>`; every "
+            "openai-compatible endpoint first gets its dialect contract probed, "
+            "and batteries whose dialect facts stay unproven skip honestly.\n\n"
+            + _contract_lines(conn)
+        )
+    sweep_id = str(board[0][0])
     means = capability_means(conn, sweep_id)
     codes = battery_codes(conn)
     deployable = set(_runtime_load_deployable())
@@ -156,10 +169,13 @@ def build_status_report(conn) -> str:
         )
     cap_table = "\n".join(cap_lines)
 
+    from .dialect_contract import status_lines as _contract_lines
+
     return (
         f"# Status — latest sweep {sweep_id}\n"
         f"deployable pool: {len(set(model_ids) & deployable)}/{len(model_ids)} "
         "models · zero new API calls (mined from existing measurements)\n\n"
         f"{build_sweeps_report(conn)}\n\n"
-        f"## Capability battery averages (per model)\n{cap_table}"
+        f"## Capability battery averages (per model)\n{cap_table}\n\n"
+        f"## Dialect contracts\n{_contract_lines(conn)}"
     )
