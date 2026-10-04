@@ -13,7 +13,6 @@ LATEST_SWEEP_SQL = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT
 from .decision import (
     battery_codes,
     capability_means,
-    latest_sweep_id,
     measurement_count,
     model_capabilities,
     seat_rows,

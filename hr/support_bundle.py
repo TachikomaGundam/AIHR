@@ -19,7 +19,6 @@ import re
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable
 
 from .dialect_contract import CONTRACT_STATUS_SQL
 
@@ -110,7 +109,6 @@ def _query(conn, sql: str) -> list[tuple[object, ...]]:
         return [("QUERY-ERROR", str(exc)[:200])]
 
 
-import typer  # noqa: E402 — CLI surface only
 
 from .cli_app import _with_conn  # noqa: E402
 
