@@ -281,14 +281,14 @@ def valid_contract_id(conn: psycopg2.extensions.connection, model_id: str) -> st
 _PROBE_CACHE: dict[tuple[str, str, str], DialectFacts | None] = {}
 
 
-def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
+def ensure_facts(model_id: str, adapter: Any) -> DialectFacts | None:
     """Facts for this adapter's endpoint: process cache, then DB, then probe.
 
     Persistence and probing are best-effort: any failure yields None, which
     the gate treats as unproven — fail-closed on scores, never a crash.
     """
     try:
-        url, headers, slug = adapter.endpoint_for(model_id)  # type: ignore[attr-defined]
+        url, headers, slug = adapter.endpoint_for(model_id)
     except Exception:  # noqa: BLE001
         return None
     key = (model_id, url, slug)
