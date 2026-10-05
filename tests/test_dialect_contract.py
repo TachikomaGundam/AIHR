@@ -140,3 +140,50 @@ def test_engine_gate_short_circuits_before_runner(monkeypatch) -> None:
     out = e.run_battery("local-x/m", BenchmarkCategory.reasoning)
     assert _no_write_outcome.last.outcome.status == "not_applicable"
     assert "accepted_efforts" in _no_write_outcome.last.outcome.raw_output
+
+
+def test_facts_json_roundtrip_is_the_real_serializer() -> None:
+    """slots=True killed self.__dict__ silently behind stubbed cursors —
+    this test runs the genuine dataclass serialization end to end."""
+    f = DialectFacts(
+        endpoint_url="http://h:1/v1", model_slug="m",
+        accepted_efforts=["low", "xhigh"], thinking_key="reasoning",
+        usage_in_stream=True, tool_calls_ok=False,
+        answer_chars_at_small_budget=5,
+    )
+    restored = DialectFacts.from_json(f.to_json())
+    assert restored == f
+
+
+def test_persistence_sql_matches_shipped_ddl_columns() -> None:
+    """One table, one source of truth: the INSERT column list in
+    dialect_contract must equal the model_contract DDL in db_schema
+    (the flat-vs-JSONB drift shipped 0 rows and crashed status)."""
+    import re
+    from pathlib import Path as _P
+
+    schema = _P(__file__).resolve().parents[1] / "hr" / "db_schema.py"
+    ddl = re.search(
+        r"CREATE TABLE IF NOT EXISTS hr\.model_contract \((.*?)\n\);",
+        schema.read_text(),
+        flags=re.DOTALL,
+    )
+    assert ddl, "model_contract DDL not found in db_schema"
+    ddl_cols = {
+        line.split()[0] for line in ddl.group(1).splitlines() if line.strip()
+    }
+    src = _P(__file__).resolve().parents[1] / "hr" / "dialect_contract.py"
+    ins = re.search(
+        r"INSERT INTO hr\.model_contract \(([^)]*)\)", src.read_text()
+    )
+    assert ins
+    insert_cols = {c.strip() for c in ins.group(1).split(",")}
+    assert insert_cols == ddl_cols, insert_cols ^ ddl_cols
+    status_cols = {
+        part.split()[0].replace("::text", "")
+        for part in re.search(
+            'SELECT ([^\']*) FROM hr\\.model_contract ORDER BY',
+            src.read_text(),
+        ).group(1).split(",")
+    }
+    assert {"model_id", "endpoint_url", "facts_json", "probe_version", "probed_at"} == status_cols
