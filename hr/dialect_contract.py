@@ -35,6 +35,16 @@ HARD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
 }
 log = logging.getLogger(__name__)
 
+# Batteries whose gold answers are long-form OUTPUT: on servers where the
+# small-budget probe shows thinking eating the answer (survival chars below
+# SURVIVAL_MIN_CHARS), force the cheapest accepted effort (testbed 191:
+# code_gen 1/13 functions, tool_use cut at "$97.356" mid-calculation).
+SURVIVAL_MIN_CHARS = 200
+SURVIVAL_DOWNGRADE_BATTERIES: frozenset[BenchmarkCategory] = frozenset({
+    BenchmarkCategory.code_gen,
+    BenchmarkCategory.tool_use,
+})
+
 BATTERY_REQUIRES: dict[BenchmarkCategory, tuple[str, ...]] = {
     BenchmarkCategory.reasoning: ("thinking",),
     BenchmarkCategory.long_horizon: ("thinking",),
@@ -240,11 +250,23 @@ def unmet_requirements(
     return None
 
 
-def pick_effort(facts: DialectFacts | None, budget: int, fallback: str) -> str | None:
+def survival_downgrade(battery: BenchmarkCategory, facts: DialectFacts | None) -> bool:
+    """True when the contract says this server's thinking starves long answers."""
+    if facts is None or battery not in SURVIVAL_DOWNGRADE_BATTERIES:
+        return False
+    survived = facts.answer_chars_at_small_budget
+    return survived is not None and survived < SURVIVAL_MIN_CHARS
+
+
+def pick_effort(
+    facts: DialectFacts | None, budget: int, fallback: str, force_low: bool = False
+) -> str | None:
     """Choose an effort the server actually accepted; None = do not send one."""
     accepted = facts.accepted_efforts if facts else []
     if not accepted:
         return fallback if facts is None else None
+    if force_low:
+        return "low" if "low" in accepted else accepted[0]
     if budget >= 16384 and "xhigh" in accepted:
         return "xhigh"
     if budget >= 4096 and "medium" in accepted:

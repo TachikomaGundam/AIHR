@@ -14,6 +14,27 @@ from .cli_app import (
 )
 from .models import BenchmarkCategory
 
+@app.command("db-dsn")
+def db_dsn_explain() -> None:
+    """Show WHICH resolution step supplies the database connection.
+
+    Passwords are never printed; host:port/database only. A stale db.env or
+    compose file silently outranking the intended target is a real failure
+    mode observed on customer-shaped machines (dev-box archive 2026-10-05) —
+    this makes the winner visible.
+    """
+    from .config import db_dsn_with_source
+
+    try:
+        dsn, source = db_dsn_with_source()
+    except RuntimeError as exc:  # nothing resolved: the attempted-steps list IS the UX
+        typer.echo(str(exc))
+        raise typer.Exit(code=1) from None
+    target = dsn.rsplit("@", 1)[-1] if "@" in dsn else dsn.split("://", 1)[-1]
+    typer.echo(f"DSN source: {source}")
+    typer.echo(f"target: {target}")
+
+
 @app.command()
 def discover(
     all_models: bool = typer.Option(
