@@ -76,10 +76,11 @@ def probe_dialect(
     ``iter_lines(response)`` yields SSE lines when streaming.
     """
     facts = DialectFacts(endpoint_url=url, model_slug=slug)
+    answered = 0
     for effort in ("low", "medium", "high", "xhigh", "max"):
         try:
             resp = post(
-                f"{url}/chat/completions",
+                url,
                 headers=headers,
                 json={
                     "model": slug,
@@ -91,13 +92,15 @@ def probe_dialect(
             )
             if resp.status_code == 200:
                 facts.accepted_efforts.append(effort)
-        except Exception:  # noqa: BLE001 — a probe call failing is itself a fact
+            if resp.status_code in (200, 400, 422):
+                answered += 1  # endpoint is alive and speaking the chat API
+        except Exception:  # noqa: BLE001 — connection failure is not a fact
             continue
 
     # one streaming call decides thinking-key, usage, and budget survival
     try:
         resp = post(
-            f"{url}/chat/completions",
+            url,
             headers=headers,
             json={
                 "model": slug,
@@ -129,12 +132,13 @@ def probe_dialect(
                 if delta.get("content"):
                     content_chars += len(delta["content"])
         facts.answer_chars_at_small_budget = content_chars
+        answered += 1
     except Exception:  # noqa: BLE001
         pass
 
     try:
         resp = post(
-            f"{url}/chat/completions",
+            url,
             headers=headers,
             json={
                 "model": slug,
@@ -157,13 +161,25 @@ def probe_dialect(
             timeout=120,
         )
         if resp.status_code == 200:
+            answered += 1
             body = resp.json()
             msg = (body.get("choices") or [{}])[0].get("message", {})
             facts.tool_calls_ok = bool(msg.get("tool_calls"))
     except Exception:  # noqa: BLE001
         pass
 
+    if answered == 0:
+        raise ProbeUnreachableError(f"no chat-completions response from {url} - probe inconclusive")
     return facts
+
+
+class ProbeUnreachableError(RuntimeError):
+    """Every probe request failed to reach a live chat endpoint.
+
+    Distinguished from "endpoint answered and declined everything": an
+    unreachable endpoint must NOT persist zero-capability facts, which would
+    freeze the gate on a fake measurement until the contract expires.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +308,12 @@ def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
         import requests
         try:
             facts = probe_dialect(url, headers, slug, requests.post)
-        except Exception:  # noqa: BLE001
+        except ProbeUnreachableError as exc:
+            log.warning("dialect probe unreachable for %s: %s", model_id, exc)
+            _PERSIST_NOTE[model_id] = f"probe unreachable - {exc}"
+            facts = None
+        except Exception as exc:  # noqa: BLE001
+            log.warning("dialect probe failed for %s: %r", model_id, exc)
             facts = None
         if facts is not None and conn is not None:
             try:
@@ -366,6 +387,7 @@ __all__ = [
     "VALID_DAYS",
     "DialectFacts",
     "probe_dialect",
+    "ProbeUnreachableError",
     "contract_id_for",
     "upsert_contract",
     "load_valid_facts",

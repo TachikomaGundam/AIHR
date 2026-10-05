@@ -12,6 +12,7 @@ import pytest
 
 from hr.dialect_contract import (
     DialectFacts,
+    ProbeUnreachableError,
     contract_id_for,
     measurement_flags,
     pick_effort,
@@ -204,3 +205,28 @@ def test_persistence_sql_matches_shipped_ddl_columns() -> None:
     status_lines(_C())
     assert "facts_json::text" in captured["sql"], captured["sql"]
     assert "accepted_efforts" not in captured["sql"]
+
+
+def _dead_post(*a: object, **k: object) -> None:
+    raise ConnectionError("connection refused")
+
+
+def test_probe_raises_instead_of_persisting_zero_capabilities() -> None:
+    """Testbed 191, session3: every request 404'd behind a swallowed loop and
+    an all-empty fact row froze the gate for 14 days. Unreachable now raises."""
+    with pytest.raises(ProbeUnreachableError):
+        probe_dialect("http://dead/v1", {}, "m", _dead_post)
+
+
+def test_probe_posts_to_the_url_it_was_given() -> None:
+    """endpoint_for returns the full chat/completions URL; the probe must not
+    append a second suffix (the drift that produced the empty facts)."""
+    seen: list[str] = []
+
+    def spy(url: str, **k: object) -> object:
+        seen.append(url)
+        raise ConnectionError("stop after capture")
+
+    with pytest.raises(ProbeUnreachableError):
+        probe_dialect("http://h:1/v1/chat/completions", {}, "m", spy)
+    assert seen and all(u == "http://h:1/v1/chat/completions" for u in seen)
