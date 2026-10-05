@@ -17,7 +17,7 @@ import logging
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -56,7 +56,7 @@ class DialectFacts:
     probe_version: int = PROBE_VERSION
 
     def to_json(self) -> str:
-        return json.dumps(self.__dict__)
+        return json.dumps(asdict(self))
 
     @staticmethod
     def from_json(raw: str) -> "DialectFacts":
