@@ -4,9 +4,11 @@ import hashlib
 import os
 import random
 import time
-from typing import Callable
+from typing import Any, Callable
 
 from hr.adapters import adapter_for
+from typing import cast
+
 from hr.adapters.base import Adapter, AdapterError, Capabilities, ChatRequest
 from hr.bench.engine_results import BenchOutcome, ItemResult, _RunResult, make_sweep_id
 from hr.bench.manifest import ExperimentManifest
@@ -196,7 +198,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                     "dialect contract for %s: %s", model_id, _note
                 )
             if hasattr(adapter, "attach_contract"):
-                adapter.attach_contract(facts)
+                cast(Any, adapter).attach_contract(facts)
             reason = unmet_requirements(battery, caps.supports_thinking, facts)
             if reason is not None:
                 return self._to_outcome(

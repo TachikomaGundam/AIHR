@@ -55,8 +55,8 @@ _TEXT_FILES: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 
 
-def _tsv(rows: object) -> str:
-    return "\n".join("\t".join(str(c) for c in row) for row in rows or [])  # type: ignore[union-attr]
+def _tsv(rows: list[tuple[object, ...]] | None) -> str:
+    return "\n".join("\t".join(str(c) for c in row) for row in rows or [])
 
 
 def _tail(text: str, n: int) -> str:
