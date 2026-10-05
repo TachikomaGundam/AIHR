@@ -13,7 +13,7 @@ These tests rebuild the authoritative legacy shape (19 tables, no
 ``experiment_manifest``, no post-migration columns — verbatim from the
 pre-migration pg_dump snapshot, see ``tests/fixtures/legacy_hr_schema.sql``),
 then drive the SHIPPED ``init_schema()`` against it and require success,
-20 tables, the calibration index, and preserved row data. The equivalence
+21 tables, the calibration index, and preserved row data. The equivalence
 test then proves fresh-vs-upgraded schemas are identical through
 information_schema + pg_indexes — which also guards the whole migration set
 against any further index-before-column ordering hazard.
@@ -215,7 +215,7 @@ def test_legacy_fixture_shapes_pre_migration_starting_state() -> None:
     with _scratch_db(params) as conn:
         _build_legacy(conn)
         schema = _table_columns(conn)
-        assert set(EXPECTED_TABLES) - {"experiment_manifest"} == set(schema)
+        assert set(EXPECTED_TABLES) - {"experiment_manifest", "model_contract"} == set(schema)
         assert len(schema) == 19
         assert _LEGACY_CAL_COLUMNS == schema["calibration_event"]
         assert "pool_hash" not in schema["calibration_event"]
@@ -229,7 +229,7 @@ def test_legacy_fixture_shapes_pre_migration_starting_state() -> None:
 @pytest.mark.db
 @pytest.mark.integration
 def test_init_schema_upgrades_legacy_db_in_place() -> None:
-    """Shipped init_schema() on a legacy 19-table DB: success + 20 tables + index + data."""
+    """Shipped init_schema() on a legacy 19-table DB: success + 21 tables + index + data."""
     params = _require_admin_params()
     with _scratch_db(params) as conn:
         _build_legacy(conn)
@@ -238,7 +238,7 @@ def test_init_schema_upgrades_legacy_db_in_place() -> None:
 
         schema = _table_columns(conn)
         assert set(EXPECTED_TABLES) == set(schema)
-        assert len(schema) == 20
+        assert len(schema) == 21
         assert _POST_CAL_COLUMNS <= schema["calibration_event"]
         assert {"status", "failure_reason"} <= schema["run"]
         assert "directional" in schema["separation"]

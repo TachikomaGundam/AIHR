@@ -7,7 +7,7 @@ from hr.schema_migration import migrate_schema_namespace
 
 
 # Expected tables from spec §4, including the migration-added tables the
-# base DDL now ships: 20 tables in DDL order (verified live against
+# base DDL now ships: 21 tables in DDL order (verified live against
 # information_schema on a fresh scratch DB — experiment_manifest is the
 # 20th, created by the base DDL, not only by a later migration).
 EXPECTED_TABLES = [
@@ -25,6 +25,7 @@ EXPECTED_TABLES = [
     "run",
     "measurement",
     "infra_incident",
+    "model_contract",
     "control_reading",
     "separation",
     "assignment",
