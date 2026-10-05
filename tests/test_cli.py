@@ -24,7 +24,7 @@ runner = CliRunner()
 
 COMMANDS = {
     "support-bundle",
-    "discover",
+    "discover", "db-dsn",
     "seed",
     "bench",
     "verdict",

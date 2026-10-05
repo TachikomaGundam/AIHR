@@ -41,7 +41,15 @@ def status() -> None:
     """Show DB status: sweeps + latest-sweep capability means (DB-only)."""
     from .cli_report_verdict import build_status_report  # untracked at some checkouts (T8)
 
-    _with_conn(build_status_report)
+    try:
+        _with_conn(build_status_report)
+    except ValueError as exc:
+        if "no sweeps found" in str(exc):
+            # empty board is a state, not an error (191 first-boot: fresh
+            # customers met a hard "HR command failed" on hr status)
+            typer.echo("no data yet — run `hr bench` first")
+            return
+        raise
 
 
 def apply(

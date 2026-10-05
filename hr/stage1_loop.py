@@ -234,6 +234,7 @@ def _run_finals_loop(
                             _insert_measurement(
                                 conn,
                                 measurement_id=f"m-{uuid.uuid4()}",
+                                model_id=model_id,
                                 run_id=round_id,
                                 item_id=env.item_key,
                                 repetition=rep,

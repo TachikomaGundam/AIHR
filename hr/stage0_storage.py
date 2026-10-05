@@ -223,6 +223,7 @@ def _insert_measurement(
     requested_max_output: int | None = None,
     scorer_name: str | None = None,
     scorer_version: str | None = None,
+    model_id: str = "",
 ) -> None:
     """Insert one measurement row (ON CONFLICT DO NOTHING).
 
@@ -264,7 +265,7 @@ def _insert_measurement(
             ),
         )
         try:
-            from hr.dialect_contract import measurement_flags
+            from hr.dialect_contract import bound_contract_id, measurement_flags
             flags = measurement_flags(response_text, tokens_in, tokens_out, latency_ms)
             if flags is not None:
                 cur.execute(
@@ -272,6 +273,15 @@ def _insert_measurement(
                     "contract_id = (SELECT contract_id FROM hr.run WHERE run_id = %s) "
                     "WHERE measurement_id = %s",
                     (flags, run_id, measurement_id),
+                )
+            elif model_id and bound_contract_id(model_id) is not None:
+                # Row-level provenance even on the clean path (191 d18c49 audit:
+                # measurements carried no contract when nothing looked wrong).
+                cur.execute(
+                    "UPDATE hr.measurement SET "
+                    "contract_id = (SELECT contract_id FROM hr.run WHERE run_id = %s) "
+                    "WHERE measurement_id = %s",
+                    (run_id, measurement_id),
                 )
         except Exception:  # noqa: BLE001
             pass

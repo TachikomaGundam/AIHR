@@ -126,7 +126,7 @@ def test_engine_gate_short_circuits_before_runner(monkeypatch) -> None:
         def endpoint_for(self, _m):
             return "http://h:8000/v1", {}, "m"
 
-        def attach_contract(self, f):
+        def attach_contract(self, f, force_low=False):
             self.attached = f
 
     import hr.dialect_contract as dc
@@ -140,7 +140,7 @@ def test_engine_gate_short_circuits_before_runner(monkeypatch) -> None:
         return result.outcome
 
     monkeypatch.setattr(e, "_to_outcome", _no_write_outcome)
-    out = e.run_battery("local-x/m", BenchmarkCategory.reasoning)
+    e.run_battery("local-x/m", BenchmarkCategory.reasoning)
     assert _no_write_outcome.last.outcome.status == "not_applicable"
     assert "accepted_efforts" in _no_write_outcome.last.outcome.raw_output
 
@@ -239,3 +239,57 @@ def test_probe_version_bump_invalidates_poisoned_rows() -> None:
     version-filtered, so bumping PROBE_VERSION is the sanctioned way to retire
     rows produced by a defective probe - evidence preserved, gate re-probes."""
     assert PROBE_VERSION == 2
+
+
+def test_survival_downgrade_matrix() -> None:
+    from hr.dialect_contract import SURVIVAL_MIN_CHARS, survival_downgrade
+
+    starving = facts(answer_chars_at_small_budget=SURVIVAL_MIN_CHARS - 1)
+    healthy = facts(answer_chars_at_small_budget=9_999)
+    unknown = facts(answer_chars_at_small_budget=None)
+    assert survival_downgrade(BenchmarkCategory.code_gen, starving) is True
+    assert survival_downgrade(BenchmarkCategory.tool_use, starving) is True
+    assert survival_downgrade(BenchmarkCategory.code_gen, healthy) is False
+    assert survival_downgrade(BenchmarkCategory.code_gen, unknown) is False
+    assert survival_downgrade(BenchmarkCategory.code_gen, None) is False
+    assert survival_downgrade(BenchmarkCategory.reasoning, starving) is False
+
+
+def test_pick_effort_force_low_overrides_budget_map() -> None:
+    from hr.dialect_contract import pick_effort
+
+    starving = facts(answer_chars_at_small_budget=9)
+    assert pick_effort(starving, 32768, "high") == "xhigh"
+    assert pick_effort(starving, 32768, "high", force_low=True) == "low"
+    # no contract: force_low must not invent a value for non-contract lanes
+    assert pick_effort(None, 32768, "high", force_low=True) == "high"
+
+
+def test_db_dsn_command_names_the_winner_without_leaking(monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from hr.cli import app
+
+    monkeypatch.setenv(
+        "HR_DSN", "postgresql://u:sekretPW@dbhost:6543/targetdb"
+    )
+    result = CliRunner().invoke(app, ["db-dsn"])
+    assert result.exit_code == 0, result.output
+    assert "DSN source: HR_DSN env var" in result.output
+    assert "dbhost:6543/targetdb" in result.output
+    assert "sekretPW" not in result.output
+
+
+def test_status_on_empty_board_is_a_state_not_an_error(monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    import hr.cli_apply as ca
+    from hr.cli import app
+
+    def _boom(_fn):
+        raise ValueError("no sweeps found in hr.sweep")
+
+    monkeypatch.setattr(ca, "_with_conn", _boom)
+    result = CliRunner().invoke(app, ["status"])
+    assert result.exit_code == 0, result.output
+    assert "no data yet" in result.output

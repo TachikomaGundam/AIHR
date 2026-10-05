@@ -275,3 +275,29 @@ def test_chat_degrades_rejected_reasoning_effort(sandbox_adapter, monkeypatch) -
     assert calls[0]["json"]["reasoning_effort"] == "xhigh"
     assert "reasoning_effort" not in calls[1]["json"], "retry must drop the rejected param"
     assert model.text == "fine"
+
+
+def test_attach_contract_force_low_lands_in_request_body(sandbox_adapter, monkeypatch) -> None:
+    """191 fairness fix: when the contract says thinking starves long answers,
+    the gate attaches force_low and the outgoing body must carry the cheapest
+    accepted effort even for a medium-sized budget."""
+    from hr.dialect_contract import DialectFacts
+
+    sandbox_adapter.attach_contract(
+        DialectFacts(
+            endpoint_url="http://h/v1/chat/completions", model_slug="m",
+            accepted_efforts=["low", "medium", "xhigh"], thinking_key="reasoning",
+            usage_in_stream=True, tool_calls_ok=True,
+            answer_chars_at_small_budget=9, probe_version=2,
+        ),
+        force_low=True,
+    )
+    resp = FakeStreamResponse(
+        200, _sse({"choices": [{"delta": {"content": "ok"}}]}, "[DONE]")
+    )
+    calls = _script_post(monkeypatch, resp)
+    sandbox_adapter.chat(
+        "acme/model-x", [{"role": "user", "content": "go"}],
+        thinking_budget=4096, max_output=4096,
+    )
+    assert calls[0]["json"].get("reasoning_effort") == "low"

@@ -197,8 +197,11 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                 logging.getLogger("hr.bench").warning(
                     "dialect contract for %s: %s", model_id, _note
                 )
+            from hr.dialect_contract import survival_downgrade
             if hasattr(adapter, "attach_contract"):
-                cast(Any, adapter).attach_contract(facts)
+                cast(Any, adapter).attach_contract(
+                    facts, force_low=survival_downgrade(battery, facts)
+                )
             reason = unmet_requirements(battery, caps.supports_thinking, facts)
             if reason is not None:
                 return self._to_outcome(
