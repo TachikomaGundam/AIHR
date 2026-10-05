@@ -11,6 +11,7 @@ import json
 import pytest
 
 from hr.dialect_contract import (
+    PROBE_VERSION,
     DialectFacts,
     ProbeUnreachableError,
     contract_id_for,
@@ -230,3 +231,11 @@ def test_probe_posts_to_the_url_it_was_given() -> None:
     with pytest.raises(ProbeUnreachableError):
         probe_dialect("http://h:1/v1/chat/completions", {}, "m", spy)
     assert seen and all(u == "http://h:1/v1/chat/completions" for u in seen)
+
+
+def test_probe_version_bump_invalidates_poisoned_rows() -> None:
+    """Session4 lesson: a v1 all-empty row (URL-suffix bug artifact) stayed
+    'valid' for 14 days and the fixed binary trusted it. Contract loading is
+    version-filtered, so bumping PROBE_VERSION is the sanctioned way to retire
+    rows produced by a defective probe - evidence preserved, gate re-probes."""
+    assert PROBE_VERSION == 2
