@@ -200,6 +200,7 @@ TABLE_DISPOSITIONS: Dict[str, Dict[str, str]] = {
     "assignment": {"class": "wired", "evidence": "tracked hr/cli.py, hr/db.py read; apply writes (worktree)"},
     "policy_override": {"class": "removal_proposal", "evidence": "DDL-only: no reader or writer anywhere in the tree (tracked or untracked); propose dropping with the schema migration, needs separate approval"},
     "calibration_event": {"class": "wired", "evidence": "tracked hr/calibration_persistence.py writes calibration events"},
+    "model_contract": {"class": "wired", "evidence": "tracked hr/dialect_contract.py upsert/load + gate reads in hr/bench/engine.py (commit 3ff2822)"},
     "judge_verdict": {"class": "future_contract", "evidence": "no tracked reader/writer at HEAD; uniqueness contract tested in tracked tests/test_db.py; the worktree llm_judge grader sets judge_verdict_fk — wired feature pending the unification commit"},
 }
 

@@ -237,7 +237,7 @@ def test_live_schema_table_set_matches_expected_tables(
     """
     live = set(columns(db_conn))
     assert set(EXPECTED_TABLES) == live
-    assert len(EXPECTED_TABLES) == 20
+    assert len(EXPECTED_TABLES) == 21
 
 
 def test_experiment_manifest_round_trip(
