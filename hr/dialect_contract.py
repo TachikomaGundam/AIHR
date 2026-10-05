@@ -25,7 +25,7 @@ import psycopg2.extensions
 
 from hr.models import BenchmarkCategory
 
-PROBE_VERSION = 1
+PROBE_VERSION = 2
 VALID_DAYS = 14
 
 # batteries whose request shape leans on a server dialect fact
