@@ -13,6 +13,8 @@ Probe budget: at most 7 tiny requests per endpoint per validity window.
 
 from __future__ import annotations
 
+import logging
+
 import hashlib
 import json
 from dataclasses import dataclass, field
@@ -31,6 +33,8 @@ HARD_REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "thinking": ("accepted_efforts",),
     "tool_calls": ("tool_calls_ok",),
 }
+log = logging.getLogger(__name__)
+
 BATTERY_REQUIRES: dict[BenchmarkCategory, tuple[str, ...]] = {
     BenchmarkCategory.reasoning: ("thinking",),
     BenchmarkCategory.long_horizon: ("thinking",),
@@ -280,7 +284,9 @@ def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
         from hr.db import connect
         conn = connect()
         facts = load_valid_facts(conn, model_id, url, slug)
-    except Exception:  # noqa: BLE001 — no DB in this context is tolerated
+    except Exception as exc:  # noqa: BLE001 — tolerated, but never silently
+        log.warning("dialect contract db unavailable for %s: %r", model_id, exc)
+        _PERSIST_NOTE[model_id] = "contract db unavailable - persistence skipped"
         conn = None
     if facts is None:
         import requests
@@ -291,8 +297,13 @@ def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
         if facts is not None and conn is not None:
             try:
                 upsert_contract(conn, model_id, facts)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001 — loud log, never silent
+                log.warning("dialect contract upsert failed for %s: %r", model_id, exc)
+                _PERSIST_NOTE[model_id] = "contract persistence FAILED - facts in-process only"
+        elif facts is not None:
+            _PERSIST_NOTE[model_id] = "contract persistence skipped - no db connection"
+        else:
+            _PERSIST_NOTE.pop(model_id, None)
     if conn is not None:
         try:
             conn.close()
@@ -305,8 +316,7 @@ def ensure_facts(model_id: str, adapter: object) -> DialectFacts | None:
 
 
 CONTRACT_STATUS_SQL = (
-    "SELECT model_id, endpoint_url, accepted_efforts, thinking_key, "
-    "usage_in_stream, tool_calls_ok, answer_chars_at_small_budget, probed_at "
+    "SELECT model_id, endpoint_url, facts_json::text, probe_version, probed_at "
     "FROM hr.model_contract ORDER BY probed_at DESC"
 )
 
@@ -322,16 +332,28 @@ def status_lines(conn) -> str:
         "model | efforts accepted | thinking key | usage | tools | survival chars | probed",
         "---|---|---|---|---|---|---|",
     ]
-    for model_id, endpoint, efforts, tkey, usage, tools, survival, probed in rows:
+    for model_id, endpoint, facts_raw, probe_ver, probed in rows:
+        try:
+            facts = DialectFacts.from_json(facts_raw)
+        except (TypeError, ValueError):
+            lines.append(f"{model_id} | UNREADABLE contract v{probe_ver} ({probed}) — re-probe pending")
+            continue
         lines.append(
-            f"{model_id} | {','.join(efforts or []) or 'none (never send)'} | "
-            f"{tkey or '—'} | {'yes' if usage else 'no'} | {'yes' if tools else 'no'} | "
-            f"{survival if survival is not None else '—'} | {probed}"
+            f"{model_id} | {','.join(facts.accepted_efforts) or 'none (never send)'} | "
+            f"{facts.thinking_key or '—'} | {'yes' if facts.usage_in_stream else 'no'} | "
+            f"{'yes' if facts.tool_calls_ok else 'no'} | "
+            f"{facts.answer_chars_at_small_budget if facts.answer_chars_at_small_budget is not None else '—'} | {probed}"
         )
     return "\n".join(lines)
 
 
 _BINDING: dict[str, str] = {}
+_PERSIST_NOTE: dict[str, str] = {}
+
+
+def last_persist_note(model_id: str) -> str | None:
+    """Why contract persistence did not land for this model (None = clean)."""
+    return _PERSIST_NOTE.get(model_id)
 
 
 def bound_contract_id(model_id: str) -> str | None:
@@ -353,6 +375,7 @@ __all__ = [
     "valid_contract_id",
     "ensure_facts",
     "bound_contract_id",
+    "last_persist_note",
     "status_lines",
     "CONTRACT_STATUS_SQL",
 ]

@@ -183,8 +183,18 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
             return self._to_outcome(battery, model_id, result)
 
         if hasattr(adapter, "endpoint_for"):
-            from hr.dialect_contract import ensure_facts, unmet_requirements
+            from hr.dialect_contract import (
+                ensure_facts,
+                last_persist_note,
+                unmet_requirements,
+            )
             facts = ensure_facts(model_id, adapter)
+            _note = last_persist_note(model_id)
+            if _note:
+                import logging
+                logging.getLogger("hr.bench").warning(
+                    "dialect contract for %s: %s", model_id, _note
+                )
             if hasattr(adapter, "attach_contract"):
                 adapter.attach_contract(facts)
             reason = unmet_requirements(battery, caps.supports_thinking, facts)

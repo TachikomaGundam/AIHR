@@ -15,9 +15,21 @@ from hr.cli_report_verdict import LATEST_SWEEP_SQL, build_status_report
 from hr.dialect_contract import CONTRACT_STATUS_SQL, status_lines
 from hr.support_bundle import collect, redact
 
+import json as _json
+
+_CONTRACT_FACTS = {
+    "endpoint_url": "http://10.0.0.3:8000/v1",
+    "model_slug": "q3",
+    "accepted_efforts": ["low", "medium", "xhigh"],
+    "thinking_key": "reasoning",
+    "usage_in_stream": True,
+    "tool_calls_ok": True,
+    "answer_chars_at_small_budget": 913,
+    "probe_version": 1,
+}
 _CONTRACT_ROW = (
-    "local-qwen/q3", "http://10.0.0.3:8000/v1", ["low", "medium", "xhigh"],
-    "reasoning", True, True, 913, "2026-10-04 02:00:00+00",
+    "local-qwen/q3", "http://10.0.0.3:8000/v1", _json.dumps(_CONTRACT_FACTS), 1,
+    "2026-10-04 02:00:00+00",
 )
 
 
