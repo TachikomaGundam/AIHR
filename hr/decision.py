@@ -70,6 +70,52 @@ def measurement_count(conn, sweep_id: str) -> int:
     return int(rows[0][0]) if rows else 0
 
 
+_PROFILE_CTE = """
+    WITH latest AS (
+        SELECT DISTINCT ON (r.model_id, r.battery_id)
+               r.run_id, r.model_id, r.battery_id
+          FROM hr.run r
+         WHERE r.status = 'scored'
+         ORDER BY r.model_id, r.battery_id, r.started_at DESC, r.run_id DESC
+    )
+"""
+
+
+def capability_means_profile(conn) -> dict[str, dict[str, float]]:
+    """Decision plane: LATEST SCORED RUN per (model, battery) across all
+    sweeps, not one winner-takes-all sweep.
+
+    Row-level freshness reconciles the two historical requirements that the
+    sweep-pinned selector could not hold at once (191 incident 2026-10-06):
+    a later partial lane must UPDATE only the batteries it re-measured
+    (audit bug 6 intent preserved: fresh beats stale where fresh exists)
+    and must never dethrone the rest of the profile (no hijack).
+    """
+    rows = _fetch(
+        conn,
+        _PROFILE_CTE
+        + """
+        SELECT l.model_id, b.battery_code, AVG(m.score)::float8
+          FROM latest l
+          JOIN hr.measurement m ON m.run_id = l.run_id
+          JOIN hr.battery b ON b.battery_id = l.battery_id
+         GROUP BY 1, 2
+        """,
+    )
+    means: dict[str, dict[str, float]] = {}
+    for model_id, battery_code_, mean in rows:
+        means.setdefault(str(model_id), {})[str(battery_code_)] = float(mean)
+    return means
+
+
+def measurement_count_profile(conn) -> int:
+    rows = _fetch(
+        conn,
+        _PROFILE_CTE + " SELECT count(*) FROM latest l JOIN hr.measurement m ON m.run_id = l.run_id",
+    )
+    return int(rows[0][0]) if rows else 0
+
+
 def capability_means(conn, sweep_id: str) -> dict[str, dict[str, float]]:
     rows = _fetch(
         conn,

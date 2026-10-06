@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .decision import measurement_count, seat_assignments
+from .decision import measurement_count_profile, seat_assignments
 from .health import HealthReport, summary_table, sweep_health
 from .seats.health_gates import SEAT_HEALTH_GATE, evaluate_gate
 
@@ -59,7 +59,7 @@ def build_health_report(
         return f"no measurements for sweep {sweep_id}"
     header = (
         f"# Health report — sweep {sweep_id}\n"
-        f"# n measurements: {measurement_count(conn, sweep_id)} "
+        f"# n measurements: {measurement_count_profile(conn)} "
         "(zero new API calls — mined from existing measurements)"
     )
     table = summary_table(reports)

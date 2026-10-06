@@ -328,7 +328,7 @@ class RecommendationEngine:
     """Project the latest canonical verdict into seat and task recommendations."""
 
     def __init__(self) -> None:
-        from hr.decision import capability_means, latest_sweep_id
+        from hr.decision import capability_means_profile, latest_sweep_id
         from hr.health import sweep_health
 
         self._conn = get_connection()
@@ -339,7 +339,7 @@ class RecommendationEngine:
             self._means: dict[str, dict[str, float]] = {}
             self._health = {}
         else:
-            self._means = capability_means(self._conn, self._sweep_id)
+            self._means = capability_means_profile(self._conn)
             self._health = sweep_health(self._conn, self._sweep_id)
 
     def close(self) -> None:

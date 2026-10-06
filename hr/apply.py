@@ -44,7 +44,7 @@ from typing import Optional
 from hr.decision import (
     SeatAssignment,
     battery_codes,
-    capability_means,
+    capability_means_profile,
     latest_sweep_id,
     model_capabilities,
     seat_assignments,
@@ -82,7 +82,7 @@ def latest_assignments(conn, deployable: Optional[set[str]] = None) -> tuple[lis
             "(latest_sweep_id error: %s); refusing to write FastDraw presets "
             "with empty data" % exc
         ) from exc
-    means = capability_means(conn, sweep_id)
+    means = capability_means_profile(conn)
     reports = sweep_health(conn, sweep_id)
     codes = battery_codes(conn)
     seat_db = seat_rows(conn)

@@ -196,7 +196,11 @@ def test_pick_dry_run_never_touches_db_or_engine(pick_env, monkeypatch):
     monkeypatch.setattr("hr.cli.connect", _explode)
     result = runner.invoke(app, ["bench", "--pick", "--dry-run"], input="1\n")
     assert result.exit_code == 0, result.output
-    assert "livebench" not in result.output.split("# dry-run", 1)[1]
+    # dry-run shows the resolved selection (models + battery lane, 0.4.7) but
+    # never a model identifier from the engine/DB — the explode-patch above is
+    # the hard no-touch guard; these are the content contract.
+    assert "batteries:" in result.output
+    assert "baili" not in result.output.split("batteries:", 1)[1]
 
 
 # ---------------------------------------------------------------------------
