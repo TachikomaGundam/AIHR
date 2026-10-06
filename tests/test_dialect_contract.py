@@ -293,3 +293,53 @@ def test_status_on_empty_board_is_a_state_not_an_error(monkeypatch) -> None:
     result = CliRunner().invoke(app, ["status"])
     assert result.exit_code == 0, result.output
     assert "no data yet" in result.output
+
+
+def test_measurement_rows_bind_contract_when_hint_present(scratch_db) -> None:
+    """191 audit (sweep a8d46a): 0/50 rows carried contract_id because the
+    livebench writer never forwarded model_id to _insert_measurement."""
+    import psycopg2
+
+    from hr.dialect_contract import _BINDING, bound_contract_id
+    from hr.stage0_storage import _insert_measurement
+    from tests._db_contracts_helpers import (
+        seed_battery,
+        seed_item_pool,
+        seed_provider_models,
+        seed_seat,
+        seed_sweep,
+    )
+
+    _name, dsn = scratch_db
+    conn = psycopg2.connect(dsn)
+    conn.autocommit = True
+    try:
+        seed_provider_models(conn, ("m/x",))
+        seed_seat(conn, "oracle", "High-IQ consultant")
+        seed_seat(conn, "_stage0_sweep", "stage0 sweep")
+        seed_sweep(conn, "sw-bind")
+        battery = seed_battery(conn, "speed")
+        seed_item_pool(conn, "item-1")
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO hr.run (run_id, sweep_id, model_id, battery_id, "
+                "round, started_at, status, contract_id) VALUES "
+                "('run-bind', 'sw-bind', 'm/x', %s, "
+                "1, now(), 'scored', 'dc-abc123')",
+                (battery,),
+            )
+        _BINDING["m/x"] = "dc-abc123"
+        assert bound_contract_id("m/x") == "dc-abc123"
+        _insert_measurement(
+            conn, "meas-bind", "run-bind", "item-1", 1, 100.0,
+            tokens_in=300, tokens_out=200, latency_ms=5000,
+            response_text="x" * 100, model_id="m/x",
+        )
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT contract_id FROM hr.measurement WHERE measurement_id='meas-bind'"
+            )
+            assert cur.fetchone()[0] == "dc-abc123"
+    finally:
+        _BINDING.pop("m/x", None)
+        conn.close()

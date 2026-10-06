@@ -142,6 +142,7 @@ class EngineStorageMixin:
                 requested_max_output=outcome.requested_max_output,
                 scorer_name=f"livebench:{battery_code(battery)}",
                 scorer_version=GRADER_VERSION,
+                model_id=model_id,
             )
 
 

@@ -207,10 +207,14 @@ def score_tool_use_text(text: str, tool_used: bool) -> _BenchmarkOutcome:
 
     got_num: float | None = None
 
-    # Strategy 1: explicit 'TOTAL:' / 'TOTAL =' header.
-    m = re.search(r"\bTOTAL\s*[=:]\s*([-\d.]+)", clean, re.IGNORECASE)
-    if m:
-        got_num = _parse_number(m.group(1))
+    # Strategy 1: explicit 'TOTAL:' / 'TOTAL =' header — the LAST one wins:
+    # the prompt demands "End by stating 'TOTAL: <number>'", and low-effort
+    # style answers inline intermediate "Total: 97.36 + 8.28 = ..." lines
+    # BEFORE the final declaration (191 sweep a8d46a real answer; the v1
+    # first-match read the $97.36 sub-step and falsely graded wrong).
+    matches = re.findall(r"\bTOTAL\s*[=:]\s*([-\d.]+)", clean, re.IGNORECASE)
+    if matches:
+        got_num = _parse_number(matches[-1])
 
     # Strategy 2: any result-keyword followed by a number.
     if got_num is None:
