@@ -241,6 +241,6 @@ def test_verdict_empty_conn_reports_no_models(monkeypatch):
     monkeypatch.setattr("hr.cli.load_deployable", lambda: set())
     result = runner.invoke(app, ["verdict", "--sweep", "s1"])
     assert result.exit_code == 0
-    assert "# Verdict — sweep s1" in result.output
+    assert "# Verdict — profile (latest scored run per model×battery) · anchor sweep s1" in result.output
     assert "zero new API calls" in result.output
     assert "Capability battery averages" in result.output

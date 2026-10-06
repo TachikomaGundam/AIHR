@@ -31,23 +31,23 @@ def test_verdict_latest_flag_uses_latest_sweep(monkeypatch):
         _COUNT_SQL_KEY: [(0,)],
         _SEAT_SQL_KEY: [],
         _MODEL_SQL_KEY: [],
-        _BATTERY_SQL_KEY: [("hallucination",), ("reasoning",), ("tool_a",), ("vision",)],
+        _BATTERY_SQL_KEY: [("hallucination",), ("livebench_reasoning",), ("livebench_tool_use",), ("vision",)],
     }
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(router))
     monkeypatch.setattr("hr.cli.load_deployable", lambda: set())
     result = runner.invoke(app, ["verdict", "--latest"])
     assert result.exit_code == 0
-    assert "# Verdict — sweep s9" in result.output
+    assert "# Verdict — profile (latest scored run per model×battery) · anchor sweep s9" in result.output
 
 def test_verdict_ranks_with_fake_conn(monkeypatch):
     router = {
-        _AVG_SQL_KEY: [("m_a", "reasoning", 0.9), ("m_b", "reasoning", 0.2)],
+        _AVG_SQL_KEY: [("m_a", "livebench_reasoning", 0.9), ("m_b", "livebench_reasoning", 0.2)],
         _DISTINCT_MODEL_SQL_KEY: [("m_a",), ("m_b",)],
         _MEASUREMENT_SQL_KEY: [("i1", 0.9, 100, "结论: 42.")],
         _COUNT_SQL_KEY: [(4,)],
         _SEAT_SQL_KEY: [],
         _MODEL_SQL_KEY: [],
-        _BATTERY_SQL_KEY: [("hallucination",), ("reasoning",), ("tool_a",), ("vision",)],
+        _BATTERY_SQL_KEY: [("hallucination",), ("livebench_reasoning",), ("livebench_tool_use",), ("vision",)],
     }
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(router))
     monkeypatch.setattr("hr.cli.load_deployable", lambda: {"m_a", "m_b"})
@@ -60,13 +60,13 @@ def test_verdict_retired_excluded_from_assignment(monkeypatch):
     # m_dead is in the sweep but not deployable: shown (tagged) in capability
     # and health tables and listed in the retired section, but never assigned.
     router = {
-        _AVG_SQL_KEY: [("m_dead", "reasoning", 0.9), ("m_alive", "reasoning", 0.2)],
+        _AVG_SQL_KEY: [("m_dead", "livebench_reasoning", 0.9), ("m_alive", "livebench_reasoning", 0.2)],
         _DISTINCT_MODEL_SQL_KEY: [("m_dead",), ("m_alive",)],
         _MEASUREMENT_SQL_KEY: [("i1", 0.9, 100, "结论: 42.")],
         _COUNT_SQL_KEY: [(4,)],
         _SEAT_SQL_KEY: [],
         _MODEL_SQL_KEY: [],
-        _BATTERY_SQL_KEY: [("hallucination",), ("reasoning",), ("tool_a",), ("vision",)],
+        _BATTERY_SQL_KEY: [("hallucination",), ("livebench_reasoning",), ("livebench_tool_use",), ("vision",)],
     }
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(router))
     monkeypatch.setattr("hr.cli.load_deployable", lambda: {"m_alive"})
@@ -80,13 +80,13 @@ def test_verdict_retired_excluded_from_assignment(monkeypatch):
 
 def test_verdict_include_retired_assigns_with_tag(monkeypatch):
     router = {
-        _AVG_SQL_KEY: [("m_dead", "reasoning", 0.9), ("m_alive", "reasoning", 0.2)],
+        _AVG_SQL_KEY: [("m_dead", "livebench_reasoning", 0.9), ("m_alive", "livebench_reasoning", 0.2)],
         _DISTINCT_MODEL_SQL_KEY: [("m_dead",), ("m_alive",)],
         _MEASUREMENT_SQL_KEY: [("i1", 0.9, 100, "结论: 42.")],
         _COUNT_SQL_KEY: [(4,)],
         _SEAT_SQL_KEY: [],
         _MODEL_SQL_KEY: [],
-        _BATTERY_SQL_KEY: [("hallucination",), ("reasoning",), ("tool_a",), ("vision",)],
+        _BATTERY_SQL_KEY: [("hallucination",), ("livebench_reasoning",), ("livebench_tool_use",), ("vision",)],
     }
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(router))
     monkeypatch.setattr("hr.cli.load_deployable", lambda: {"m_alive"})
@@ -103,13 +103,13 @@ def test_status_dispatch_via_fake_conn(monkeypatch):
     router = {
         _LATEST_SQL_NEW: [("stage1-x",)],
         _SWEEPS_SQL_KEY: rows,
-        _AVG_SQL_KEY: [("m_a", "reasoning", 0.9)],
+        _AVG_SQL_KEY: [("m_a", "livebench_reasoning", 0.9)],
         _DISTINCT_MODEL_SQL_KEY: [("m_a",)],
         _MEASUREMENT_SQL_KEY: [("i1", 0.9, 100, "结论: 42.")],
         _COUNT_SQL_KEY: [(1,)],
         _SEAT_SQL_KEY: [],
         _MODEL_SQL_KEY: [],
-        _BATTERY_SQL_KEY: [("reasoning",)],
+        _BATTERY_SQL_KEY: [("livebench_reasoning",)],
     }
     monkeypatch.setattr("hr.cli.connect", lambda: _KeyedConn(router))
     monkeypatch.setattr("hr.cli.load_deployable", lambda: {"m_a"})
@@ -127,7 +127,7 @@ def test_status_dispatch_marks_retired_models(monkeypatch):
     router = {
         _LATEST_SQL_NEW: [("stage1-x",)],
         _SWEEPS_SQL_KEY: rows,
-        _AVG_SQL_KEY: [("m_dead", "reasoning", 0.9)],
+        _AVG_SQL_KEY: [("m_dead", "livebench_reasoning", 0.9)],
         _DISTINCT_MODEL_SQL_KEY: [("m_dead",)],
         _MEASUREMENT_SQL_KEY: [("i1", 0.9, 100, "结论: 42.")],
         _COUNT_SQL_KEY: [(1,)],
