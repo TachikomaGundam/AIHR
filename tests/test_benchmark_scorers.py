@@ -335,3 +335,26 @@ def test_tool_use_scorer_total_not_hijacked_by_subtotal() -> None:
     assert out.score == 100.0, f"strategy-1 regex still hijacked: {out.raw_output}"
     out2 = score_tool_use_text(fixture, tool_used=False)
     assert out2.score == 60.0
+
+
+def test_tool_use_scorer_takes_last_total_declaration() -> None:
+    """191 sweep a8d46a (0.4.5, low-effort style answer): inline
+    'Total: $97.36 + $8.28 = $105.63' steps appear BEFORE the required final
+    'TOTAL: 105.63' line; first-match extraction graded the $97.36 sub-step
+    and falsely scored 0 — the prompt says END by stating TOTAL, so the LAST
+    declaration is the answer. Verbatim banked from the stored response_text."""
+    out = score_tool_use_text(_LAST_TOTAL_ANSWER_191, tool_used=True)
+    assert out.score == 100.0, out.raw_output
+    assert "correct (105.63)" in out.raw_output
+
+
+_LAST_TOTAL_ANSWER_191 = """\
+Steps:
+- 3 × $17.50 = $52.50
+- 2 × $24.99 = $49.98
+- Subtotal = $102.48 (greater than $100, so the 5% loyalty discount applies)
+- Discount: $102.48 × 0.95 = $97.36
+- Tax: $97.356 × 8.5% = $8.28
+- Total: $97.36 + $8.28 = $105.63
+
+TOTAL: 105.63"""
