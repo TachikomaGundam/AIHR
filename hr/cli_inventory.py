@@ -112,7 +112,31 @@ def seed() -> None:
 
 
 from .cli_selection import _pick_models_interactive
+def bench_row_markdown(model_id: str, code: str, outcome: object) -> str:
+    """One table row, honest by status: SKIP and INCONCLUSIVE never render
+    as a scored 0/FAIL (191 misread incident: capability skips displayed as
+    'FAIL 0/13' and were read as model failure)."""
+    status = getattr(outcome, "status", "scored")
+    latency = getattr(outcome, "latency_ms", 0)
+    tokens = getattr(outcome, "tokens_in", 0) + getattr(outcome, "tokens_out", 0)
+    if status == "not_applicable":
+        reason = (getattr(outcome, "raw_output", "") or "capability gap").removeprefix("SKIP: ")
+        return f"| {model_id} | {code} | — | SKIP({reason}) | — | — | — |"
+    if status == "inconclusive":
+        reason = (getattr(outcome, "raw_output", "") or "no gradeable output").removeprefix("INCONCLUSIVE: ")
+        return f"| {model_id} | {code} | — | INCONCLUSIVE({reason}) | — | {latency} | {tokens} |"
+    items = getattr(outcome, "items", []) or []
+    ok = len(items) and all(i.passed for i in items)
+    items_txt = f"{sum(1 for i in items if i.passed)}/{len(items)}"
+    score = getattr(outcome, "score", 0.0)
+    return (
+        f"| {model_id} | {code} | {score:.1f} | "
+        f"{'PASS' if ok else 'FAIL'} | {items_txt} | {latency} | {tokens} |"
+    )
+
+
 @app.command()
+
 def bench(
     models: Optional[str] = typer.Option(
         None, "--models",
@@ -122,6 +146,12 @@ def bench(
     battery: Optional[BenchmarkCategory] = typer.Option(
         None, "--battery",
         help="run a single benchmark battery (default: all 10 livebench batteries)",
+    ),
+    quick: bool = typer.Option(
+        False, "--quick",
+        help="fast lane for release windows: 5 decision-critical batteries "
+             "(speed, instruction_follow, reasoning, tool_use, long_context), "
+             "one round each (~30-60 min vs full ~2h); --battery wins if both given",
     ),
     pick: bool = typer.Option(
         False, "--pick",
@@ -157,7 +187,18 @@ def bench(
     from hr.bench import LIVEBENCH_BATTERIES, LivebenchEngine, battery_code, make_sweep_id
 
     batteries: list[BenchmarkCategory] = (
-        [battery] if battery is not None else list(LIVEBENCH_BATTERIES)
+        [battery] if battery is not None
+        else (
+            [
+                BenchmarkCategory.speed,
+                BenchmarkCategory.instruction_follow,
+                BenchmarkCategory.reasoning,
+                BenchmarkCategory.tool_use,
+                BenchmarkCategory.long_context,
+            ]
+            if quick
+            else list(LIVEBENCH_BATTERIES)
+        )
     )
     if pick and models:
         _fail("error: --pick and --models are mutually exclusive "
@@ -189,6 +230,10 @@ def bench(
         console.print("[green]# dry-run[/green]")
         for model_id in model_ids:
             console.print(f"  • {model_id}", markup=False)
+        console.print(
+            f"  batteries: {', '.join(battery_code(x) for x in batteries)}",
+            markup=False,
+        )
         return
 
     engine = LivebenchEngine()
@@ -216,6 +261,7 @@ def bench(
         console.print(header)
         n_measurements = 0
         n_failed = 0
+        n_skipped = 0
         for model_id in model_ids:
             for b in batteries:
                 outcome = engine.run_battery(model_id, b)
@@ -231,15 +277,14 @@ def bench(
                 if not manifest_stored:
                     engine.store_manifest(conn, sweep_id, manifest)
                     manifest_stored = True
-                ok = len(outcome.items) and all(i.passed for i in outcome.items)
-                items_txt = f"{sum(1 for i in outcome.items if i.passed)}/{len(outcome.items)}"
-                console.print(
-                    f"| {model_id} | {battery_code(b)} | {outcome.score:.1f} | "
-                    f"{'PASS' if ok else 'FAIL'} | {items_txt} | "
-                    f"{outcome.latency_ms} | {outcome.tokens_in + outcome.tokens_out} |"
-                )
+                console.print(bench_row_markdown(model_id, battery_code(b), outcome))
                 n_measurements += len(outcome.items)
-                n_failed += 0 if ok else 1
+                if outcome.status == "scored" and not (
+                    len(outcome.items) and all(i.passed for i in outcome.items)
+                ):
+                    n_failed += 1
+                elif outcome.status != "scored":
+                    n_skipped += 1
         console.print(
             f"[green]wrote {n_measurements} measurements to sweep {sweep_id}"
             f" ({n_failed} failed runs)[/green]"

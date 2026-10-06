@@ -12,8 +12,8 @@ LATEST_SWEEP_SQL = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT
 
 from .decision import (
     battery_codes,
-    capability_means,
-    measurement_count,
+    capability_means_profile,
+    measurement_count_profile,
     model_capabilities,
     seat_rows,
     separation_probabilities,
@@ -25,10 +25,10 @@ def build_verdict_report(
     deployable: set[str] | None = None,
 ) -> str:
     dep = deployable if deployable is not None else _runtime_load_deployable()
-    means = capability_means(conn, sweep_id)
+    means = capability_means_profile(conn)
     reports = sweep_health(conn, sweep_id)
     codes = battery_codes(conn)
-    n_meas = measurement_count(conn, sweep_id)
+    n_meas = measurement_count_profile(conn)
     seat_db = seat_rows(conn)
     caps_db = model_capabilities(conn)
     separations = separation_probabilities(conn, sweep_id)
@@ -148,7 +148,7 @@ def build_status_report(conn) -> str:
             + _contract_lines(conn)
         )
     sweep_id = str(board[0][0])
-    means = capability_means(conn, sweep_id)
+    means = capability_means_profile(conn)
     codes = battery_codes(conn)
     deployable = set(_runtime_load_deployable())
     model_ids = sorted(means)

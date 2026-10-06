@@ -6,6 +6,7 @@ from typing import Any, Callable, Protocol
 from hr.adapters.base import Adapter, AdapterError, Capabilities, ChatRequest
 from hr.bench import prompts, stress_prompts
 from hr.bench.engine_results import _RunResult
+from hr.bench.scorer_runtime import _BenchmarkOutcome
 from hr.bench.scorers import _safe_calculate, score_attention_stress, score_tool_use_text
 from hr.graders.base import ModelResponse
 from hr.models import BenchmarkCategory
@@ -94,6 +95,25 @@ class EngineInteractiveMixin(Protocol):
                          "content": str(result)}
                     ],
                 })
+
+        if not final_text.strip() and tokens_out > 0:
+            # 191 field incident (sweep 790a73): the stream GENERATED tokens
+            # but the loop recorded no final text -> scoring would silently
+            # stamp "scored 0" onto an infrastructure loss. The machine's
+            # failure must never impersonate the model's score.
+            return _RunResult(
+                outcome=_BenchmarkOutcome(
+                    score=0.0, passed=False,
+                    raw_output="INCONCLUSIVE: empty final answer after "
+                               f"{tokens_out} generated tokens (loop turns=6)",
+                    status="inconclusive",
+                ),
+                response_text="",
+                latency_ms=latency_ms,
+                tokens_in=tokens_in,
+                tokens_out=tokens_out,
+                requested_max_output=4096,
+            )
 
         outcome = score_tool_use_text(final_text, tool_used)
         return _RunResult(
