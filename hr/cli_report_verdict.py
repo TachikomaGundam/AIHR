@@ -20,6 +20,16 @@ from .decision import (
 )
 from .health import summary_table, sweep_health
 
+def _starved_suffix(codes: list[str]) -> str:
+    from .decision import starved_knobs
+
+    starved = starved_knobs(set(codes))
+    if not starved:
+        return ""
+    detail = ", ".join(f"{k}→{b}" for k, b in sorted(starved))
+    return f"\n⚠ starved verdict knobs (evidence battery has no data, weight 0): {detail}"
+
+
 def build_verdict_report(
     conn, sweep_id: str, *, include_retired: bool = False,
     deployable: set[str] | None = None,
@@ -39,11 +49,11 @@ def build_verdict_report(
     pool = set(model_ids) if include_retired else set(model_ids) - retired_set
 
     header = (
-        f"# Verdict — sweep {sweep_id}\n"
+        f"# Verdict — profile (latest scored run per model×battery) · anchor sweep {sweep_id}\n"
         f"n measurements: {n_meas} · "
         "zero new API calls (mined from existing measurements) · "
         f"deployable pool: {len(pool)}/{len(model_ids)} models "
-        "(iron rule 5: retired models never assigned)"
+        "(iron rule 5: retired models never assigned)" + _starved_suffix(codes)
     )
 
     # (a) capability battery averages
@@ -88,8 +98,8 @@ def build_verdict_report(
     seat_note = (
         "Recommended assignments use rank() with a documented simplified "
         "fitness: rolespec knob weights mapped onto runtime DB battery codes "
-        "({reasoning→reasoning, top_tool_fraction→tool_a, "
-        "coverage→hallucination, longctx→livebench_long_context, "
+        "({reasoning→livebench_reasoning, top_tool_fraction→livebench_tool_use, "
+        "coverage→hallucination (v1 pool only), longctx→livebench_long_context, "
         "speed_cost→livebench_speed} — repointable via the `knob_battery:` "
         "section of configs/thresholds.yaml; a knob whose battery has no "
         "data contributes 0 with a logged warning); ranking input = weighted "

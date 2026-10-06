@@ -161,7 +161,7 @@ def test_knob_battery_override_reads_config(monkeypatch):
         assert cli_mod._KNOB_TO_BATTERY["longctx"] == "custom_ctx"
         assert cli_mod._KNOB_TO_BATTERY["speed_cost"] == "custom_speed"
         assert "bogus" not in cli_mod._KNOB_TO_BATTERY  # unknown knob ignored
-        assert cli_mod._KNOB_TO_BATTERY["reasoning"] == "reasoning"  # int ignored
+        assert cli_mod._KNOB_TO_BATTERY["reasoning"] == "livebench_reasoning"  # new default kept (non-str override ignored)  # int ignored
     finally:
         cli_mod._KNOB_TO_BATTERY.clear()
         cli_mod._KNOB_TO_BATTERY.update(saved)

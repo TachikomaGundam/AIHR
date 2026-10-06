@@ -94,3 +94,16 @@ def test_explicit_battery_beats_quick(monkeypatch) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "speed" in result.output and "reasoning" not in result.output
+
+
+def test_starved_knobs_visible_and_mapping_on_livebench_plane() -> None:
+    from hr.decision import _KNOB_TO_BATTERY, starved_knobs
+
+    assert _KNOB_TO_BATTERY["reasoning"] == "livebench_reasoning"
+    assert _KNOB_TO_BATTERY["top_tool_fraction"] == "livebench_tool_use"
+    livebench = set(_KNOB_TO_BATTERY.values())
+    assert starved_knobs(livebench) == []  # full plane: zero starvation
+    starved = starved_knobs({"livebench_reasoning", "livebench_speed"})
+    pairs = dict(starved)
+    assert "top_tool_fraction" in pairs and "coverage" in pairs  # reported, not silent
+    assert "reasoning" not in pairs  # fed battery never listed

@@ -16,14 +16,29 @@ from hr.seats.rolespec import DEFAULT_BATTERY_BY_SEAT, SEAT_CODES
 
 logger = logging.getLogger(__name__)
 
+# Knob defaults live on the LIVEBENCH plane: every customer install produces
+# these codes (191, 2026-10-06: three knobs silently starved at fitness 0).
+# 'coverage' keeps the v1 hallucination pool — livebench has NO factuality
+# battery; mapping it to a proxy would distort seats worse than 0 weight.
+# configs/thresholds.yaml knob_battery: overrides as usual (config wins).
 _KNOB_TO_BATTERY: dict[str, str] = {
-    "reasoning": "reasoning",
-    "top_tool_fraction": "tool_a",
+    "reasoning": "livebench_reasoning",
+    "top_tool_fraction": "livebench_tool_use",
     "coverage": "hallucination",
     "longctx": "livebench_long_context",
     "speed_cost": "livebench_speed",
 }
 _WARNED_MISSING_BATTERY: set[tuple[str, str]] = set()
+
+
+def starved_knobs(available_batteries: set[str]) -> list[tuple[str, str]]:
+    """(knob, battery) pairs whose evidence battery has no rows — the verdict
+    prints these so a zero-weight knob is never a silent degradation."""
+    return [
+        (knob, code)
+        for knob, code in _KNOB_TO_BATTERY.items()
+        if code not in available_batteries
+    ]
 
 
 def _apply_knob_battery_overrides() -> None:

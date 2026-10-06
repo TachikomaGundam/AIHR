@@ -106,10 +106,10 @@ def test_seat_assignments_uses_directional_separation_for_tied_fitness() -> None
 
     # Given: equal capability and health, with bootstrap evidence favoring m_b.
     means = {
-        "m_a": {"reasoning": 0.5},
-        "m_b": {"reasoning": 0.5},
+        "m_a": {"livebench_reasoning": 0.5},
+        "m_b": {"livebench_reasoning": 0.5},
     }
-    separations = {"reasoning": {("m_b", "m_a"): 0.99}}
+    separations = {"livebench_reasoning": {("m_b", "m_a"): 0.99}}
 
     # When: the canonical seat decision is computed.
     assignments = seat_assignments(
@@ -118,7 +118,7 @@ def test_seat_assignments_uses_directional_separation_for_tied_fitness() -> None
         {},
         {},
         {},
-        ["reasoning"],
+        ["livebench_reasoning"],
         set(),
         False,
         separations,
