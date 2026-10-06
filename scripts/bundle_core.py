@@ -372,7 +372,63 @@ def check_bundle_members(members: list[str], os_name: str) -> list[str]:
             problems.append(f"missing file: {req}")
     if os_name != "windows" and not any(m.startswith("app/_internal/") for m in members):
         problems.append("missing PyInstaller app/_internal/ payload")
+    # vendored-python lane (0.5.0): optional, but when present it must be a
+    # usable PBS tree — and never on windows (no bwrap sandbox there).
+    has_py = any(m == "py/bin/python3" or m.startswith("py/bin/") for m in members)
+    if os_name == "windows" and has_py:
+        problems.append("windows bundle must not ship py/ (sandbox is posix-only)")
+    if has_py and "py/bin/python3" not in members:
+        problems.append("py/ staged but py/bin/python3 missing")
     return problems
+
+
+PY_PRUNE_DIRS: Final[tuple[str, ...]] = (
+    "include",          # C headers: nothing at runtime needs them
+    "share/man",        # docs
+    "lib/pkgconfig",
+)
+PY_PRUNE_SUBTREES: Final[tuple[str, ...]] = (
+    "test", "idlelib", "idle_test", "turtledemo", "tkinter", "ensurepip",
+    "site-packages/pip", "site-packages/setuptools",
+)
+
+
+def normalize_py(src_home: Path, dest: Path) -> int:
+    """Copy a relocatable CPython home (PBS / uv-managed) into ``dest`` (py/),
+    pruned to the runtime minimum. Returns copied top-level entry count.
+
+    The sandboxed grader imports stdlib only; headers, docs, tkinter, idle,
+    pip/setuptools and the stdlib test suite can never be reached from /work.
+    Symlinks are preserved (PBS ships bin/python3 -> python3.12)."""
+    shutil.rmtree(dest, ignore_errors=True)
+    dest.mkdir(parents=True)
+
+    def _ignore(dir_path: "Path | str", names: list[str]) -> set[str]:
+        drop = {n for n in names if n == "__pycache__"}
+        rel_parts = Path(dir_path).relative_to(src_home).parts
+        if not rel_parts:
+            drop.update(n for n in names if n in PY_PRUNE_DIRS)
+        if rel_parts[:2] and rel_parts[0] == "lib" and len(rel_parts) == 2:
+            # inside lib/pythonX.Y/: prune stdlib junk packages
+            drop.update(n for n in names if n in PY_PRUNE_SUBTREES)
+        if "site-packages" in rel_parts and Path(dir_path).name == "site-packages":
+            drop.update(n for n in names if n in ("pip", "setuptools"))
+        return drop
+
+    copied = 0
+    for entry in sorted(src_home.iterdir()):
+        if entry.name in PY_PRUNE_DIRS:
+            continue
+        target = dest / entry.name
+        if entry.is_dir():
+            shutil.copytree(entry, target, symlinks=True, ignore=_ignore)
+            for sta in target.rglob("*.a"):  # static libpython etc.
+                sta.unlink(missing_ok=True)
+            copied += 1
+        else:
+            shutil.copy2(entry, target)
+            copied += 1
+    return copied
 
 
 # --------------------------------------------------------------------------

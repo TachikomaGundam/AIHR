@@ -49,6 +49,7 @@ from scripts.bundle_core import (  # noqa: E402  (sys.path bootstrap precedes th
     libs_pin_file,
     load_pin_text,
     normalize_pg,
+    normalize_py,
     parse_libs_pin,
     pick_pg_root,
     pick_target,
@@ -422,6 +423,20 @@ def build_bundle(args: argparse.Namespace) -> int:
             for member in stage_pg_libs(repo, stage / "pg", args.pg_cache.parent / "libs"):
                 _log(f"  vendored {member}")
 
+    if args.py_home is not None:
+        if args.os == "windows":
+            _log("stage py: skipped on windows (sandbox is posix-only; no py/ shipped)")
+        else:
+            probe = args.py_home / "bin" / "python3"
+            if not probe.exists():
+                raise BundleError(f"--py-home {args.py_home} has no bin/python3")
+            shutil.rmtree(stage / "py", ignore_errors=True)
+            n = normalize_py(args.py_home.resolve(), stage / "py")
+            _log(f"stage py: vendored interpreter from {args.py_home} ({n} entries)")
+    elif args.os != "windows":
+        _log("stage py: NOT vendored (--py-home absent): code_gen stays "
+             "not_applicable on this bundle")
+
     _log("stage share: repo templates -> share/aihr/")
     shutil.rmtree(stage / "share", ignore_errors=True)
     build_share(repo, stage / "share")
@@ -468,6 +483,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "(core-only bundle for selftest; NEVER release-grade)",
     )
     mode.add_argument("--skip-pg", action="store_true", help="reuse staged pg/ tree")
+    mode.add_argument(
+        "--py-home",
+        type=Path,
+        default=None,
+        help="path to a relocatable CPython home (uv python install / PBS) to "
+             "vendor as py/ for the code-gen sandbox (posix targets only)",
+    )
     ops = parser.add_argument_group("archive operations (no build)")
     ops.add_argument("--list", action="store_true", help="print archive members and exit")
     ops.add_argument(

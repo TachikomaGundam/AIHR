@@ -52,13 +52,20 @@ jobs:
           path: ~/.cache/aihr-build/pg
           key: aihr-pg-${{ hashFiles('release/pg-pin.json') }}-${{ matrix.target_os }}-${{ matrix.arch }}
 
+      - name: Fetch relocatable CPython for the code-gen sandbox
+        if: matrix.target_os != 'windows'
+        run: |
+          uv python install --install-dir "$PWD/.py-fetch" 3.12
+          echo "PY_HOME=$(find "$PWD/.py-fetch" -maxdepth 1 -type d -name 'cpython-*' | head -1)" >> "$GITHUB_ENV"
+
       - name: Build turnkey bundle
         shell: bash
         run: |
           uv sync
           uv run --with pyinstaller python scripts/build_bundle.py \
             --os "${{ matrix.target_os }}" --arch "${{ matrix.arch }}" \
-            --version "$AIHR_VERSION" --out dist
+            --version "$AIHR_VERSION" --out dist \
+            ${PY_HOME:+--py-home "$PY_HOME"}
 
       - uses: actions/upload-artifact@v4
         with:
