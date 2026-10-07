@@ -34,6 +34,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
         BenchmarkCategory.vision: EngineRunnersMixin._run_vision,
         BenchmarkCategory.speed: EngineRunnersMixin._run_speed,
         BenchmarkCategory.long_horizon: EngineRunnersMixin._run_long_horizon,
+        BenchmarkCategory.factuality: EngineRunnersMixin._run_factuality,
     }
     def __init__(
         self,

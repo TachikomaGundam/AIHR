@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 _KNOB_TO_BATTERY: dict[str, str] = {
     "reasoning": "livebench_reasoning",
     "top_tool_fraction": "livebench_tool_use",
-    "coverage": "hallucination",
+    "coverage": "livebench_factuality",
     "longctx": "livebench_long_context",
     "speed_cost": "livebench_speed",
 }

@@ -34,6 +34,46 @@ class EngineRunnersMixin(Protocol):
             score_code_gen,
         )
 
+    def _run_factuality(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
+        """B2: 8 cards x 2 single-turn calls (answerable key-fact + trap)."""
+        from hr.bench.prompts import (
+            FACT_ANSWER_HEADER,
+            FACT_TRAP_HEADER,
+            FACTUALITY_CARDS,
+        )
+        from hr.bench.scorers import score_factuality
+
+        results: list[tuple[str, str]] = []
+        text_log: list[str] = []
+        tokens_in = tokens_out = latency = 0
+        for card in FACTUALITY_CARDS:
+            texts: list[str] = []
+            for tmpl in (FACT_ANSWER_HEADER, FACT_TRAP_HEADER):
+                prompt = tmpl.format(s=card["sheet"], q=card["q_answer"]
+                                     if tmpl is FACT_ANSWER_HEADER else card["q_trap"])
+                resp = self._chat(model_id, adapter, caps, ChatRequest(
+                    model_id=model_id,
+                    messages=[{"role": "user", "content": prompt}],
+                    thinking_budget=None,
+                    max_output=512,
+                    timeout_s=self._timeout_s,
+                ))
+                tokens_in += resp.tokens_in
+                tokens_out += resp.tokens_out
+                latency += resp.latency_ms
+                texts.append(resp.text)
+            results.append((texts[0], texts[1]))
+            text_log.append(f"[trap] {texts[1][:120]}")
+        outcome = score_factuality(results)
+        return _RunResult(
+            outcome=outcome,
+            response_text="\n".join(text_log),
+            latency_ms=latency,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            requested_max_output=512,
+        )
+
     def _run_reasoning(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
         return self._single_call(
             model_id, adapter, caps,

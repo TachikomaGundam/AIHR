@@ -96,7 +96,7 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
          ORDER BY b.battery_code
         """,
     )
-    assert len(links) == 10
+    assert len(links) == 11  # eleven batteries since factuality (0.6)
     for code, n_initial, n_max in links:
         assert n_initial is not None and n_max is not None
         assert 1 <= n_initial <= n_max
@@ -105,7 +105,7 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
     n_pool = _sql(
         scratch_conn, "SELECT COUNT(*) FROM hr.item_pool WHERE kind = 'livebench'"
     )[0][0]
-    assert n_pool == 64
+    assert n_pool == 72  # 64 + 8 factuality cards (0.6)
 
     # -- sweep / runs / measurements --------------------------------------
     assert _sql(
@@ -119,19 +119,23 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         """,
         (sweep_id,),
     )[0]
-    assert runs == (10, 10)
+    assert runs == (11, 11)
     n_meas = _sql(
         scratch_conn,
         "SELECT COUNT(*) FROM hr.measurement m JOIN hr.run r ON r.run_id = m.run_id "
         "WHERE r.sweep_id = %s",
         (sweep_id,),
     )[0][0]
-    assert n_meas == 13 + 13 + 16 + 1 + 3 + 8 + 4 + 1 + 1 + 4
+    assert n_meas == 13 + 13 + 16 + 1 + 3 + 8 + 4 + 1 + 1 + 4 + 8  # factuality: 8 cards (0.6)
 
     # -- per-battery means equal the v1 battery score --------------------
     # (100.0 everywhere except speed: fake responds 2000 tok / 2s -> tier 90)
     expected = {battery_code(b): 100.0 for b in LIVEBENCH_BATTERIES}
     expected[battery_code(BenchmarkCategory.speed)] = 90.0
+    # the canned fake answer holds neither the factuality keys nor the
+    # forbidden trap values -> key-hit fails on every card; 0.0 is the
+    # mock lane's honest output, not an engine fault.
+    expected[battery_code(BenchmarkCategory.factuality)] = 0.0
     means = _sql(
         scratch_conn,
         """
@@ -188,4 +192,4 @@ def test_e2e_idempotent_registration(scratch_conn) -> None:
     first = _sql(scratch_conn, "SELECT COUNT(*) FROM hr.battery")[0][0]
     engine.ensure_registered(scratch_conn)
     second = _sql(scratch_conn, "SELECT COUNT(*) FROM hr.battery")[0][0]
-    assert first == second == 10
+    assert first == second == 11
