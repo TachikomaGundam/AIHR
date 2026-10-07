@@ -16,6 +16,7 @@ class BenchmarkCategory(StrEnum):
     attention_probe = "attention_probe"
     attention_stress = "attention_stress"
     long_horizon = "long_horizon"
+    factuality = "factuality"
 
 
 class ModelProfile(BaseModel):

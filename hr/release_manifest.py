@@ -127,6 +127,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/bench/scorer_code.py",             # hidden-Python-test scorer running code through hr.sandbox
     "hr/bench/scorer_instruction.py",      # instruction-following constraint scorer (scorer_shared)
     "hr/bench/scorer_reasoning.py",        # runtime-truth math/number-theory scorer (scorer_shared)
+    "hr/bench/scorer_factuality.py",       # B2 context-grounded factuality scorer (livebench battery)
     "hr/bench/scorer_runtime.py",          # runtime-verified artifact scorer (scorer_shared)
     "hr/calibration_cli.py",               # calibration command cluster (calibration_runner + config)
     "hr/config_resources.py",              # shipped yaml config files resolved as package resources

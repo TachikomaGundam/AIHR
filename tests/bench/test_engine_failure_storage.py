@@ -39,7 +39,7 @@ def test_e2e_garbage_adapter_records_failed_run_not_crash(
         """,
         (sweep_id,),
     )
-    assert len(rows) == 10  # all 10 batteries recorded
+    assert len(rows) == 11  # all eleven batteries recorded
     for code, count, mean in rows:
         assert count >= 1
         if code == "livebench_speed":

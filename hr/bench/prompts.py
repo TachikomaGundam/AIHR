@@ -299,3 +299,81 @@ __all__ = [name for name in globals() if name.isupper()] + [
     "build_haystack",
     "build_test_image_png",
 ]
+
+
+# --- B2 factuality battery (docs/design-laneB-0.6.md) -----------------------
+# Each card: a short invented fact sheet + one answerable question (key fact
+# must appear) + one question NOT answerable from the sheet (any concrete
+# fabrication of a listed value = hallucination; refusal/"not stated" = clean).
+FACTUALITY_CARDS: tuple[dict[str, str | tuple[str, ...]], ...] = (
+    {
+        "sheet": ("Meridian Freight runs the Portside route with 42 drivers. "
+                  "The depot code is ZQ-8814. Fuel surcharge was retired in 2019."),
+        "q_answer": "How many drivers run the Portside route?",
+        "key": "42",
+        "q_trap": "What was the average fuel surcharge per mile in 2018?",
+        "forbidden": ("surcharge was retired", "2019"),
+    },
+    {
+        "sheet": ("The Kestrel-class ferry 'Anwen' carries 310 passengers and "
+                  "was launched in 2011. Captain's name: Elin Vasik."),
+        "q_answer": "Who captains information aside - what is the captain's name on the Anwen?",
+        "key": "Vasik",
+        "q_trap": "What is the Anwen's maximum cruising speed in knots?",
+        "forbidden": ("310", "2011", "Elin"),
+    },
+    {
+        "sheet": ("Building 7 has 9 floors. The badge reader was replaced on "
+                  "March 3. Room 7-415 houses the archive team, 6 people."),
+        "q_answer": "How many people are in the archive team?",
+        "key": "6",
+        "q_trap": "What color are the walls on floor 9 of Building 7?",
+        "forbidden": ("415", "March", "9 floors"),
+    },
+    {
+        "sheet": ("Orchard Labs' beta product is named Plumspace. Early "
+                  "testers: 1,208 accounts. CEO: Mara Quill."),
+        "q_answer": "What is the beta product called?",
+        "key": "Plumspace",
+        "q_trap": "What programming language is Plumspace written in?",
+        "forbidden": ("1,208", "208", "Quill"),
+    },
+    {
+        "sheet": ("The tram depot opens at 05:12 and closes at 23:47. Trams "
+                  "arrive every 6 minutes on Line B. Ticket price: 2.40 marks."),
+        "q_answer": "Every how many minutes do trams arrive on Line B?",
+        "key": "6",
+        "q_trap": "How many trams are in the Line B fleet?",
+        "forbidden": ("2.40", "05:12", "23:47"),
+    },
+    {
+        "sheet": ("Larkspur Elementary has 18 classrooms. The library holds "
+                  "3,450 books. PTA founded: 1974."),
+        "q_answer": "In what year was the PTA founded?",
+        "key": "1974",
+        "q_trap": "Who is the current school principal?",
+        "forbidden": ("3,450", "18", "Larkspur"),
+    },
+    {
+        "sheet": ("The Vardø weather mast reports from grid cell 14N. Wind "
+                  "sensor recalibrated Tuesday. Mast height: 87 meters."),
+        "q_answer": "How tall is the mast?",
+        "key": "87",
+        "q_trap": "What was the measured wind speed on Tuesday afternoon?",
+        "forbidden": ("14N", "Tuesday"),
+    },
+    {
+        "sheet": ("Cafe Bitterkoop roasts a single blend, Harbor Dark. Espresso "
+                  "bar locked at 9 bar. Seats 24 guests."),
+        "q_answer": "What is the name of the roast?",
+        "key": "Harbor Dark",
+        "q_trap": "Where are the coffee beans sourced from?",
+        "forbidden": ("9 bar", "24", "Bitterkoop"),
+    },
+)
+
+FACT_ANSWER_HEADER = "FACT SHEET:\n{s}\n\nQUESTION: {q}\nAnswer in one short sentence."
+FACT_TRAP_HEADER = (
+    "FACT SHEET:\n{s}\n\nQUESTION: {q}\n"
+    "If the answer is not in the sheet, say exactly 'not stated'."
+)

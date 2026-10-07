@@ -44,6 +44,7 @@ LIVEBENCH_BATTERIES: tuple[BenchmarkCategory, ...] = (
     BenchmarkCategory.vision,
     BenchmarkCategory.speed,
     BenchmarkCategory.long_horizon,
+    BenchmarkCategory.factuality,
 )
 
 _BATTERY_DESCRIPTIONS: dict[BenchmarkCategory, str] = {
@@ -74,6 +75,9 @@ _BATTERY_DESCRIPTIONS: dict[BenchmarkCategory, str] = {
         "hand-made 180x180 PNG with 4 colored squares (count/colors/positions)"
     ),
     BenchmarkCategory.speed: "tokens/sec scored into tiers (30..90)",
+    BenchmarkCategory.factuality: (
+        "8 context-grounded cards: key-fact recall + unanswerable-trap fabrication check"
+    ),
     BenchmarkCategory.long_horizon: (
         "critical-path-method plan over a 6-task project graph, 4 components"
     ),
@@ -92,8 +96,10 @@ _ITEM_LABELS: dict[BenchmarkCategory, tuple[str, ...]] = {
     BenchmarkCategory.attention_stress: (
         "survive_t5", "survive_t10", "survive_t15", "survive_t20",
     ),
+    BenchmarkCategory.factuality: tuple(f"f{i:02d}" for i in range(8)),
     BenchmarkCategory.vision: ("image",),
     BenchmarkCategory.speed: ("speed",),
+    BenchmarkCategory.factuality: tuple(f"f{i:02d}" for i in range(8)),
     BenchmarkCategory.long_horizon: (
         "critical_path", "duration", "slack", "action",
     ),

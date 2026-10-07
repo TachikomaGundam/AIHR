@@ -26,7 +26,7 @@ from hr.bench.scorers import score_long_horizon
 from hr.models import BenchmarkCategory
 
 
-def test_registry_holds_all_ten_benchmarks() -> None:
+def test_registry_holds_all_eleven_benchmarks() -> None:
     names = [b.value for b in LIVEBENCH_BATTERIES]
     assert names == [
         "code_gen",
@@ -39,6 +39,7 @@ def test_registry_holds_all_ten_benchmarks() -> None:
         "vision",
         "speed",
         "long_horizon",
+        "factuality",
     ]
 
 
