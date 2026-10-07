@@ -202,6 +202,23 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                 cast(Any, adapter).attach_contract(
                     facts, force_low=survival_downgrade(battery, facts)
                 )
+            if facts is not None and facts.vision_ok and not caps.supports_vision:
+                # B1: config declared blind, the endpoint just SAW an image.
+                # Probe grants the capability; provenance lives in the
+                # contract row (facts.vision_ok), never silently rewritten.
+                from dataclasses import replace as _replace
+                caps = _replace(caps, supports_vision=True)
+                import logging
+                logging.getLogger("hr.bench").info(
+                    "vision capability granted by dialect probe for %s", model_id
+                )
+            elif caps.supports_vision and facts is not None and not facts.vision_ok:
+                import logging
+                logging.getLogger("hr.bench").warning(
+                    "config declares vision for %s but the probe got no image "
+                    "answer; keeping config (user wins), battery may fail loudly",
+                    model_id,
+                )
             reason = unmet_requirements(battery, caps.supports_thinking, facts)
             if reason is not None:
                 return self._to_outcome(

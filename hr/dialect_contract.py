@@ -25,7 +25,7 @@ import psycopg2.extensions
 
 from hr.models import BenchmarkCategory
 
-PROBE_VERSION = 2
+PROBE_VERSION = 3
 VALID_DAYS = 14
 
 # batteries whose request shape leans on a server dialect fact
@@ -63,6 +63,8 @@ class DialectFacts:
     usage_in_stream: bool = False
     tool_calls_ok: bool = False
     answer_chars_at_small_budget: int | None = None
+    # B1 (design-laneB): endpoint accepts image parts? probed, not declared.
+    vision_ok: bool = False
     probe_version: int = PROBE_VERSION
 
     def to_json(self) -> str:
@@ -178,6 +180,36 @@ def probe_dialect(
     except Exception:  # noqa: BLE001
         pass
 
+    # B1: vision acceptance probe - one tiny image part, 20-token answer.
+    # Non-fatal by design: a gateway that rejects images collapses to
+    # vision_ok=False (today's skip behavior), never to a false score.
+    try:
+        from hr.bench import prompts as _prompts
+        resp = post(
+            url,
+            headers=headers,
+            json={
+                "model": slug,
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "One word: dominant color of this image?"},
+                        {"type": "image_url", "image_url": {
+                            "url": "data:image/png;base64," + _prompts.build_test_image_png()}},
+                    ],
+                }],
+                "max_tokens": 20,
+            },
+            timeout=120,
+        )
+        if resp.status_code == 200:
+            answered += 1
+            msg = (resp.json().get("choices") or [{}])[0].get("message", {})
+            if isinstance(msg.get("content"), str) and msg["content"].strip():
+                facts.vision_ok = True
+    except Exception:  # noqa: BLE001
+        pass
+
     if answered == 0:
         raise ProbeUnreachableError(f"no chat-completions response from {url} - probe inconclusive")
     return facts
@@ -197,7 +229,7 @@ class ProbeUnreachableError(RuntimeError):
 # ---------------------------------------------------------------------------
 
 def contract_id_for(facts: DialectFacts) -> str:
-    seed = f"{facts.endpoint_url}|{facts.model_slug}|{facts.probe_version}|{sorted(facts.accepted_efforts)}|{facts.thinking_key}|{facts.tool_calls_ok}|{facts.usage_in_stream}"
+    seed = f"{facts.endpoint_url}|{facts.model_slug}|{facts.probe_version}|{sorted(facts.accepted_efforts)}|{facts.thinking_key}|{facts.tool_calls_ok}|{facts.usage_in_stream}|{facts.vision_ok}"
     return f"dc-{hashlib.sha256(seed.encode()).hexdigest()[:16]}"
 
 
