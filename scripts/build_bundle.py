@@ -23,6 +23,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from importlib.util import find_spec
@@ -113,7 +114,7 @@ def fetch_pg(pin: PgPin, target: PgTarget, cache_dir: Path) -> Path:
         _log(f"downloading {url}")
         request = urllib.request.Request(url, headers={"User-Agent": "aihr-build-bundle"})
         tmp = dest.with_name(f"{target.asset}.part{attempt}")
-        with urllib.request.urlopen(request, timeout=300) as resp, tmp.open("wb") as fh:
+        with urlopen_retry(request) as resp, tmp.open("wb") as fh:
             shutil.copyfileobj(resp, fh)
         actual = sha256_file(tmp)
         if actual != target.sha256:
@@ -147,6 +148,26 @@ def extract_pg(archive: Path, kind: str, dest: Path) -> Path:
 # --------------------------------------------------------------------------
 
 
+def urlopen_retry(request, *, timeout: int = 300, tries: int = 4):
+    """Open a URL with bounded exponential backoff on transient transport
+    faults (2026-10-07 CI lesson: a ConnectionReset mid-deb-download killed
+    two otherwise-green release trains; build tooling must ride that out)."""
+    import time
+
+    last: Exception | None = None
+    for attempt in range(1, tries + 1):
+        try:
+            return urllib.request.urlopen(request, timeout=timeout)
+        except (urllib.error.URLError, OSError) as exc:  # DNS/reset/timeout
+            last = exc
+            if attempt < tries:
+                delay = 5 * 3 ** (attempt - 1)
+                _log(f"WARNING: download attempt {attempt}/{tries} failed "
+                     f"({exc}); retrying in {delay}s")
+                time.sleep(delay)
+    raise BundleError(f"download failed after {tries} attempts: {last}")
+
+
 def fetch_deb(entry: DebPin, cache_dir: Path) -> Path:
     """Return the cached .deb, downloading + sha256-verifying on miss.
 
@@ -172,7 +193,7 @@ def fetch_deb(entry: DebPin, cache_dir: Path) -> Path:
         _log(f"downloading {entry.url}")
         request = urllib.request.Request(entry.url, headers={"User-Agent": "aihr-build-bundle"})
         tmp = dest.with_name(f"{entry.asset}.part{attempt}")
-        with urllib.request.urlopen(request, timeout=300) as resp, tmp.open("wb") as fh:
+        with urlopen_retry(request) as resp, tmp.open("wb") as fh:
             shutil.copyfileobj(resp, fh)
         actual = sha256_file(tmp)
         if actual != entry.sha256:
