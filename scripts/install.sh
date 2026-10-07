@@ -1,7 +1,7 @@
 #!/bin/sh
 # AIHR turnkey installer — POSIX sh (dash/bash/sh compatible), no bashisms.
 #
-# Places the bundle tree D = $HOME/.aihr (app/ pg/ share/; data/ is owned by
+# Places the bundle tree D = $HOME/.aihr (app/ pg/ share/ py/; data/ is owned by
 # `hr`, never touched here) and hands over to `hr install-post`.
 # Windows: use scripts/install.ps1.
 #
@@ -32,7 +32,7 @@ usage: sh install.sh [--version V] [--bundle FILE.tar.gz] [--port N]
   --version V            release version to fetch (default: GitHub latest)
   --bundle FILE          install this local tarball instead of downloading
   --port N               database port handed to `hr install-post`
-  --reinstall            replace app/ pg/ share/ in an existing install
+  --reinstall            replace app/ pg/ share/ py/ in an existing install
                          (data/ is never touched)
   --no-run-installer     place files only; skip `hr install-post` / `hr db-up`
 
@@ -176,7 +176,10 @@ tar -xzf "$ARCHIVE" -C "$STAGE/root"
 [ -x "$STAGE/root/pg/bin/initdb" ] || err "corrupt bundle: pg/bin/initdb missing"
 
 mkdir -p "$D"
-for comp in app pg share; do
+for comp in app pg share py; do
+  # py/ = vendored code-gen interpreter (0.5.0+ posix bundles); absent in dev
+  # builds and windows — carry it only when the bundle ships it.
+  [ -d "$STAGE/root/$comp" ] || continue
     rm -rf "${D:?}/${comp}"
     mv "$STAGE/root/$comp" "$D/$comp"
 done
