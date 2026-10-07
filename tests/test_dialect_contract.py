@@ -76,7 +76,7 @@ def test_probe_parses_vocabulary_keys_usage_and_tools() -> None:
     assert f.usage_in_stream is True
     assert f.tool_calls_ok is True
     assert f.answer_chars_at_small_budget == 2
-    assert len(calls) == 7  # 5 effort + 1 stream + 1 tool: probe budget honoured
+    assert len(calls) == 8  # 5 effort + 1 stream + 1 tool + 1 vision (B1): probe budget honoured
 
 
 def test_gate_blocks_thinking_battery_without_effort_evidence() -> None:
@@ -238,7 +238,8 @@ def test_probe_version_bump_invalidates_poisoned_rows() -> None:
     'valid' for 14 days and the fixed binary trusted it. Contract loading is
     version-filtered, so bumping PROBE_VERSION is the sanctioned way to retire
     rows produced by a defective probe - evidence preserved, gate re-probes."""
-    assert PROBE_VERSION == 2
+    # v3 = B1 adds the vision fact; v2 rows retire via version filter.
+    assert PROBE_VERSION == 3
 
 
 def test_survival_downgrade_matrix() -> None:
