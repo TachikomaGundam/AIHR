@@ -25,7 +25,7 @@ import psycopg2.extensions
 
 from hr.models import BenchmarkCategory
 
-PROBE_VERSION = 3
+PROBE_VERSION = 4
 VALID_DAYS = 14
 
 # batteries whose request shape leans on a server dialect fact
@@ -205,7 +205,15 @@ def probe_dialect(
         if resp.status_code == 200:
             answered += 1
             msg = (resp.json().get("choices") or [{}])[0].get("message", {})
-            if isinstance(msg.get("content"), str) and msg["content"].strip():
+            # v4 grant: thinking-model endpoints (191 field, 2026-10-08) answer
+            # with content=null and stream the whole reply into the reasoning
+            # channel; a content-only check was a structural false negative
+            # that SKIPped a vision-capable endpoint. Acceptance is still
+            # HTTP-status-first (rejection != empty-answer); any non-empty
+            # answer text on ANY channel proves the server ingested the
+            # image part without error.
+            answer = msg.get("content") or msg.get("reasoning") or msg.get("reasoning_content") or ""
+            if isinstance(answer, str) and answer.strip():
                 facts.vision_ok = True
     except Exception:  # noqa: BLE001
         pass

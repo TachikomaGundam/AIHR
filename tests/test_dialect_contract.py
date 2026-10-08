@@ -45,8 +45,13 @@ class FakeResp:
         return self._body
 
 
-def script(effort_statuses: dict[str, int], stream_lines=None, tool_body=None):
+def script(effort_statuses: dict[str, int], stream_lines=None, tool_body=None, vision_resp=None):
     calls: list[dict] = []
+
+    def _is_vision(body: dict) -> bool:
+        msgs = body.get("messages") or [{}]
+        content = msgs[0].get("content")
+        return isinstance(content, list) and any(p.get("type") == "image_url" for p in content)
 
     def post(url, *, headers, json: dict, timeout, stream=False):
         calls.append(json)
@@ -55,6 +60,8 @@ def script(effort_statuses: dict[str, int], stream_lines=None, tool_body=None):
             return FakeResp(effort_statuses.get(eff, 400))
         if json.get("stream"):
             return FakeResp(200, lines=stream_lines or [])
+        if _is_vision(json):
+            return vision_resp if vision_resp is not None else FakeResp(200, body=tool_body or {})
         return FakeResp(200, body=tool_body or {})
 
     return post, calls
@@ -77,6 +84,39 @@ def test_probe_parses_vocabulary_keys_usage_and_tools() -> None:
     assert f.tool_calls_ok is True
     assert f.answer_chars_at_small_budget == 2
     assert len(calls) == 8  # 5 effort + 1 stream + 1 tool + 1 vision (B1): probe budget honoured
+
+
+def _vision_msg_body(**message) -> dict:
+    return {"choices": [{"message": {"role": "assistant", **message}}]}
+
+
+def test_vision_probe_grants_on_content_or_reasoning_channels() -> None:
+    """191 field regression: qwen3.8-flash-next answered the image probe with
+    content=null and the full description in reasoning/reasoning_content; the
+    v3 content-only grant SKIPped a proven-seeing endpoint (72-measurement
+    sweep 2026-10-08). v4 grants on any non-empty answer channel."""
+    for message in (
+        {"content": "red"},
+        {"content": None, "reasoning": "four colored squares"},
+        {"content": None, "reasoning_content": "red"},
+    ):
+        post, _ = script({}, vision_resp=FakeResp(200, body=_vision_msg_body(**message)))
+        f = probe_dialect("http://h:8000/v1", {}, "m", post)
+        assert f.vision_ok is True, message
+
+
+def test_vision_probe_refuses_rejection_and_empty_answers() -> None:
+    """Status-first refusal survives the v4 widening: non-200 or an answer
+    that is empty on every channel never grants."""
+    for resp in (
+        FakeResp(400),
+        FakeResp(200, body=_vision_msg_body(content=None)),
+        FakeResp(200, body=_vision_msg_body(content="   ")),
+        FakeResp(200, body=_vision_msg_body(content=None, reasoning="")),
+    ):
+        post, _ = script({}, vision_resp=resp)
+        f = probe_dialect("http://h:8000/v1", {}, "m", post)
+        assert f.vision_ok is False, resp
 
 
 def test_gate_blocks_thinking_battery_without_effort_evidence() -> None:
@@ -239,7 +279,9 @@ def test_probe_version_bump_invalidates_poisoned_rows() -> None:
     version-filtered, so bumping PROBE_VERSION is the sanctioned way to retire
     rows produced by a defective probe - evidence preserved, gate re-probes."""
     # v3 = B1 adds the vision fact; v2 rows retire via version filter.
-    assert PROBE_VERSION == 3
+    # v4 = vision grant accepts reasoning-channel answers after the 191
+    #      content=null false negative; v3 rows retire the same way.
+    assert PROBE_VERSION == 4
 
 
 def test_survival_downgrade_matrix() -> None:
