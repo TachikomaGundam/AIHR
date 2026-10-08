@@ -44,3 +44,12 @@ B2: +1 BenchmarkCategory, prompts+scorer+registration, thresholds entry,
 knob default flip, ~10 tests. Both ship 0.6.0 (feature train), 0.5.x stays
 patch-only. Neither touches scoring honesty invariants (no-score-on-doubt
 rule holds for both).
+
+## Addendum 2026-10-08 (v4 grant fix, ships 0.6.1)
+Round-7 field truth on 191: qwen3.8-flash-next answered the B1 probe with
+`content: null` and the correct image description in `reasoning` — the v3
+content-only grant SKIPped a proven-seeing endpoint (manual reproduction:
+HTTP 200, "four colored squares (red, …)"). Grant widened to any non-empty
+answer channel, status-first refusal unchanged; PROBE_VERSION 3→4 retires
+v3 rows for one re-probe per model. B2 shipped green: 8/8 truly graded,
+starved-knob line gone from verdict.
