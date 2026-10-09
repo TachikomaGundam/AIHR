@@ -66,6 +66,28 @@ def test_runner_end_to_end_offline() -> None:
     assert res.tokens_out == 320
 
 
+def test_runner_persists_both_sides_of_every_card() -> None:
+    """#12 (round-7 field audit): response_text carried only trap lines, so
+    every key_hit verdict was the scorer's self-report, blind-replayable by
+    nobody. Both sides of all 8 cards must live in the persisted text."""
+    from hr.bench.engine_runners import EngineRunnersMixin
+
+    def responder(prompt: str, call_no: int) -> str:
+        if "say exactly 'not stated'" in prompt:
+            return "not stated"
+        return {1: "42 drivers on Portside", 2: "captain Elin Vasik",
+                3: "6 people in archive", 4: "Plumspace beta",
+                5: "every 6 minutes", 6: "founded 1974",
+                7: "87 meters", 8: "Harbor Dark roast"}[(call_no + 1) // 2]
+
+    eng = _StubEngine(responder)
+    res = EngineRunnersMixin._run_factuality(eng, "m/x", None, None)
+    assert res.response_text.count("[ans] ") == 8
+    assert res.response_text.count("[trap] ") == 8
+    for card in FACTUALITY_CARDS:
+        assert str(card["key"]).lower() in res.response_text.lower()
+
+
 def test_factuality_registered_in_live_schema(scratch_db) -> None:
     from hr.bench import LivebenchEngine
     import psycopg2

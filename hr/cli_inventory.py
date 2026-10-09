@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .bench.engine_results import BenchOutcome
 
 import typer
 
@@ -135,8 +138,21 @@ def bench_row_markdown(model_id: str, code: str, outcome: object) -> str:
     )
 
 
-@app.command()
+def _tally(counts: tuple[int, int, int], outcome: BenchOutcome) -> tuple[int, int, int]:
+    """#13: summary counts must mirror what store() persists — non-scored
+    outcomes keep a run row but zero measurement rows, and a below-gate
+    score is not an infrastructure failure. Pure so the rule is testable."""
+    n_measurements, n_failed, n_skipped = counts
+    if outcome.status == "scored":
+        n_measurements += len(outcome.items)
+        if not (len(outcome.items) and all(i.passed for i in outcome.items)):
+            n_failed += 1
+    else:
+        n_skipped += 1
+    return n_measurements, n_failed, n_skipped
 
+
+@app.command()
 def bench(
     models: Optional[str] = typer.Option(
         None, "--models",
@@ -278,16 +294,14 @@ def bench(
                     engine.store_manifest(conn, sweep_id, manifest)
                     manifest_stored = True
                 console.print(bench_row_markdown(model_id, battery_code(b), outcome))
-                n_measurements += len(outcome.items)
-                if outcome.status == "scored" and not (
-                    len(outcome.items) and all(i.passed for i in outcome.items)
-                ):
-                    n_failed += 1
-                elif outcome.status != "scored":
-                    n_skipped += 1
+                # #13: the summary must not overstate what store() persisted —
+                # non-scored outcomes keep a run row but zero measurement rows.
+                n_measurements, n_failed, n_skipped = _tally(
+                    (n_measurements, n_failed, n_skipped), outcome
+                )
         console.print(
             f"[green]wrote {n_measurements} measurements to sweep {sweep_id}"
-            f" ({n_failed} failed runs)[/green]"
+            f" ({n_failed} below-gate runs, {n_skipped} non-scored)[/green]"
         )
     except Exception as exc:
         _fail(f"error: {exc}")

@@ -63,7 +63,11 @@ class EngineRunnersMixin(Protocol):
                 latency += resp.latency_ms
                 texts.append(resp.text)
             results.append((texts[0], texts[1]))
-            text_log.append(f"[trap] {texts[1][:120]}")
+            # #12: persist BOTH sides per card — a blind auditor must be able
+            # to re-derive key_hit and fabrication from the DB alone; the
+            # round-7 sweep stored only the trap side, leaving every verdict
+            # dependent on the scorer's in-process self-report.
+            text_log.append(f"[ans] {texts[0][:200]}\n[trap] {texts[1][:120]}")
         outcome = score_factuality(results)
         return _RunResult(
             outcome=outcome,
