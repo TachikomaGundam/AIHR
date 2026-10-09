@@ -40,6 +40,27 @@ def test_scored_rows_keep_pass_fail_contract() -> None:
     assert "| FAIL |" in bad
 
 
+def test_tally_counts_only_persisted_rows() -> None:
+    """#13: the sweep summary must match store(): non-scored outcomes
+    persist zero measurement rows, and a below-gate score is counted as
+    below-gate, never as a run failure or a phantom row."""
+    from hr.cli_inventory import _tally
+
+    passed = [ItemResult(item_id="i1", label="i1", passed=True, score=100.0)]
+    mixed = [ItemResult(item_id="i1", label="i1", passed=False, score=50.0)]
+    counts = (0, 0, 0)
+    counts = _tally(counts, _outcome(items=passed))
+    assert counts == (1, 0, 0)  # scored all-pass
+    counts = _tally(counts, _outcome(items=mixed))
+    assert counts == (2, 1, 0)  # scored below gate
+    counts = _tally(counts, _outcome(status="not_applicable", items=passed))
+    assert counts == (2, 1, 1)  # NA: rows NOT persisted -> not counted
+    counts = _tally(counts, _outcome(status="inconclusive", items=passed))
+    assert counts == (2, 1, 2)  # transport death: not counted either
+    counts = _tally(counts, _outcome(items=[]))
+    assert counts == (2, 2, 2)  # scored-empty: 0 rows, counts as below-gate
+
+
 class _LoopEng(EngineInteractiveMixin):
     _timeout_s = 5
 
