@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TypedDict
 
 import numpy as np
@@ -129,6 +130,58 @@ def measurement_count_profile(conn) -> int:
         _PROFILE_CTE + " SELECT count(*) FROM latest l JOIN hr.measurement m ON m.run_id = l.run_id",
     )
     return int(rows[0][0]) if rows else 0
+
+
+def capability_profile_freshness(conn) -> dict[str, dict[str, datetime]]:
+    """Per (model, battery-code): when the profile's latest scored run started.
+
+    Row-level companion of ``capability_means_profile`` (owner ruling
+    2026-10-11 item 2): a recent sweep must not certify evidence it never
+    re-measured. Consumers age-check exactly the batteries a task requires.
+    """
+    rows = _fetch(
+        conn,
+        _PROFILE_CTE
+        + """
+        SELECT l.model_id, b.battery_code, max(r.started_at)
+          FROM latest l
+          JOIN hr.run r ON r.run_id = l.run_id
+          JOIN hr.battery b ON b.battery_id = l.battery_id
+         GROUP BY 1, 2
+        """,
+    )
+    out: dict[str, dict[str, datetime]] = {}
+    for model_id, code, started_at in rows:
+        if started_at is None:
+            continue
+        out.setdefault(str(model_id), {})[str(code)] = started_at
+    return out
+
+
+def capability_profile_stats(conn) -> dict[str, dict[str, tuple[float | None, int]]]:
+    """Per (model, battery-code): item-score stddev and count of the run the
+    profile uses. Measured-uncertainty input for recommendation intervals
+    (owner ruling 2026-10-11 item 3: bands must come from data, not from a
+    fabricated constant)."""
+    rows = _fetch(
+        conn,
+        _PROFILE_CTE
+        + """
+        SELECT l.model_id, b.battery_code,
+               stddev_samp(m.score)::float8, count(*)
+          FROM latest l
+          JOIN hr.measurement m ON m.run_id = l.run_id
+          JOIN hr.battery b ON b.battery_id = l.battery_id
+         GROUP BY 1, 2
+        """,
+    )
+    out: dict[str, dict[str, tuple[float | None, int]]] = {}
+    for model_id, code, sd, n in rows:
+        out.setdefault(str(model_id), {})[str(code)] = (
+            None if sd is None else float(sd),
+            int(n),
+        )
+    return out
 
 
 def capability_means(conn, sweep_id: str) -> dict[str, dict[str, float]]:

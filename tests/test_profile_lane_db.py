@@ -116,3 +116,62 @@ def test_inconclusive_run_lands_incident_row(scratch_db) -> None:
             assert cur.fetchone()[0] == "inconclusive"
     finally:
         conn.close()
+
+
+def test_profile_freshness_and_stats_are_per_battery(
+    scratch_db,
+) -> None:
+    """Ruling 2026-10-11 item 2/3: age and variance evidence is per row —
+    a newer partial lane refreshes only what it re-measured."""
+    from hr.decision import capability_profile_freshness, capability_profile_stats
+    from tests._db_contracts_helpers import (
+        seed_battery,
+        seed_item_pool,
+        seed_measurement,
+        seed_provider_models,
+        seed_run,
+        seed_seat,
+        seed_sweep,
+    )
+
+    _name, dsn = scratch_db
+    conn = psycopg2.connect(dsn)
+    conn.autocommit = True
+    try:
+        seed_provider_models(conn, ("m/fresh",))
+        seed_seat(conn, "_stage0_sweep", "stage0 sweep")
+        b_reas = seed_battery(conn, "livebench_reasoning")
+        b_speed = seed_battery(conn, "livebench_speed")
+        seed_item_pool(conn, "f-i1", domain="reasoning")
+        seed_item_pool(conn, "f-i2", domain="reasoning")
+        seed_item_pool(conn, "s-i1", domain="speed")
+        seed_sweep(conn, "sw-old")
+        seed_sweep(conn, "sw-new")
+        seed_run(conn, "run-o-s", "sw-old", "m/fresh", b_speed)
+        seed_measurement(conn, "mo-s1", "run-o-s", "s-i1", score=90.0)
+        seed_run(conn, "run-n-r", "sw-new", "m/fresh", b_reas)
+        seed_measurement(conn, "mn-r1", "run-n-r", "f-i1", score=100.0)
+        seed_measurement(conn, "mn-r2", "run-n-r", "f-i2", score=0.0)
+        with conn.cursor() as cur:
+            t0 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+            t1 = datetime(2026, 6, 1, tzinfo=timezone.utc)
+            cur.execute(
+                "UPDATE hr.run SET started_at = %s WHERE run_id = 'run-o-s'", (t0,)
+            )
+            cur.execute(
+                "UPDATE hr.run SET started_at = %s WHERE run_id = 'run-n-r'", (t1,)
+            )
+
+        fresh = capability_profile_freshness(conn)["m/fresh"]
+        assert fresh["livebench_reasoning"] == t1
+        assert fresh["livebench_speed"] == t0
+
+        stats = capability_profile_stats(conn)["m/fresh"]
+        sd_r, n_r = stats["livebench_reasoning"]
+        assert n_r == 2
+        assert sd_r is not None
+        assert sd_r == pytest.approx(70.71067811865476)
+        sd_s, n_s = stats["livebench_speed"]
+        assert n_s == 1 and sd_s is None
+    finally:
+        conn.close()

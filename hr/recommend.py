@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, TypeVar
@@ -12,9 +13,11 @@ import numpy as np
 import psycopg2
 import yaml
 
+from hr.bench.livebench import battery_code
 from hr.config import config_path, load_yaml
 from hr.db import connect as get_connection
 from hr.deployable import load_deployable
+from hr.models import BenchmarkCategory
 from hr.seats.health_gates import health_rank_score
 from hr.seats.health_gates import evaluate_gate
 from hr.recommendation_constraints import (
@@ -46,8 +49,9 @@ _SCORE_CAVEAT = (
     "score is the capability mean across task batteries minus the health penalty"
 )
 _INTERVAL_CAVEAT = (
-    "interval is a heuristic +/-0.05*(1-p) band around the score; "
-    "stage-1 anytime-valid intervals are authoritative during sweeps"
+    "interval is a 95% normal-approx band from the measured item-score "
+    "variance inside the required batteries; no band is shown when the "
+    "measured samples are insufficient"
 )
 
 _TASK_KEYWORDS: dict[str, tuple[str, ...]] = {
@@ -75,6 +79,31 @@ _DOMAIN_CATEGORY: dict[str, str] = {
     "general": "livebench_speed",
     "tool": "tool_a",
 }
+
+
+# One explicit mapping from config-vocabulary battery names to the canonical
+# DB battery codes (defect #16, owner ruling 2026-10-11 item 1). The data
+# plane only ever speaks ``livebench_*`` codes; routers and operator configs
+# may use legacy short names or stage-0 fossils. Resolution happens HERE —
+# the boundary where config names meet DB-keyed evidence — never scattered
+# through the routing logic.
+_LEGACY_ALIASES: dict[str, BenchmarkCategory] = {"tool_a": BenchmarkCategory.tool_use}
+_CATEGORY_BY_VALUE: dict[str, BenchmarkCategory] = {c.value: c for c in BenchmarkCategory}
+
+
+def canonical_battery(name: str) -> str:
+    """Map a config-vocabulary battery name to its canonical DB code.
+
+    Bare enum values (``code_gen``) and stage-0 fossils (``tool_a`` ->
+    ``livebench_tool_use``) resolve to ``livebench_*``; names already in
+    canonical form pass through untouched, as do unknown strings — the
+    coverage check then honestly reports those as missing evidence rather
+    than guessing.
+    """
+    member = _LEGACY_ALIASES.get(name) or _CATEGORY_BY_VALUE.get(name)
+    if member is None:
+        return name
+    return battery_code(member)
 
 
 def _blend_value(
@@ -131,22 +160,39 @@ def _load_pricing() -> dict[str, float]:
 
 
 def _load_tokens_per_call() -> dict[str, int]:
-    """Per-battery output-token profile from configs/models.yaml."""
+    """Per-battery output-token profile from configs/models.yaml.
+
+    Keys are resolved through ``canonical_battery`` so operator configs may
+    keep the bare vocabulary while lookups speak DB codes (defect #16 root).
+    """
     try:
         data = load_yaml("models.yaml")
     except (FileNotFoundError, yaml.YAMLError):
         return {}
     profile = data.get("tokens_per_call") or {}
-    return {str(battery): int(tokens) for battery, tokens in profile.items()}
+    return {
+        canonical_battery(str(battery)): int(tokens)
+        for battery, tokens in profile.items()
+    }
 
 
 def _estimate_task_tokens(
     batteries: tuple[str, ...], profile: dict[str, int]
-) -> int:
+) -> tuple[int, str]:
+    """(tokens, provenance) — ruling 2026-10-11 item 5: a generic-fallback
+    estimate must never masquerade as a battery-profile one."""
     matched = [profile[battery] for battery in batteries if battery in profile]
     if not matched:
-        return _FALLBACK_TOKENS_PER_CALL
-    return max(matched)
+        return (
+            _FALLBACK_TOKENS_PER_CALL,
+            f"tokens {_FALLBACK_TOKENS_PER_CALL}/request: generic fallback "
+            f"(no profile for {', '.join(batteries)})",
+        )
+    named = sorted(battery for battery in batteries if battery in profile)
+    return (
+        max(matched),
+        f"tokens {max(matched)}/request: max of profile [{', '.join(named)}]",
+    )
 
 
 def _estimate_cost(
@@ -203,13 +249,41 @@ def _policy_summary(constraints: RecommendationConstraints) -> dict[str, object]
     }
 
 
-def _heuristic_interval(score: float, separation_prob: float) -> tuple[float, float]:
-    """Heuristic +/-0.05*(1-p) band around ``score``, clamped to the score's
-    natural scale: [0, 1] for normalized scores, [0, 100] for 0-100 scores.
-    The band never leaves the domain and lo <= score <= hi always holds."""
-    half_width = 0.05 * (1.0 - separation_prob)
+def _measured_interval(
+    score: float, std_error: float | None
+) -> tuple[float, float] | None:
+    """95% normal-approx band from measured evidence; None without samples.
+
+    Replaces the pre-0.6.4 heuristic band whose half-width was a constant
+    independent of any measurement (misleadingly tight on the 0-100 scale;
+    owner ruling 2026-10-11 item 3). The band derives only from item-score
+    dispersion actually stored in hr.measurement.
+    """
+    if std_error is None or std_error <= 0.0:
+        return None
+    half_width = 1.959963985 * std_error
     scale_max = 100.0 if score > 1.0 else 1.0
     return (max(0.0, score - half_width), min(scale_max, score + half_width))
+
+
+def _combined_std_error(
+    batteries: tuple[str, ...],
+    stats: dict[str, tuple[float | None, int]],
+) -> float | None:
+    """SE of the equal-weight mean across ``batteries`` from (sd, n) stats.
+
+    Conservative by contract: if ANY required battery lacks >=2 measured
+    items the combined SE is None — a band over part of the score would
+    misrepresent the whole of it.
+    """
+    weight = 1.0 / len(batteries)
+    terms: list[float] = []
+    for battery in batteries:
+        sd, n = stats.get(battery, (None, 0))
+        if sd is None or n < 2:
+            return None
+        terms.append((weight * (float(sd) / math.sqrt(n))) ** 2)
+    return math.sqrt(sum(terms))
 
 
 def _sweep_age_days(sweep_created_at: datetime | None) -> float | None:
@@ -246,6 +320,7 @@ class RecommendationResult:
     eligible: tuple[RecommendationItem, ...]
     excluded: tuple[RecommendationItem, ...]
     indeterminate: tuple[RecommendationItem, ...]
+    evidence_errors: tuple[str, ...] = ()
 
 
 def _item_to_dict(item: RecommendationItem) -> dict[str, object]:
@@ -270,6 +345,7 @@ def _result_to_dict(result: RecommendationResult) -> dict[str, object]:
         "eligible": [_item_to_dict(item) for item in result.eligible],
         "excluded": [_item_to_dict(item) for item in result.excluded],
         "indeterminate": [_item_to_dict(item) for item in result.indeterminate],
+        "evidence_errors": list(result.evidence_errors),
     }
 
 
@@ -310,8 +386,12 @@ def format_recommendation_result(
             else ""
         ),
         "# Policy: " + json.dumps(_first_thresholds(result), sort_keys=True),
-        "",
     ]
+    if result.evidence_errors:
+        lines.append(
+            "# Evidence read failures: " + "; ".join(result.evidence_errors)
+        )
+    lines.append("")
     for label, bucket in (
         ("ELIGIBLE", result.eligible),
         ("EXCLUDED", result.excluded),
@@ -332,6 +412,7 @@ class RecommendationEngine:
         from hr.health import sweep_health
 
         self._conn = get_connection()
+        self._evidence_errors: list[str] = []
         try:
             self._sweep_id = latest_sweep_id(self._conn)
         except ValueError:
@@ -368,18 +449,11 @@ class RecommendationEngine:
         return conn
 
     def recommend_for_task(self, task_description: str) -> list[tuple[str, float]]:
-        text = task_description.lower()
-        batteries = {
-            battery
-            for battery, keywords in _TASK_KEYWORDS.items()
-            if any(keyword in text for keyword in keywords)
-        }
-        if not batteries:
-            batteries = {"reasoning", "code_gen", "livebench_speed", "tool_a"}
+        batteries = self._match_batteries(task_description)
         weight = 1.0 / len(batteries)
         scored = []
-        for model_id, means in self._means.items():
-            if not batteries.issubset(means):
+        for model_id, means in self._canon_battery_map(self._means).items():
+            if not set(batteries).issubset(means):
                 continue
             report = self._health.get(model_id)
             if report is not None and not evaluate_gate(report, "moderate")[0]:
@@ -399,14 +473,7 @@ class RecommendationEngine:
         Returns list of (model_id, score, constraint_failure_reasons) tuples.
         Models that pass all constraints have empty failure_reasons list.
         """
-        text = task_description.lower()
-        batteries = {
-            battery
-            for battery, keywords in _TASK_KEYWORDS.items()
-            if any(keyword in text for keyword in keywords)
-        }
-        if not batteries:
-            batteries = {"reasoning", "code_gen", "livebench_speed", "tool_a"}
+        batteries = self._match_batteries(task_description)
         weight = 1.0 / len(batteries)
         
         sweep_created_at = self._get_sweep_created_at()
@@ -415,8 +482,8 @@ class RecommendationEngine:
         separation_probs = self._get_separation_probabilities()
         
         results = []
-        for model_id, means in self._means.items():
-            if not batteries.issubset(means):
+        for model_id, means in self._canon_battery_map(self._means).items():
+            if not set(batteries).issubset(means):
                 continue
             report = self._health.get(model_id)
             if report is not None and not evaluate_gate(report, "moderate")[0]:
@@ -453,18 +520,27 @@ class RecommendationEngine:
         ``indeterminate``; it never silently passes.
         """
         policy = constraints if constraints is not None else default_constraints()
+        self._evidence_errors = []
         batteries = self._match_batteries(task_description)
         weight = 1.0 / len(batteries)
 
-        sweep_created_at = self._read_evidence(self._get_sweep_created_at)
-        latency_stats = self._read_evidence(self._get_latency_stats) or {}
-        success_rates = self._read_evidence(self._get_success_rates) or {}
+        sweep_created_at = self._read_evidence(
+            self._get_sweep_created_at, "sweep_created_at"
+        )
+        latency_stats = self._read_evidence(self._get_latency_stats, "latency_stats") or {}
+        success_rates = self._read_evidence(self._get_success_rates, "success_rates") or {}
+        profile_ts = self._read_evidence(self._get_profile_freshness, "profile_freshness") or {}
+        profile_stats = self._read_evidence(self._get_profile_stats, "profile_stats") or {}
         pricing = _load_pricing()
-        task_tokens = _estimate_task_tokens(batteries, _load_tokens_per_call())
+        task_tokens, cost_basis = _estimate_task_tokens(batteries, _load_tokens_per_call())
         thresholds = _policy_summary(policy)
+        thresholds["cost_basis"] = cost_basis
+        means_view = self._canon_battery_map(self._means)
+        profile_ts = self._canon_battery_map(profile_ts)  # type: ignore[assignment]
+        profile_stats = self._canon_battery_map(profile_stats)  # type: ignore[assignment]
 
         covered: list[tuple[str, float]] = []
-        for model_id, means in self._means.items():
+        for model_id, means in means_view.items():
             if set(batteries).issubset(means):
                 capability = sum(means[battery] * weight for battery in batteries)
                 report = self._health.get(model_id)
@@ -485,7 +561,7 @@ class RecommendationEngine:
         excluded: list[RecommendationItem] = []
         indeterminate: list[RecommendationItem] = []
 
-        for model_id, means in self._means.items():
+        for model_id, means in means_view.items():
             estimated_cost = _estimate_cost(model_id, task_tokens, pricing)
             missing = [b for b in batteries if b not in means]
             if missing:
@@ -511,13 +587,32 @@ class RecommendationEngine:
             separation_prob = self._separation_vs_rival(
                 model_id, rival_of.get(model_id), batteries
             )
+            ts_map = profile_ts.get(model_id, {})
+            required_ts = [(ts_map[b], b) for b in batteries if b in ts_map]
+            if required_ts:
+                oldest_ts, oldest_bat = min(required_ts, key=lambda pair: pair[0])
+            else:
+                oldest_ts, oldest_bat = None, None
             verdicts = policy.evaluate(
-                sweep_created_at=sweep_created_at,
+                sweep_created_at=(
+                    oldest_ts if oldest_ts is not None else sweep_created_at
+                ),
                 latency_stats=latency_stats.get(model_id),
                 success_rate=success_rates.get(model_id),
                 separation_prob=separation_prob,
                 estimated_cost=estimated_cost,
             )
+            if oldest_bat is not None:
+                verdicts = [
+                    ConstraintVerdict(
+                        v.constraint,
+                        v.status,
+                        f"{v.detail} [oldest required capability: {oldest_bat}]",
+                    )
+                    if v.constraint == "freshness"
+                    else v
+                    for v in verdicts
+                ]
             if report is None:
                 verdicts.append(
                     ConstraintVerdict(
@@ -563,14 +658,13 @@ class RecommendationEngine:
                 status = "eligible"
                 reasons = ()
                 caveats = (_SCORE_CAVEAT,)
-                if separation_prob is not None:
-                    caveats = (_SCORE_CAVEAT, _INTERVAL_CAVEAT)
 
-            interval = (
-                _heuristic_interval(score, separation_prob)
-                if separation_prob is not None
-                else None
+            interval = _measured_interval(
+                score,
+                _combined_std_error(batteries, profile_stats.get(model_id, {})),
             )
+            if interval is not None:
+                caveats = (*caveats, _INTERVAL_CAVEAT)
             item = RecommendationItem(
                 model_id=model_id,
                 status=status,
@@ -600,19 +694,25 @@ class RecommendationEngine:
             eligible=tuple(eligible),
             excluded=tuple(excluded),
             indeterminate=tuple(indeterminate),
+            evidence_errors=tuple(dict.fromkeys(self._evidence_errors)),
         )
 
-    def _read_evidence(self, reader: Callable[[], T]) -> T | None:
-        """Read an evidence source, degrading schema-drift failures to None.
+    def _read_evidence(self, reader: Callable[[], T], source: str) -> T | None:
+        """Read an evidence source, degrading failures to MISSING evidence.
 
         Some live DBs predate columns the contract-test schema has (e.g.
-        ``hr.run.status``). An unreadable evidence source is treated as
-        MISSING evidence — the affected constraint then rules every model
-        indeterminate rather than crashing the recommendation.
+        ``hr.run.status``). An unreadable source stays fail-safe (the
+        affected constraint rules models indeterminate, never passes) but
+        is never silent: type, source and message are logged and collected
+        so operators can tell "no data" from "data unreadable" (owner
+        ruling 2026-10-11 item 4).
         """
         try:
             return reader()
-        except Exception:
+        except Exception as exc:  # fail-safe by contract, loud by decree
+            message = f"{source}: {type(exc).__name__}: {exc}"
+            log.warning("hr recommend: evidence read failed — %s", message)
+            self._evidence_errors.append(message)
             return None
 
     def _match_batteries(self, task_description: str) -> tuple[str, ...]:
@@ -624,7 +724,21 @@ class RecommendationEngine:
         }
         if not batteries:
             batteries = {"reasoning", "code_gen", "livebench_speed", "tool_a"}
-        return tuple(sorted(batteries))
+        return tuple(sorted(canonical_battery(battery) for battery in batteries))
+
+    @staticmethod
+    def _canon_battery_map(outer: dict[str, dict[str, object]]) -> dict:
+        """Re-key a ``{model: {battery_code: value}}`` map onto canonical
+        battery codes (defect #16, data-access-boundary resolution). The task
+        recommendation path speaks canonical codes; DBs may store bare legacy
+        codes (stage-0) or ``livebench_*`` codes (current benches). Normalizing
+        at the boundary lets both worlds match without touching the seats
+        path, which compares against raw DB codes throughout.
+        """
+        return {
+            model: {canonical_battery(code): value for code, value in inner.items()}
+            for model, inner in outer.items()
+        }
 
     def _separation_vs_rival(
         self,
@@ -645,8 +759,12 @@ class RecommendationEngine:
             from hr.decision import separation_probabilities
 
             sep_data = separation_probabilities(self._conn, self._sweep_id)
-        except Exception:
+        except Exception as exc:  # fail-safe (no separation -> indeterminate), loud
+            message = f"separation_vs_rival: {type(exc).__name__}: {exc}"
+            log.warning("hr recommend: evidence read failed — %s", message)
+            self._evidence_errors.append(message)
             return None
+        sep_data = {canonical_battery(code): pairs for code, pairs in sep_data.items()}
         probs: list[float] = []
         for battery in batteries:
             pairs = sep_data.get(battery, {})
@@ -669,6 +787,16 @@ class RecommendationEngine:
             )
             row = cur.fetchone()
             return row[0] if row else None
+
+    def _get_profile_freshness(self) -> dict[str, dict[str, datetime]]:
+        from hr.decision import capability_profile_freshness
+
+        return capability_profile_freshness(self._require_conn())
+
+    def _get_profile_stats(self) -> dict[str, dict[str, tuple[float | None, int]]]:
+        from hr.decision import capability_profile_stats
+
+        return capability_profile_stats(self._require_conn())
 
     def _get_latency_stats(self) -> dict[str, dict[str, float]]:
         """Calculate latency percentiles per model from measurement data."""
@@ -747,7 +875,10 @@ class RecommendationEngine:
                 model_id: min(probs) if probs else 0.0
                 for model_id, probs in model_probs.items()
             }
-        except Exception:
+        except Exception as exc:  # fail-safe (missing separation), loud
+            message = f"separation_probabilities: {type(exc).__name__}: {exc}"
+            log.warning("hr recommend: evidence read failed — %s", message)
+            self._evidence_errors.append(message)
             return {}
 
     def seat_recommendations(self, seats: list[dict] | None = None) -> str:

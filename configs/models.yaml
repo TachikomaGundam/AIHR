@@ -41,6 +41,8 @@ pricing:
 # matches several batteries is costed at the MAXIMUM of their profiles; a
 # battery missing from this profile falls back to the stage-0 estimate
 # (EST_TOKENS_PER_CALL = 5000, hr/calibration_items.py) rather than 0.
+# Keys may use the bare battery vocabulary (code_gen) or the canonical DB
+# codes (livebench_code_gen); both resolve to the same battery at load.
 tokens_per_call:
   code_gen: 6000
   reasoning: 4000
