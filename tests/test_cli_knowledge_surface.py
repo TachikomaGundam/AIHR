@@ -41,6 +41,7 @@ class _FakeResult:
     eligible = []
     excluded = []
     indeterminate = []
+    evidence_errors = ()
 
 
 runner = CliRunner()
