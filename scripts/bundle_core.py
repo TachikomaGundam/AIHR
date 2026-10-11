@@ -105,6 +105,12 @@ def bundle_archive_name(version: str, os_name: str, arch: str) -> str:
     return f"aihr-{version}-{os_name}-{arch}.{archive_kind_for(os_name)}"
 
 
+def py_archive_name(version: str, os_name: str, arch: str) -> str:
+    """Standalone on-demand interpreter asset (0.6.3 slim bundle): the pruned
+    vendored CPython ships beside the bundle, not inside it."""
+    return f"aihr-{version}-py-{os_name}-{arch}.{archive_kind_for(os_name)}"
+
+
 def load_pin_text(raw: str) -> PgPin:
     """Parse + validate the pin JSON text. Raises BundleError on anything malformed."""
     try:
@@ -379,6 +385,20 @@ def check_bundle_members(members: list[str], os_name: str) -> list[str]:
         problems.append("windows bundle must not ship py/ (sandbox is posix-only)")
     if has_py and "py/bin/python3" not in members:
         problems.append("py/ staged but py/bin/python3 missing")
+    return problems
+
+
+def check_py_members(members: list[str]) -> list[str]:
+    """Layout contract for the standalone py asset: exactly one usable py/
+    tree — anything else at top level means the wrong stage was archived."""
+    problems: list[str] = []
+    if "py/bin/python3" not in members:
+        problems.append("py/bin/python3 missing")
+    foreign = sorted({m.split("/")[0] for m in members if m and "/" in m} - {"py"})
+    if foreign:
+        problems.append(
+            "py asset must carry only py/ components; found: " + ", ".join(foreign)
+        )
     return problems
 
 

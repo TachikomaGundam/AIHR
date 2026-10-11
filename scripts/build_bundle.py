@@ -43,6 +43,7 @@ from scripts.bundle_core import (  # noqa: E402  (sys.path bootstrap precedes th
     archive_kind_for,
     bundle_archive_name,
     check_bundle_members,
+    check_py_members,
     default_pg_cache_dir,
     default_repo_root,
     download_url,
@@ -55,6 +56,7 @@ from scripts.bundle_core import (  # noqa: E402  (sys.path bootstrap precedes th
     pick_pg_root,
     pick_target,
     pin_file,
+    py_archive_name,
     required_bundle_members,
     sha256_file,
     sidecar_text,
@@ -481,6 +483,38 @@ def build_bundle(args: argparse.Namespace) -> int:
     return 0
 
 
+def build_py_bundle(args: argparse.Namespace) -> int:
+    """0.6.3 slim-bundle lane: publish the pruned vendored CPython as its own
+    on-demand asset (aihr-<ver>-py-<os>-<arch>) beside the bundle instead of
+    bloating every install by ~29MB. install.sh fetches it during install and
+    `hr py-fetch` retries later; code_gen degrades to not_applicable until it
+    lands (never a fake score)."""
+    if args.os == "windows":
+        raise BundleError("windows ships no sandbox lane; no py asset is published")
+    if args.py_home is None:
+        raise BundleError("--py-only requires --py-home (uv python install --install-dir)")
+    probe = args.py_home / "bin" / "python3"
+    if not probe.exists():
+        raise BundleError(f"--py-home {args.py_home} has no bin/python3")
+    out: Path = args.out
+    stage = out / ".bundle-stage-py" / f"{args.os}-{args.arch}"
+    shutil.rmtree(stage, ignore_errors=True)
+    stage.mkdir(parents=True)
+    n = normalize_py(args.py_home.resolve(), stage / "py")
+    _log(f"stage py: vendored interpreter from {args.py_home} ({n} entries)")
+    archive = out / py_archive_name(args.version, args.os, args.arch)
+    _log(f"archiving -> {archive}")
+    create_archive(stage, archive, archive_kind_for(args.os))
+    sidecar = write_sidecar(archive)
+    _log(f"sidecar -> {sidecar}")
+    verify_archive_checksum(archive)
+    problems = check_py_members(list_members(archive))
+    if problems:
+        raise BundleError(f"py asset violates its layout contract: {problems}")
+    _log(f"py asset ready: {archive} ({archive.stat().st_size} bytes)")
+    return 0
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build an AIHR turnkey bundle (app + vendored pg + templates)."
@@ -510,6 +544,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="path to a relocatable CPython home (uv python install / PBS) to "
              "vendor as py/ for the code-gen sandbox (posix targets only)",
+    )
+    mode.add_argument(
+        "--py-only",
+        action="store_true",
+        help="build ONLY the standalone on-demand interpreter asset "
+             "(aihr-<ver>-py-<os>-<arch>.tar.gz + sidecar) from --py-home; "
+             "requires --os --arch --version --py-home (posix targets only)",
     )
     ops = parser.add_argument_group("archive operations (no build)")
     ops.add_argument("--list", action="store_true", help="print archive members and exit")
@@ -556,6 +597,10 @@ def main(argv: list[str] | None = None) -> int:
             return handle_list(args.archive)
         if args.verify:
             return handle_verify(args.archive)
+        if args.py_only:
+            if not args.os or not args.version or args.py_home is None:
+                raise BundleError("--py-only requires --os --version --py-home")
+            return build_py_bundle(args)
         return build_bundle(args)
     except BundleError as exc:
         print(f"error: {exc}", file=sys.stderr)

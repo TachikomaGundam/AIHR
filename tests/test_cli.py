@@ -42,6 +42,7 @@ COMMANDS = {
     "db-status",
     "install-post",
     "self-uninstall",
+    "py-fetch",
     "apply",
     "apply-preview",
     "apply-rollback",

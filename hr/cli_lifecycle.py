@@ -14,6 +14,7 @@ import typer
 
 from .lifecycle import install_post as _install_post
 from .lifecycle_uninstall import self_uninstall as _self_uninstall
+from .py_fetch import py_fetch_cli as _py_fetch_cli
 
 
 def install_post(
@@ -46,10 +47,33 @@ def self_uninstall(
     raise typer.Exit(code=_self_uninstall(yes=yes))
 
 
+def py_fetch(
+    version: Optional[str] = typer.Option(
+        None,
+        "--version",
+        help="release whose interpreter asset to fetch (default: the receipt version)",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="refetch even when an interpreter already sits at D/py",
+    ),
+) -> None:
+    """Fetch the on-demand code-gen interpreter into the bundle dir (posix).
+
+    Since 0.6.3 the turnkey bundle ships slim (~54MB): the vendored CPython
+    that powers code_gen is a separate checksum-pinned release asset. Run
+    this after an install-time fetch failed (or was skipped) to enable the
+    battery; until then code_gen honestly records not_applicable.
+    """
+    raise typer.Exit(code=_py_fetch_cli(version=version, force=force))
+
+
 def register_lifecycle_commands(tp: typer.Typer) -> None:
     """Attach the bundle-lifecycle commands to a typer app."""
     tp.command(name="install-post")(install_post)
     tp.command(name="self-uninstall")(self_uninstall)
+    tp.command(name="py-fetch")(py_fetch)
 
 
 try:  # worktree wiring (mirrors hr.cli_db): attach to the shipped typer app

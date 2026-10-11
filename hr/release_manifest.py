@@ -65,6 +65,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
     "hr/cli_db.py",                        # `hr db-up/db-down/db-status` — turnkey database lifecycle wrappers
     "hr/cli_lifecycle.py",                 # `hr install-post/self-uninstall` — turnkey bundle lifecycle wrappers
+    "hr/py_fetch.py",                      # `hr py-fetch` — on-demand code-gen interpreter lane (0.6.3 slim bundle)
     "hr/db_admin.py",                      # turnkey database backend decision tree (compose vs embedded); imported by cli_db
     "hr/db_compose.py",                    # compose-lane plumbing (runner seam, compose argv, env file, probes); re-exported by db_admin
     "hr/db_embedded.py",                   # embedded-lane orchestration (env → initdb → pg_ctl → ready → schema init)
