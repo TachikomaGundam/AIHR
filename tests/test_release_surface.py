@@ -491,3 +491,20 @@ def test_included_import_closure_succeeds_with_pillow_blocked() -> None:
         )
         # Then: the import closure holds without Pillow.
         assert result.returncode == 0, f"{module_path} fails without Pillow:\n{result.stderr}"
+
+def test_every_workflow_yaml_parses() -> None:
+    """The 0.6.4 lesson: product gates do not otherwise read .github/.
+    An unparseable release.yml silently produced NO tag run - GitHub only
+    files a jobless 0s phantom error under the default branch. The release
+    train's own fuel line must be inside the gate, not outside it."""
+    import yaml
+
+    root = Path(__file__).resolve().parents[1] / ".github" / "workflows"
+    files = sorted(root.glob("*.yml")) + sorted(root.glob("*.yaml"))
+    assert files, f"no workflow files found under {root}"
+    for path in files:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict) and "jobs" in payload, path
+        # YAML 1.1 parses the bare key `on` as boolean True (Norway problem)
+        triggers = payload.get("on", payload.get(True))
+        assert isinstance(triggers, dict), path

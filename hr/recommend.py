@@ -536,8 +536,8 @@ class RecommendationEngine:
         thresholds = _policy_summary(policy)
         thresholds["cost_basis"] = cost_basis
         means_view = self._canon_battery_map(self._means)
-        profile_ts = self._canon_battery_map(profile_ts)  # type: ignore[assignment]
-        profile_stats = self._canon_battery_map(profile_stats)  # type: ignore[assignment]
+        profile_ts = self._canon_battery_map(profile_ts)
+        profile_stats = self._canon_battery_map(profile_stats)
 
         covered: list[tuple[str, float]] = []
         for model_id, means in means_view.items():
@@ -727,7 +727,7 @@ class RecommendationEngine:
         return tuple(sorted(canonical_battery(battery) for battery in batteries))
 
     @staticmethod
-    def _canon_battery_map(outer: dict[str, dict[str, object]]) -> dict:
+    def _canon_battery_map[V](outer: dict[str, dict[str, V]]) -> dict[str, dict[str, V]]:
         """Re-key a ``{model: {battery_code: value}}`` map onto canonical
         battery codes (defect #16, data-access-boundary resolution). The task
         recommendation path speaks canonical codes; DBs may store bare legacy
