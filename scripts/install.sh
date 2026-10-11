@@ -17,6 +17,7 @@ BUNDLE=""
 PORT=""
 REINSTALL=0
 NO_RUN=0
+NO_PY=0
 WORK=""
 
 say() { printf '%s\n' "$*"; }
@@ -35,6 +36,8 @@ usage: sh install.sh [--version V] [--bundle FILE.tar.gz] [--port N]
   --reinstall            replace app/ pg/ share/ py/ in an existing install
                          (data/ is never touched)
   --no-run-installer     place files only; skip `hr install-post` / `hr db-up`
+  --no-py                skip the on-demand code-gen interpreter fetch
+                         (code_gen then runs not_applicable until `hr py-fetch`)
 
   env AIHR_MIRROR=URL    fallback download mirror prefix
                          (default https://gh-proxy.com/; bytes always stay
@@ -49,6 +52,7 @@ while [ $# -gt 0 ]; do
         --port)    [ $# -ge 2 ] || err "--port needs a value"; PORT=$2; shift 2 ;;
         --reinstall) REINSTALL=1; shift ;;
         --no-run-installer) NO_RUN=1; shift ;;
+        --no-py) NO_PY=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; err "unknown argument: $1" ;;
     esac
@@ -202,6 +206,48 @@ else
     else
         "$D/app/hr" db-up && say "database up" \
             || say "warning: hr db-up failed — start it later with: \"$D/app/hr\" db-up"
+    fi
+fi
+
+# ---- on-demand interpreter lane (0.6.3 slim bundle) ------------------------
+# The turnkey bundle no longer embeds the ~29MB vendored CPython (owner
+# ruling 2026-10-10: package slimming — bandwidth paid only by installs that
+# will run code_gen). The interpreter ships as its own checksum-pinned
+# release asset; a failure on this lane must NEVER fail the install: the
+# bench records code_gen as not_applicable until an interpreter lands.
+PY_STAMP="$D/py/.aihr-py-stamp"
+if [ "$NO_PY" -eq 0 ] && [ "$NO_RUN" -eq 0 ]; then
+    if [ -x "$D/py/bin/python3" ]; then
+        # bundle carried py/ (dev build, older release): keep it, stamp once.
+        [ -f "$PY_STAMP" ] || printf '%s\n' "$VERSION" > "$PY_STAMP"
+    elif [ "$VERSION" = "unknown" ]; then
+        say "note: version unknown (--bundle without --version) — interpreter fetch skipped;"
+        say "  retry later with: \"$D/app/hr\" py-fetch --version X.Y.Z"
+    else
+        PY_ASSET="aihr-$VERSION-py-$OS-$ARCH.tar.gz"
+        PY_BASE="https://github.com/$REPO/releases/download/v$VERSION/$PY_ASSET"
+        say "fetching code-gen interpreter: $PY_ASSET"
+        py_ok=0
+        if curl -fL --connect-timeout 10 --retry 2 --speed-limit 4096 --speed-time 30 --proto '=https' \
+               -o "$WORK/$PY_ASSET.sha256" "$PY_BASE.sha256" 2>/dev/null \
+           || fetch_api_asset "$PY_ASSET.sha256" "$WORK/$PY_ASSET.sha256" 2>/dev/null; then
+            if fetch_bulk "$PY_BASE" "$WORK/$PY_ASSET" 2>/dev/null \
+               && (unset CDPATH; cd -- "$WORK" && $SHA_TOOL -c "$PY_ASSET.sha256" >/dev/null 2>&1); then
+                mkdir -p "$WORK/pystage"
+                if tar -xzf "$WORK/$PY_ASSET" -C "$WORK/pystage" 2>/dev/null \
+                   && [ -x "$WORK/pystage/py/bin/python3" ]; then
+                    rm -rf "${D:?}/py"
+                    mv "$WORK/pystage/py" "$D/py"
+                    printf '%s\n' "$VERSION" > "$PY_STAMP"
+                    py_ok=1
+                    say "interpreter placed at $D/py (code_gen battery enabled)"
+                fi
+            fi
+        fi
+        if [ "$py_ok" -eq 0 ]; then
+            say "warning: interpreter fetch failed — code_gen stays not_applicable until it lands"
+            say "  retry any time: \"$D/app/hr\" py-fetch"
+        fi
     fi
 fi
 

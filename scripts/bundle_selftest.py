@@ -36,6 +36,8 @@ from scripts.bundle_core import (  # noqa: E402
     sidecar_text,
     verify_archive_checksum,
     bundle_archive_name,
+    py_archive_name,
+    check_py_members,
     download_url,
 )
 
@@ -119,6 +121,19 @@ def test_archive_names() -> None:
     assert bundle_archive_name("0.4.0", "linux", "x86_64") == "aihr-0.4.0-linux-x86_64.tar.gz"
     assert bundle_archive_name("0.4.0", "macos", "aarch64") == "aihr-0.4.0-macos-aarch64.tar.gz"
     assert bundle_archive_name("0.4.0", "windows", "x86_64") == "aihr-0.4.0-windows-x86_64.zip"
+    # on-demand interpreter asset is distinct from the bundle (0.6.3 slim).
+    assert py_archive_name("0.6.3", "linux", "x86_64") == "aihr-0.6.3-py-linux-x86_64.tar.gz"
+    assert py_archive_name("0.6.3", "macos", "aarch64") == "aihr-0.6.3-py-macos-aarch64.tar.gz"
+
+
+def test_check_py_members() -> None:
+    good = ["py/bin/python3", "py/bin/python3.12", "py/lib/python3.12/os.py"]
+    assert check_py_members(good) == []
+    # missing the interpreter entrypoint is fatal for this asset.
+    assert any("py/bin/python3 missing" in p for p in check_py_members(["py/lib/x.py"]))
+    # a stray top-level component means the wrong stage got archived.
+    foreign = check_py_members(["py/bin/python3", "app/hr"])
+    assert any("only py/" in p and "app" in p for p in foreign), foreign
 
 
 def test_sha_sidecar_roundtrip() -> None:
@@ -265,6 +280,7 @@ _TESTS: Final[tuple[tuple[str, Callable[[], None]], ...]] = (
     ("committed release/pg-pin.json invariants", test_real_pin_file),
     ("target lookup", test_target_lookup),
     ("bundle archive naming", test_archive_names),
+    ("py asset member contract (0.6.3 slim bundle)", test_check_py_members),
     ("sha256 sidecar roundtrip + tamper detection", test_sha_sidecar_roundtrip),
     ("theseus layout normalization (usr/ prefix, flat, missing bin)", test_normalize_layouts),
     ("bundle member contract checks", test_check_bundle_members),
