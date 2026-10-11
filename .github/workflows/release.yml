@@ -58,7 +58,7 @@ jobs:
           uv python install --install-dir "$PWD/.py-fetch" 3.12
           echo "PY_HOME=$(find "$PWD/.py-fetch" -maxdepth 1 -type d -name 'cpython-*' | head -1)" >> "$GITHUB_ENV"
 
-      - name: Build turnkey bundle (slim: interpreter is a separate on-demand asset, 0.6.3)
+      - name: Build turnkey bundle (slim — interpreter ships as a separate on-demand asset)
         shell: bash
         run: |
           uv sync
