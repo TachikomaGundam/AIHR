@@ -301,3 +301,35 @@ def test_attach_contract_force_low_lands_in_request_body(sandbox_adapter, monkey
         thinking_budget=4096, max_output=4096,
     )
     assert calls[0]["json"].get("reasoning_effort") == "low"
+
+
+def test_fuse_reaches_budget_none_lane_only_when_fired(sandbox_adapter, monkeypatch) -> None:
+    """Fuse wiring (owner ruling 2026-10-10, dcd978): code_gen/tool_use pass
+    thinking_budget=None, which used to skip the effort block entirely — the
+    survival fuse had no actuator. Unfired must stay silent (server default);
+    fired must send the cheapest accepted effort."""
+    from hr.dialect_contract import DialectFacts
+
+    resp = FakeStreamResponse(
+        200, _sse({"choices": [{"delta": {"content": "ok"}}]}, "[DONE]")
+    )
+    calls = _script_post(monkeypatch, resp)
+    sandbox_adapter.chat(
+        "acme/model-x", [{"role": "user", "content": "go"}], thinking_budget=None
+    )
+    assert "reasoning_effort" not in calls[0]["json"], "unfired fuse stays silent"
+
+    sandbox_adapter.attach_contract(
+        DialectFacts(
+            endpoint_url="http://h/v1/chat/completions", model_slug="m",
+            accepted_efforts=["low", "medium", "xhigh"], thinking_key="reasoning",
+            usage_in_stream=True, tool_calls_ok=True,
+            answer_chars_at_small_budget=9, probe_version=5,
+        ),
+        force_low=True,
+    )
+    calls2 = _script_post(monkeypatch, resp)
+    sandbox_adapter.chat(
+        "acme/model-x", [{"role": "user", "content": "go"}], thinking_budget=None
+    )
+    assert calls2[0]["json"].get("reasoning_effort") == "low"

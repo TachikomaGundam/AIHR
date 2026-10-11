@@ -83,7 +83,52 @@ def test_probe_parses_vocabulary_keys_usage_and_tools() -> None:
     assert f.usage_in_stream is True
     assert f.tool_calls_ok is True
     assert f.answer_chars_at_small_budget == 2
-    assert len(calls) == 8  # 5 effort + 1 stream + 1 tool + 1 vision (B1): probe budget honoured
+    assert len(calls) == 10  # 5 effort + 3 stream (v5 median-of-3) + 1 tool + 1 vision: probe budget honoured
+
+
+def test_fuse_probe_grades_median_of_three_not_one_coin_flip() -> None:
+    """Owner ruling 2026-10-10 item 3 (dcd978 forensics): the survival-fuse
+    sample must be the MEDIAN of three streaming rounds — a single round
+    flip-flopped 0 vs 146 chars on the same endpoint within an hour."""
+    rounds = iter([0, 146, 60])
+
+    def post(url, *, headers, json, timeout, stream=False):
+        if json.get("stream"):
+            n = next(rounds)
+            content = "x" * n
+            line = 'data: {"choices": [{"delta": {"content": "' + content + '"}}]}'
+            lines = ([line] if n else []) + ["data: [DONE]"]
+            return FakeResp(200, lines=lines)
+        return FakeResp(200, body={})
+
+    f = probe_dialect("http://h:8000/v1", {}, "m", post)
+    assert f.answer_chars_at_small_budget == 60
+
+
+def test_single_call_empty_final_answer_is_inconclusive_never_scored_zero() -> None:
+    """Defect #15 (owner ruling 2026-10-10): generated tokens with no final
+    answer is machine fault — the single-call lane carries the interactive
+    lane's guard now; scoring 0 for an endpoint that answered nothing is a
+    fake zero and store() would persist 13 of them (191 dcd978)."""
+    from hr.adapters.base import ChatRequest
+    from hr.bench import engine as eng
+    from hr.bench.scorer_shared import _BenchmarkOutcome
+    from hr.graders.base import ModelResponse
+
+    e = eng.LivebenchEngine.__new__(eng.LivebenchEngine)
+    e._chat = lambda *a, **k: ModelResponse(
+        text="", thinking="rambles past the ceiling", tokens_out=65536,
+        tokens_in=243, latency_ms=912000,
+    )
+
+    def _score_zero(_text: str):
+        raise AssertionError("scorer must not run on an empty final answer")
+
+    cr = ChatRequest(model_id="m", messages=[{"role": "user", "content": "go"}])
+    result = e._single_call("m", None, None, cr, _score_zero)
+    assert result.outcome.status == "inconclusive"
+    assert "empty final answer after 65536 generated tokens" in result.outcome.raw_output
+    assert result.tokens_out == 65536
 
 
 def _vision_msg_body(**message) -> dict:
@@ -281,7 +326,10 @@ def test_probe_version_bump_invalidates_poisoned_rows() -> None:
     # v3 = B1 adds the vision fact; v2 rows retire via version filter.
     # v4 = vision grant accepts reasoning-channel answers after the 191
     #      content=null false negative; v3 rows retire the same way.
-    assert PROBE_VERSION == 4
+    # v5 = fuse probe is median-of-three (owner ruling 2026-10-10: a single
+    #      sample measured 0 and 146 chars on one endpoint within an hour);
+    #      v4 rows retire the same way.
+    assert PROBE_VERSION == 5
 
 
 def test_survival_downgrade_matrix() -> None:
