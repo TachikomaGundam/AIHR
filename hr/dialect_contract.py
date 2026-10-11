@@ -13,10 +13,10 @@ Probe budget: at most 7 tiny requests per endpoint per validity window.
 
 from __future__ import annotations
 
-import logging
-
 import hashlib
 import json
+import logging
+import statistics
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -25,7 +25,7 @@ import psycopg2.extensions
 
 from hr.models import BenchmarkCategory
 
-PROBE_VERSION = 4
+PROBE_VERSION = 5
 VALID_DAYS = 14
 
 # batteries whose request shape leans on a server dialect fact
@@ -109,44 +109,51 @@ def probe_dialect(
         except Exception:  # noqa: BLE001 — connection failure is not a fact
             continue
 
-    # one streaming call decides thinking-key, usage, and budget survival
-    try:
-        resp = post(
-            url,
-            headers=headers,
-            json={
-                "model": slug,
-                "messages": [{"role": "user", "content": "Count slowly from 1 to 30, then answer 30."}],
-                "max_tokens": 256,
-                "stream": True,
-                "stream_options": {"include_usage": True},
-            },
-            timeout=120,
-            stream=True,
-        )
-        content_chars = 0
-        lines = list(iter_lines(resp)) if iter_lines else list(resp.iter_lines(decode_unicode=True))
-        for line in lines:
-            if not line or not line.startswith("data: "):
-                continue
-            payload = line[6:].strip()
-            if payload == "[DONE]":
-                continue
-            chunk = json.loads(payload)
-            if chunk.get("usage"):
-                facts.usage_in_stream = True
-            for choice in chunk.get("choices", []):
-                delta = choice.get("delta", {})
-                if delta.get("reasoning_content"):
-                    facts.thinking_key = "reasoning_content"
-                elif delta.get("reasoning"):
-                    facts.thinking_key = "reasoning" if facts.thinking_key is None else facts.thinking_key
-                if delta.get("content"):
-                    content_chars += len(delta["content"])
-        facts.answer_chars_at_small_budget = content_chars
-        answered += 1
-    except Exception:  # noqa: BLE001
-        pass
+    # three streaming calls decide thinking-key, usage, and budget survival;
+    # the fuse sample is the MEDIAN of three (owner ruling 2026-10-10 item 3:
+    # a single sample measured 0 and 146 chars on the same endpoint within
+    # an hour — a coin flip must not arm or disarm the survival fuse).
+    content_samples: list[int] = []
+    for _probe_round in range(3):
+        try:
+            resp = post(
+                url,
+                headers=headers,
+                json={
+                    "model": slug,
+                    "messages": [{"role": "user", "content": "Count slowly from 1 to 30, then answer 30."}],
+                    "max_tokens": 256,
+                    "stream": True,
+                    "stream_options": {"include_usage": True},
+                },
+                timeout=120,
+                stream=True,
+            )
+            content_chars = 0
+            lines = list(iter_lines(resp)) if iter_lines else list(resp.iter_lines(decode_unicode=True))
+            for line in lines:
+                if not line or not line.startswith("data: "):
+                    continue
+                payload = line[6:].strip()
+                if payload == "[DONE]":
+                    continue
+                chunk = json.loads(payload)
+                if chunk.get("usage"):
+                    facts.usage_in_stream = True
+                for choice in chunk.get("choices", []):
+                    delta = choice.get("delta", {})
+                    if delta.get("reasoning_content"):
+                        facts.thinking_key = "reasoning_content"
+                    elif delta.get("reasoning"):
+                        facts.thinking_key = "reasoning" if facts.thinking_key is None else facts.thinking_key
+                    if delta.get("content"):
+                        content_chars += len(delta["content"])
+            content_samples.append(content_chars)
+            answered += 1
+        except Exception:  # noqa: BLE001 — this round is not a fact; median over the rest
+            continue
+    if content_samples:
+        facts.answer_chars_at_small_budget = int(statistics.median(content_samples))
 
     try:
         resp = post(

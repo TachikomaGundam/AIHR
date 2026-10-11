@@ -154,6 +154,28 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
             text = (resp.text + "\n" + resp.thinking).strip()
         else:
             text = resp.text
+        if not (text or "").strip() and resp.tokens_out > 0:
+            # #15 (owner ruling 2026-10-10): the interactive lane learned this
+            # the hard way (191 sweep 790a73) — an endpoint that GENERATED
+            # tokens but never emitted a final answer is a machine fault, and
+            # the machine's failure must never impersonate the model's score.
+            # Single-call batteries carry the same guard now; store() persists
+            # rows only for scored outcomes, so this keeps fake zeros out of
+            # the profile by construction.
+            return _RunResult(
+                outcome=_BenchmarkOutcome(
+                    score=0.0, passed=False,
+                    raw_output=f"INCONCLUSIVE: empty final answer after "
+                               f"{resp.tokens_out} generated tokens",
+                    status="inconclusive",
+                ),
+                response_text=resp.text,
+                thinking_text=resp.thinking,
+                latency_ms=resp.latency_ms,
+                tokens_in=resp.tokens_in,
+                tokens_out=resp.tokens_out,
+                requested_max_output=cr.max_output,
+            )
         return _RunResult(
             outcome=score(text),
             response_text=resp.text,

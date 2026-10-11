@@ -141,14 +141,25 @@ class OpenAICompatAdapter(Adapter):
             "stream_options": {"include_usage": True},
         }
         effort = _thinking_budget_to_effort(thinking_budget)
+        force_low = getattr(self, "_contract_force_low", False)
         if effort is not None:
             from hr.dialect_contract import pick_effort
             effort = pick_effort(
                 getattr(self, "_contract", None),
                 thinking_budget or 0,
                 effort,
-                force_low=getattr(self, "_contract_force_low", False),
+                force_low=force_low,
             )
+        elif force_low:
+            # Fuse wiring (owner ruling 2026-10-10, 191 dcd978 forensics):
+            # code_gen/tool_use pass thinking_budget=None, which skipped the
+            # whole effort block — survival_downgrade listed them on the fuse
+            # roster but the fuse had no actuator on the request path. When
+            # the fuse HAS fired and the contract proves an accepted effort
+            # vocabulary, send the proven low setting; without a contract
+            # stay silent (server default behavior preserved for outsiders).
+            from hr.dialect_contract import pick_effort
+            effort = pick_effort(getattr(self, "_contract", None), 0, "", force_low=True)
         if effort:
             body["reasoning_effort"] = effort
         tools_payload = _build_tools_payload(tools)
