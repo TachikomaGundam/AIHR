@@ -55,9 +55,9 @@ class FakeAdapter:
             return ""  # tool_use turn 1 handled by the loop below
         if cr.images:
             return PERFECT_VISION
-        if "Write these three Python functions" in joined:
+        if "Write this Python function" in joined:
             return CORRECT_CODE
-        if "How many integers n with 1 <= n" in joined:
+        if "Solve this. Work briefly" in joined:
             return perfect_reasoning_answer()
         if "clock tower" in joined:
             return PERFECT_INSTRUCTION_JSON

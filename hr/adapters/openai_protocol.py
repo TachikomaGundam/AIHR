@@ -163,6 +163,10 @@ class StreamAccumulator:
     thinking_parts: list[str] = field(default_factory=list)
     tool_calls: dict[int, dict[str, Any]] = field(default_factory=dict)
     last_usage: dict[str, int] | None = None
+    #: Why generation stopped ("stop" | "length" | "tool_calls" | ...).
+    #: "length" means the output cap cut the stream — a capacity signal,
+    #: not a capability signal (verdict surface reports the share).
+    finish_reason: str | None = None
 
     def apply_delta(self, delta: dict) -> None:
         reasoning = delta.get("reasoning_content") or delta.get("reasoning")
@@ -219,6 +223,9 @@ def parse_sse_stream(response: requests.Response) -> StreamAccumulator:
             delta = choice.get("delta")
             if delta:
                 accumulator.apply_delta(delta)
+            choice_finish = choice.get("finish_reason")
+            if choice_finish:
+                accumulator.finish_reason = str(choice_finish)
         usage = chunk.get("usage")
         if usage:
             accumulator.last_usage = usage

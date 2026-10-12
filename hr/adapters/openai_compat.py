@@ -262,9 +262,6 @@ class OpenAICompatAdapter(Adapter):
                 )
 
             tokens_out = _extract_int(usage, "completion_tokens")
-            details = usage.get("completion_tokens_details")
-            if isinstance(details, dict):
-                tokens_out += _extract_int(details, "reasoning_tokens")
             return ModelResponse(
                 text=text,
                 thinking=thinking,
@@ -273,6 +270,7 @@ class OpenAICompatAdapter(Adapter):
                 latency_ms=latency,
                 tokens_in=_extract_int(usage, "prompt_tokens"),
                 tokens_out=tokens_out,
+                finish_reason=accumulator.finish_reason,
             )
 
         raise AssertionError("retry loop exhausted without returning or raising")

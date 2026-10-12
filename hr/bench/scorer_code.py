@@ -201,4 +201,107 @@ def score_code_gen(text: str) -> _BenchmarkOutcome:
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
-__all__ = ["score_code_gen"]
+_CODE_GEN_TASK_MARKERS: dict[str, tuple[int, tuple[str, ...]]] = {
+    # function name -> (global first test index, data/exec markers composing its slice)
+    "sliding_window_median": (0, ("swm",)),
+    "burst_balloons": (8, ("bb",)),
+    "count_inversions": (11, ("ci",)),
+}
+
+
+def _harness_slice(task: str) -> tuple[str, int]:
+    """Re-assemble head + own data + shared helpers + own execs + print for ONE
+    function's test slice (0.6.5 ruling C). Slicing rides on the unique section
+    comments, so the giant embedded arrays are never duplicated or edited."""
+    h = _CODE_GEN_HARNESS
+    at = {
+        "swm_data": h.index("# --- small cases for sliding_window_median"),
+        "bb_data": h.index("# --- burst_balloons"),
+        "ci_data": h.index("# --- count_inversions small"),
+        "big_data": h.index("# --- big array for performance gate"),
+        "helpers": h.index("\nclass _HrTimeout"),
+        "swm_exec": h.index("# sliding_window_median (cases 0..7)"),
+        "bb_exec": h.index("# burst_balloons (cases 8..10)"),
+        "ci_exec": h.index("# count_inversions small (case 11)"),
+        "perf_exec": h.index("# count_inversions performance gate (case 12)"),
+        "print": h.index('print("HRTESTS='),
+    }
+    head = h[: at["swm_data"]]
+    helpers = h[at["helpers"]: at["swm_exec"]]
+    tail = h[at["print"]:]
+    if task == "sliding_window_median":
+        part = h[at["swm_data"]: at["bb_data"]] + helpers + h[at["swm_exec"]: at["bb_exec"]]
+        return head + part + tail, 8
+    if task == "burst_balloons":
+        part = h[at["bb_data"]: at["ci_data"]] + helpers + h[at["bb_exec"]: at["ci_exec"]]
+        return head + part + tail, 3
+    if task == "count_inversions":
+        data = h[at["ci_data"]: at["swm_exec"]]
+        part = data + h[at["ci_exec"]: at["print"]]
+        return head + part + tail, 2
+    raise ValueError(f"unknown code_gen task: {task!r}")
+
+
+def code_gen_task_slice(task: str) -> tuple[int, int]:
+    """(first global test index, test count) owned by one code_gen function."""
+    harness_n = _harness_slice(task)[1]
+    return _CODE_GEN_TASK_MARKERS[task][0], harness_n
+
+
+def score_code_gen_task(text: str, task: str) -> _BenchmarkOutcome:
+    """Grade one function's own hidden tests (global labels test.00..12).
+
+    Same sandbox mechanics as score_code_gen, scoped to the task's harness
+    slice: a truncation or crash on one function can no longer zero the
+    other functions' rows (0.6.5 ruling C).
+    """
+    harness, expected_n = _harness_slice(task)
+    first_index = _CODE_GEN_TASK_MARKERS[task][0]
+    m = re.search(r"```[Pp]ython\s*\n(.*?)```", text, re.DOTALL)
+    code = m.group(1).strip() if m else text.strip()
+    failed = _BenchmarkOutcome(
+        score=0.0, passed=False,
+        item_scores=[
+            (f"test.{first_index + i:02d}", False) for i in range(expected_n)
+        ],
+    )
+    if task not in code and task not in text:
+        return failed
+    tmpdir = tempfile.mkdtemp(prefix="hr_livebench_")
+    try:
+        test_file = os.path.join(tmpdir, "test_task.py")
+        with open(test_file, "w") as f:
+            f.write(code)
+            f.write("\n")
+            f.write(harness)
+        try:
+            proc = run_sandboxed(Path(tmpdir), [Path(test_file).name], 30)
+        except (subprocess.TimeoutExpired, SandboxUnavailableError):
+            return failed
+        if proc.returncode != 0:
+            return failed
+        hr_match = re.search(r"HRTESTS=(\[.*?\])", proc.stdout)
+        if not hr_match:
+            return failed
+        try:
+            results = json.loads(hr_match.group(1))
+        except json.JSONDecodeError:
+            return failed
+        if not isinstance(results, list) or len(results) != expected_n:
+            return failed
+        item_scores = [
+            (f"test.{first_index + i:02d}", bool(r))
+            for i, r in enumerate(results)
+        ]
+        passed_count = sum(1 for _label, ok in item_scores if ok)
+        return _BenchmarkOutcome(
+            score=passed_count / expected_n * 100.0,
+            passed=passed_count == expected_n,
+            raw_output=f"{passed_count}/{expected_n} {task} tests passed",
+            item_scores=item_scores,
+        )
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+__all__ = ["score_code_gen", "score_code_gen_task"]

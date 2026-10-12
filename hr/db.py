@@ -14,6 +14,7 @@ from hr.db_schema import DDL_INDEXES as _DDL_INDEXES
 from hr.db_schema import DDL_SCHEMA as _DDL_SCHEMA
 from hr.schema_migration import (
     migrate_dialect_contract_columns,
+    migrate_measurement_finish_reason,
     migrate_measurement_scorer_columns,
     migrate_run_status_columns,
     migrate_schema_namespace,
@@ -166,6 +167,7 @@ def _run_migrations(conn: psycopg2.extensions.connection) -> None:
     migrate_run_status_columns(conn)
     migrate_measurement_scorer_columns(conn)
     migrate_dialect_contract_columns(conn)
+    migrate_measurement_finish_reason(conn)
 
 
 def migrate() -> None:

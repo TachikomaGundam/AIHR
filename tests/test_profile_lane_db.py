@@ -175,3 +175,50 @@ def test_profile_freshness_and_stats_are_per_battery(
         assert n_s == 1 and sd_s is None
     finally:
         conn.close()
+
+
+def test_profile_truncation_marks_capacity_rows_and_verdict_shows_it(
+    scratch_db,
+) -> None:
+    """finish_reason='length' rows are counted per (model,battery) and the
+    verdict header says it out loud — capacity must not masquerade as
+    capability (owner ruling 2026-10-12, P1-b)."""
+    from hr.cli_report_verdict import _truncation_suffix
+    from hr.decision import profile_truncation
+    from tests._db_contracts_helpers import (
+        seed_battery,
+        seed_item_pool,
+        seed_measurement,
+        seed_provider_models,
+        seed_run,
+        seed_seat,
+        seed_sweep,
+    )
+
+    _name, dsn = scratch_db
+    conn = psycopg2.connect(dsn)
+    conn.autocommit = True
+    try:
+        seed_provider_models(conn, ("m/trunc",))
+        seed_seat(conn, "_stage0_sweep", "stage0 sweep")
+        b = seed_battery(conn, "livebench_reasoning")
+        seed_item_pool(conn, "t-i1", domain="reasoning")
+        seed_item_pool(conn, "t-i2", domain="reasoning")
+        seed_sweep(conn, "sw-trunc")
+        seed_run(conn, "run-tr", "sw-trunc", "m/trunc", b)
+        seed_measurement(conn, "tm-1", "run-tr", "t-i1", score=100.0)
+        seed_measurement(conn, "tm-2", "run-tr", "t-i2", score=0.0)
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE hr.measurement SET finish_reason = 'length' "
+                "WHERE measurement_id = 'tm-2'"
+            )
+
+        trunc = profile_truncation(conn)["m/trunc"]
+        assert trunc["livebench_reasoning"] == (1, 2)
+
+        suffix = _truncation_suffix(conn)
+        assert "budget-truncated" in suffix
+        assert "m/trunc livebench_reasoning 1/2" in suffix
+    finally:
+        conn.close()

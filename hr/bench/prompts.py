@@ -18,41 +18,70 @@ from hr.bench.prompt_image import build_test_image_png
 # Prompts (HARSH frontier-limit v4)
 # ---------------------------------------------------------------------------
 
-CODE_GEN_PROMPT: str = (
-    "Write these three Python functions. Output ONLY all three inside a single "
-    "```python code fence, exact names, type hints, no prose, no test code.\n\n"
-    "1. def sliding_window_median(nums: list[int], k: int) -> list[float]\n"
-    "   For every window of k consecutive elements return its median as a float. "
-    "Even k -> average of the two middle values.\n\n"
-    "2. def burst_balloons(nums: list[int]) -> int\n"
-    "   Add boundary 1s outside; bursting balloon i yields nums[left]*nums[i]*"
-    "nums[right] coins. Return the maximum total coins from bursting all "
-    "balloons.\n\n"
-    "3. def count_inversions(arr: list[int]) -> int\n"
-    "   Count pairs i<j with arr[i] > arr[j]. MUST be efficient (n up to 100000): "
-    "an O(n log n) merge-sort-count approach; a naive O(n^2) will time out.\n"
+CODE_GEN_ITEM_HEADER: str = (
+    "Write this Python function. Output ONLY the function inside a single "
+    "```python code fence, exact name, type hints, no prose, no test code.\n\n"
 )
 
-REASONING_PROMPT: str = (
-    "Solve each. Work briefly, then give each answer on its own line as "
-    "'A1: <integer>' .. 'A13: <integer>' (integers only).\n"
-    "Q1.  How many integers n with 1 <= n <= 1,000,000 satisfy n ≡ 1 (mod 3), "
-    "n ≡ 2 (mod 5), n ≡ 3 (mod 7), and n is NOT divisible by 11?\n"
-    "Q2.  What is the sum of the decimal digits of 7^777?\n"
-    "Q3.  How many positive divisors does 10! have?\n"
-    "Q4.  What is the 1000th prime number?\n"
-    "Q5.  What is the 10th Catalan number C_10 (the number of monotonic lattice paths "
-    "from (0,0) to (10,10) that never rise above the diagonal y=x)?\n"
-    "Q6.  What are the last three digits of 13^500?\n"
-    "Q7.  How many integers in [1, 10000] are either a perfect square or a perfect cube (or both)?\n"
-    "Q8.  How many onto (surjective) functions are there from a 4-element set to a 3-element set?\n"
-    "Q9.  How many trailing zeros does 200! have?\n"
-    "Q10. How many derangements (permutations with no fixed point) are there of 7 elements? (i.e. !7)\n"
-    "Q11. What is the smallest positive integer n that has exactly 100 positive divisors?\n"
-    "Q12. How many subsets of {1, 2, ..., 20} have the property that the sum of "
-    "their elements is divisible by 5?\n"
-    "Q13. What is the sum of all prime factors (counted with multiplicity) of 100!?\n"
+# 0.6.5 (owner ruling C): one function per request. The mega CODE_GEN_PROMPT
+# made all three functions share one output fence, so one truncation or one
+# runaway answer took the whole 13-test battery down with it. The task specs
+# are the same three functions, split so each grades on its own.
+CODE_GEN_TASK_SPECS: tuple[tuple[str, str], ...] = (
+    (
+        "sliding_window_median",
+        "def sliding_window_median(nums: list[int], k: int) -> list[float]\n"
+        "For every window of k consecutive elements return its median as a "
+        "float. Even k -> average of the two middle values.",
+    ),
+    (
+        "burst_balloons",
+        "def burst_balloons(nums: list[int]) -> int\n"
+        "Add boundary 1s outside; bursting balloon i yields nums[left]*"
+        "nums[i]*nums[right] coins. Return the maximum total coins from "
+        "bursting all balloons.",
+    ),
+    (
+        "count_inversions",
+        "def count_inversions(arr: list[int]) -> int\n"
+        "Count pairs i<j with arr[i] > arr[j]. MUST be efficient (n up to "
+        "100000): an O(n log n) merge-sort-count approach; a naive O(n^2) "
+        "will time out.",
+    ),
 )
+
+
+def code_gen_item_prompt(spec: str) -> str:
+    return CODE_GEN_ITEM_HEADER + spec
+
+
+REASONING_QUESTIONS: tuple[str, ...] = (
+    "How many integers n with 1 <= n <= 1,000,000 satisfy n ≡ 1 (mod 3), "
+    "n ≡ 2 (mod 5), n ≡ 3 (mod 7), and n is NOT divisible by 11?",
+    "What is the sum of the decimal digits of 7^777?",
+    "How many positive divisors does 10! have?",
+    "What is the 1000th prime number?",
+    "What is the 10th Catalan number C_10 (the number of monotonic lattice paths "
+    "from (0,0) to (10,10) that never rise above the diagonal y=x)?",
+    "What are the last three digits of 13^500?",
+    "How many integers in [1, 10000] are either a perfect square or a perfect cube (or both)?",
+    "How many onto (surjective) functions are there from a 4-element set to a 3-element set?",
+    "How many trailing zeros does 200! have?",
+    "How many derangements (permutations with no fixed point) are there of 7 elements? (i.e. !7)",
+    "What is the smallest positive integer n that has exactly 100 positive divisors?",
+    "How many subsets of {1, 2, ..., 20} have the property that the sum of "
+    "their elements is divisible by 5?",
+    "What is the sum of all prime factors (counted with multiplicity) of 100!?",
+)
+
+REASONING_ITEM_HEADER: str = (
+    "Solve this. Work briefly, then give the answer on its own line as "
+    "'A: <integer>' (integer only).\nProblem: "
+)
+
+
+def reasoning_item_prompt(question: str) -> str:
+    return REASONING_ITEM_HEADER + question
 
 TOOL_TASK_PROMPT: str = (
     "You have a `calculate` tool. Compute an order total: 3 items at $17.50 each, "

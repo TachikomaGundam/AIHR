@@ -16,6 +16,15 @@ class ItemResult:
     item_id: str
     score: float  # 0..100 (100/0 for binary units, v1 score for graded ones)
     passed: bool
+    #: Per-unit evidence (multi-call batteries); None -> store() falls back
+    #: to the run-level outcome values (legacy single-call replication).
+    response_text: str | None = None
+    thinking_text: str | None = None
+    tokens_in: int | None = None
+    tokens_out: int | None = None
+    latency_ms: int | None = None
+    requested_max_output: int | None = None
+    finish_reason: str | None = None
 
 
 @dataclass
@@ -48,6 +57,7 @@ class _RunResult:
     tokens_in: int = 0
     tokens_out: int = 0
     requested_max_output: int = 16384
+    finish_reason: str | None = None
 
 
 def make_sweep_id() -> str:

@@ -134,12 +134,25 @@ class EngineStorageMixin:
                 item.item_id,
                 1,
                 item.score,
-                outcome.tokens_in,
-                outcome.tokens_out,
-                outcome.latency_ms,
-                response_text=outcome.response_text or None,
-                thinking_text=outcome.thinking_text or None,
-                requested_max_output=outcome.requested_max_output,
+                outcome.tokens_in if item.tokens_in is None else item.tokens_in,
+                outcome.tokens_out if item.tokens_out is None else item.tokens_out,
+                outcome.latency_ms if item.latency_ms is None else item.latency_ms,
+                response_text=(
+                    outcome.response_text
+                    if item.response_text is None
+                    else item.response_text
+                ) or None,
+                thinking_text=(
+                    outcome.thinking_text
+                    if item.thinking_text is None
+                    else item.thinking_text
+                ) or None,
+                requested_max_output=(
+                    item.requested_max_output
+                    if item.requested_max_output is not None
+                    else outcome.requested_max_output
+                ),
+                finish_reason=item.finish_reason,
                 scorer_name=f"livebench:{battery_code(battery)}",
                 scorer_version=GRADER_VERSION,
                 model_id=model_id,

@@ -3,7 +3,6 @@ from __future__ import annotations
 from tests.bench.test_engine import engine  # noqa: F401
 from tests.bench.test_engine import (
     BenchmarkCategory,
-    ChatRequest,
     FakeAdapter,
     FlakyStressAdapter,
     ForgetfulStressAdapter,
@@ -27,23 +26,100 @@ def test_every_battery_runs_through_chat_request(engine: LivebenchEngine) -> Non
         assert outcome.raw_output != ""
 
 @pytest.mark.sandbox
-def test_code_gen_request_shape(engine: LivebenchEngine) -> None:  # noqa: F811 (fixture param shadows re-exported engine)
+def test_code_gen_splits_one_request_per_function(engine: LivebenchEngine) -> None:  # noqa: F811
+    # 0.6.5 (ruling C): 3 functions, 3 requests — one bad fence can no
+    # longer take the whole 13-test battery down.
     outcome = engine.run_battery(MODEL, BenchmarkCategory.code_gen)
     assert outcome.score == pytest.approx(100.0)
+    assert len(outcome.items) == 13
     fake = engine_mod.adapter_for(MODEL)
-    _model_id, cr = fake.requests[-1]
-    assert isinstance(cr, ChatRequest)
-    assert cr.max_output == 32768
-    assert cr.thinking_budget is None  # direct-output benchmark: no thinking
-    assert cr.images is None and cr.tools is None
+    crs = [
+        cr for _m, cr in fake.requests
+        if "Write this Python function" in str(cr.messages)
+    ]
+    assert len(crs) == 3
+    for cr in crs:
+        assert cr.max_output == 16384
+        assert cr.thinking_budget is None
+        assert cr.images is None and cr.tools is None
+    # each function rides exactly one request
+    for fn in ("sliding_window_median", "burst_balloons", "count_inversions"):
+        assert sum(fn in str(cr.messages) for cr in crs) == 1
 
-def test_reasoning_request_carries_thinking_budget(engine: LivebenchEngine) -> None:  # noqa: F811 (fixture param shadows re-exported engine)
+
+@pytest.mark.sandbox
+def test_code_gen_all_empty_finals_is_battery_inconclusive() -> None:
+    from hr.adapters.base import Capabilities
+    from hr.bench.engine import LivebenchEngine
+    from hr.graders.base import ModelResponse
+    from hr.models import BenchmarkCategory
+
+    class _EmptyRambler:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def probe_capabilities(self, model_id: str) -> Capabilities:
+            return Capabilities(
+                model_id=model_id, provider="fake",
+                supports_thinking=True, supports_vision=True,
+            )
+
+        def chat(self, model_id: str, messages: list, **kw: object) -> ModelResponse:
+            self.calls += 1
+            return ModelResponse(text="", thinking="", tokens_out=999, latency_ms=10)
+
+    stub = _EmptyRambler()
+    outcome = LivebenchEngine(adapter_factory=lambda _mid: stub).run_battery(
+        "prov/m", BenchmarkCategory.code_gen
+    )
+    assert stub.calls == 3
+    assert outcome.status == "inconclusive"
+
+
+@pytest.mark.sandbox
+def test_code_gen_one_truncated_function_only_costs_its_slice(
+    engine: LivebenchEngine,  # noqa: F811
+) -> None:
+    from hr.bench.engine import LivebenchEngine as _Eng
+    from hr.graders.base import ModelResponse
+    from hr.models import BenchmarkCategory
+    from tests.bench.fake_adapter import FakeAdapter
+
+    class _CIEmptiesOut(FakeAdapter):
+        def chat(self, model_id: str, messages: list, **kw: object) -> ModelResponse:
+            joined = " ".join(str(m.get("content", "")) for m in messages)
+            if "count_inversions" in joined:
+                return ModelResponse(
+                    text="", thinking="plans the merge forever",
+                    tokens_out=4321, latency_ms=60,
+                    finish_reason="length",
+                )
+            return super().chat(model_id, messages, **kw)
+
+    adapter = _CIEmptiesOut()
+    outcome = _Eng(adapter_factory=lambda _mid: adapter).run_battery(
+        "prov/m", BenchmarkCategory.code_gen
+    )
+    # swm 8 + bb 3 stay 11/13; only the inversion slice (test.11-12) is lost
+    assert outcome.score == pytest.approx(11 / 13 * 100.0)
+    by_label = {item.label: item for item in outcome.items}
+    assert all(by_label[f"test.{i:02d}"].passed for i in range(11))
+    assert by_label["test.11"].score == 0.0 and by_label["test.12"].score == 0.0
+    assert by_label["test.12"].finish_reason == "length"
+
+def test_reasoning_splits_one_request_per_question(engine: LivebenchEngine) -> None:  # noqa: F811
+    # 0.6.5 (owner ruling 2026-10-12): 13 questions, 13 requests — one
+    # truncation can no longer zero the battery.
     outcome = engine.run_battery(MODEL, BenchmarkCategory.reasoning)
     assert outcome.score == pytest.approx(100.0)
     fake = engine_mod.adapter_for(MODEL)
-    _model_id, cr = fake.requests[-1]
-    assert cr.thinking_budget == 4096
-    assert cr.max_output == 32768
+    crs = [cr for _m, cr in fake.requests if "Solve this. Work briefly" in str(cr.messages)]
+    assert len(crs) == 13
+    for cr in crs:
+        assert cr.thinking_budget == 4096
+        assert cr.max_output == 16384
+    # each question rides exactly one request: the q2-only text appears once
+    assert sum("7^777" in str(cr.messages) for cr in crs) == 1
 
 def test_instruction_follow_request_shape(engine: LivebenchEngine) -> None:  # noqa: F811 (fixture param shadows re-exported engine)
     outcome = engine.run_battery(MODEL, BenchmarkCategory.instruction_follow)
@@ -232,3 +308,65 @@ def test_long_horizon_request_shape(engine: LivebenchEngine) -> None:  # noqa: F
     assert cr.thinking_budget == 8192
     assert cr.max_output == 16384
     assert len(out.items) == 4
+
+
+def test_reasoning_all_empty_finals_is_battery_inconclusive() -> None:
+    from hr.adapters.base import Capabilities
+    from hr.bench.engine import LivebenchEngine
+    from hr.graders.base import ModelResponse
+    from hr.models import BenchmarkCategory
+
+    class _EmptyRambler:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def probe_capabilities(self, model_id: str) -> Capabilities:
+            return Capabilities(
+                model_id=model_id, provider="fake",
+                supports_thinking=True, supports_vision=True,
+            )
+
+        def chat(self, model_id: str, messages: list, **kw: object) -> ModelResponse:
+            self.calls += 1
+            return ModelResponse(text="", thinking="", tokens_out=999, latency_ms=10)
+
+    stub = _EmptyRambler()
+    outcome = LivebenchEngine(adapter_factory=lambda _mid: stub).run_battery(
+        "prov/m", BenchmarkCategory.reasoning
+    )
+    assert stub.calls == 13
+    assert outcome.status == "inconclusive"
+
+
+def test_reasoning_isolates_one_blanked_question_per_row() -> None:
+    from hr.bench.engine import LivebenchEngine
+    from hr.graders.base import ModelResponse
+    from hr.models import BenchmarkCategory
+    from tests.bench.fake_adapter import FakeAdapter
+
+    class _Q2BlanksOut(FakeAdapter):
+        def chat(self, model_id: str, messages: list, **kw: object) -> ModelResponse:
+            joined = " ".join(str(m.get("content", "")) for m in messages)
+            if "7^777" in joined:
+                return ModelResponse(
+                    text="", thinking="loops on digits",
+                    tokens_out=1234, latency_ms=50,
+                    finish_reason="length",
+                )
+            return super().chat(model_id, messages, **kw)
+
+    adapter = _Q2BlanksOut()
+    outcome = LivebenchEngine(adapter_factory=lambda _mid: adapter).run_battery(
+        "prov/m", BenchmarkCategory.reasoning
+    )
+    assert outcome.status == "scored"
+    assert outcome.score == pytest.approx(12 / 13 * 100)
+    by_q2 = [item for item in outcome.items if item.item_id.endswith(".q2")]
+    assert len(by_q2) == 1
+    assert by_q2[0].score == 0.0
+    assert by_q2[0].finish_reason == "length"
+    assert by_q2[0].tokens_out == 1234
+    by_q1 = [item for item in outcome.items if item.item_id.endswith(".q1")]
+    assert by_q1[0].score == 100.0
+    # untouched rows keep the fake's own accounting, not q2's
+    assert by_q1[0].tokens_out != 1234
