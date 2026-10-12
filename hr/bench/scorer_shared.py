@@ -8,6 +8,26 @@ from typing import Literal
 BenchmarkStatus = Literal["scored", "inconclusive", "not_applicable"]
 
 @dataclass(frozen=True)
+class ItemDetail:
+    """Per-graded-unit evidence of the call that produced it.
+
+    Multi-call batteries (reasoning since 0.6.5: one request per question)
+    attach one detail per item so each measurement row carries ITS OWN
+    response, tokens, latency and stop cause — never a copy of another
+    question's generation.
+    """
+
+    label: str
+    response_text: str = ""
+    thinking_text: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
+    latency_ms: int = 0
+    requested_max_output: int | None = None
+    finish_reason: str | None = None
+
+
+@dataclass(frozen=True)
 class _BenchmarkOutcome:
     score: float
     passed: bool
@@ -16,6 +36,9 @@ class _BenchmarkOutcome:
     raw_output: str = ""
     #: Per-graded-unit (label, passed) breakdown, in registry label order.
     item_scores: list[tuple[str, bool]] | None = None
+    #: Per-unit evidence aligned by label with item_scores (multi-call
+    #: batteries); None keeps the single-call replication semantics.
+    item_details: list[ItemDetail] | None = None
     status: BenchmarkStatus = "scored"
 
 

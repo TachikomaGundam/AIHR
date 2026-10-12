@@ -175,6 +175,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                 tokens_in=resp.tokens_in,
                 tokens_out=resp.tokens_out,
                 requested_max_output=cr.max_output,
+                finish_reason=resp.finish_reason,
             )
         return _RunResult(
             outcome=score(text),
@@ -184,6 +185,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
             tokens_in=resp.tokens_in,
             tokens_out=resp.tokens_out,
             requested_max_output=cr.max_output,
+            finish_reason=resp.finish_reason,
         )
     def run_battery(self, model_id: str, battery: BenchmarkCategory) -> BenchOutcome:
         """Run one battery for one model; never raises for model/battery-level
@@ -304,6 +306,16 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                     f"scorer returned {len(outcome.item_scores)} items for "
                     f"{battery.value}, registry expects {len(labels)}"
                 )
+            details_by_label: dict[str, Any] = {}
+            if outcome.item_details is not None:
+                if len(outcome.item_details) != len(outcome.item_scores):
+                    raise ValueError(
+                        f"{battery.value}: {len(outcome.item_details)} item_details "
+                        f"!= {len(outcome.item_scores)} item_scores"
+                    )
+                details_by_label = {
+                    d.label: d for d in outcome.item_details
+                }
             for (label, passed), expected in zip(outcome.item_scores, labels):
                 if label != expected:
                     raise ValueError(
@@ -315,12 +327,22 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
                     score = outcome.score
                 else:
                     score = 100.0 if passed else 0.0
+                detail = details_by_label.get(label)
                 items.append(
                     ItemResult(
                         label=label,
                         item_id=battery_item_id(battery, label),
                         score=score,
                         passed=passed,
+                        response_text=None if detail is None else detail.response_text,
+                        thinking_text=None if detail is None else detail.thinking_text,
+                        tokens_in=None if detail is None else detail.tokens_in,
+                        tokens_out=None if detail is None else detail.tokens_out,
+                        latency_ms=None if detail is None else detail.latency_ms,
+                        requested_max_output=(
+                            None if detail is None else detail.requested_max_output
+                        ),
+                        finish_reason=None if detail is None else detail.finish_reason,
                     )
                 )
         elif len(labels) == 1:

@@ -85,3 +85,13 @@ def migrate_dialect_contract_columns(conn: psycopg2.extensions.connection) -> No
         cur.execute("ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS contract_id TEXT")
         cur.execute("ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS flags TEXT")
     conn.commit()
+
+
+def migrate_measurement_finish_reason(conn: psycopg2.extensions.connection) -> None:
+    """Per-row stop cause (0.6.5): 'length' marks a budget-cut generation —
+    the capacity-vs-capability distinction the verdict surface must show."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "ALTER TABLE hr.measurement ADD COLUMN IF NOT EXISTS finish_reason TEXT"
+        )
+    conn.commit()

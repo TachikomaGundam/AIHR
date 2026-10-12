@@ -184,6 +184,31 @@ def capability_profile_stats(conn) -> dict[str, dict[str, tuple[float | None, in
     return out
 
 
+def profile_truncation(conn) -> dict[str, dict[str, tuple[int, int]]]:
+    """Per (model, battery-code): rows the server cut at the output cap
+    (finish_reason='length') vs the profile's total rows.
+
+    Truncation is a capacity signal — the verdict surface must show it
+    explicitly instead of letting it masquerade as capability (0.6.5).
+    """
+    rows = _fetch(
+        conn,
+        _PROFILE_CTE
+        + """
+        SELECT l.model_id, b.battery_code,
+               count(*) FILTER (WHERE m.finish_reason = 'length'), count(*)
+          FROM latest l
+          JOIN hr.measurement m ON m.run_id = l.run_id
+          JOIN hr.battery b ON b.battery_id = l.battery_id
+         GROUP BY 1, 2
+        """,
+    )
+    out: dict[str, dict[str, tuple[int, int]]] = {}
+    for model_id, code, cut, total in rows:
+        out.setdefault(str(model_id), {})[str(code)] = (int(cut), int(total))
+    return out
+
+
 def capability_means(conn, sweep_id: str) -> dict[str, dict[str, float]]:
     rows = _fetch(
         conn,

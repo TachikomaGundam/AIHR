@@ -5,6 +5,46 @@ import re
 from hr.bench.scorer_shared import _BenchmarkOutcome, _parse_number
 from hr.bench.truths import long_horizon_truths, reasoning_truths
 
+# Whole-text numeric-token regex: matches ints, decimals and simple fractions.
+_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?(?:\s*/\s*-?\d+(?:\.\d+)?)?")
+
+
+def score_reasoning_single(text: str, truth: int) -> _BenchmarkOutcome:
+    """Grade one question's answer against its integer truth (v1 semantics).
+
+    Candidate sources in priority order (any match passes): (1) 'A: <value>'
+    or 'A<N>: <value>' lines, (2) \\boxed{...} / bare-braced numbers, (3) the
+    last numeric token in the text. Used by the per-question reasoning lane
+    (0.6.5): one question per request, so a single truncation no longer
+    zeros the whole battery.
+    """
+    candidates: list[float] = []
+    for m in re.finditer(r"\bA(?:\d+)?\s*:\s*([^\n]+)", text):
+        p = _parse_number(m.group(1))
+        if p is not None:
+            candidates.append(p)
+    for bm in re.finditer(r"\\boxed\s*\{([^{}]*?)\}", text):
+        p = _parse_number(bm.group(1))
+        if p is not None:
+            candidates.append(p)
+    for bm in re.finditer(r"(?<!\\)\{\s*(-?\d+(?:\.\d+)?(?:\s*/\s*-?\d+(?:\.\d+)?)?)\s*\}", text):
+        p = _parse_number(bm.group(1))
+        if p is not None:
+            candidates.append(p)
+    if not candidates:
+        all_nums = _NUM_RE.findall(text)
+        if all_nums:
+            p = _parse_number(all_nums[-1])
+            if p is not None:
+                candidates.append(p)
+    passed = any(int(round(c)) == truth for c in candidates)
+    return _BenchmarkOutcome(
+        score=100.0 if passed else 0.0,
+        passed=passed,
+        raw_output=f"truth={'✓' if passed else '✗'} candidates={candidates[:5]!r}",
+    )
+
+
 def score_reasoning(text: str) -> _BenchmarkOutcome:
     """Lenient per-problem answer extraction (v1 semantics unchanged).
 
@@ -20,7 +60,7 @@ def score_reasoning(text: str) -> _BenchmarkOutcome:
     n_questions = len(truths)
 
     # --- Whole-text numeric-token regex (reused) ---
-    NUM_RE = re.compile(r"-?\d+(?:\.\d+)?(?:\s*/\s*-?\d+(?:\.\d+)?)?")
+    NUM_RE = _NUM_RE
 
     # --- Strategy 1: collect all A<N>: values from the full text ---
     a_candidates_by_q: dict[int, list[float]] = {}

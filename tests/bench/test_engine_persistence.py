@@ -164,8 +164,8 @@ def test_e2e_all_batteries_write_measurements_with_linkage(
         (sweep_id,),
     )
     by_code = dict(caps)
-    assert by_code[battery_code(BenchmarkCategory.code_gen)] == 32768
-    assert by_code[battery_code(BenchmarkCategory.reasoning)] == 32768
+    assert by_code[battery_code(BenchmarkCategory.code_gen)] == 16384
+    assert by_code[battery_code(BenchmarkCategory.reasoning)] == 16384
     assert by_code[battery_code(BenchmarkCategory.tool_use)] == 4096
     assert by_code[battery_code(BenchmarkCategory.long_context)] == 16384
     assert by_code[battery_code(BenchmarkCategory.attention_probe)] == 16384
@@ -193,3 +193,23 @@ def test_e2e_idempotent_registration(scratch_conn) -> None:
     engine.ensure_registered(scratch_conn)
     second = _sql(scratch_conn, "SELECT COUNT(*) FROM hr.battery")[0][0]
     assert first == second == 11
+
+
+def test_reasoning_persists_one_row_per_question_with_own_cap(engine, scratch_conn) -> None:  # noqa: F811
+    from hr.models import BenchmarkCategory as _BC
+
+    sweep_id = f"qa-split-{uuid.uuid4().hex[:8]}"
+    engine.ensure_registered(scratch_conn)
+    out = engine.run_battery(MODEL, _BC.reasoning)
+    engine.store(scratch_conn, sweep_id, MODEL, _BC.reasoning, out)
+
+    rows = _sql(
+        scratch_conn,
+        "SELECT m.item_id, m.requested_max_output, m.finish_reason "
+        "FROM hr.measurement m JOIN hr.run r ON r.run_id = m.run_id "
+        "WHERE r.sweep_id = %s ORDER BY m.item_id",
+        (sweep_id,),
+    )
+    assert len(rows) == 13
+    assert {row[1] for row in rows} == {16384}
+    assert all(row[2] is None for row in rows)  # fake transport reports no stop cause

@@ -15,6 +15,7 @@ from .decision import (
     capability_means_profile,
     measurement_count_profile,
     model_capabilities,
+    profile_truncation,
     seat_rows,
     separation_probabilities,
 )
@@ -28,6 +29,24 @@ def _starved_suffix(codes: list[str]) -> str:
         return ""
     detail = ", ".join(f"{k}→{b}" for k, b in sorted(starved))
     return f"\n⚠ starved verdict knobs (evidence battery has no data, weight 0): {detail}"
+
+
+def _truncation_suffix(conn) -> str:
+    flagged = [
+        (model_id, code, cut, total)
+        for model_id, batteries in profile_truncation(conn).items()
+        for code, (cut, total) in batteries.items()
+        if cut > 0
+    ]
+    if not flagged:
+        return ""
+    flagged.sort(key=lambda row: (-row[2], row[0], row[1]))
+    detail = "; ".join(f"{m} {b} {cut}/{total}" for m, b, cut, total in flagged[:8])
+    more = f" (+{len(flagged) - 8} more)" if len(flagged) > 8 else ""
+    return (
+        "\n⚠ budget-truncated rows (server stopped at output cap — capacity, "
+        f"not capability): {detail}{more}"
+    )
 
 
 def build_verdict_report(
@@ -54,6 +73,7 @@ def build_verdict_report(
         "zero new API calls (mined from existing measurements) · "
         f"deployable pool: {len(pool)}/{len(model_ids)} models "
         "(iron rule 5: retired models never assigned)" + _starved_suffix(codes)
+        + _truncation_suffix(conn)
     )
 
     # (a) capability battery averages

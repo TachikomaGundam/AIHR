@@ -224,6 +224,7 @@ def _insert_measurement(
     scorer_name: str | None = None,
     scorer_version: str | None = None,
     model_id: str = "",
+    finish_reason: str | None = None,
 ) -> None:
     """Insert one measurement row (ON CONFLICT DO NOTHING).
 
@@ -244,8 +245,9 @@ def _insert_measurement(
         cur.execute(
                 "INSERT INTO hr.measurement (measurement_id, run_id, item_id, repetition, "
                 "score, tokens_in, tokens_out, latency_ms, created_at, "
-            "response_text, thinking_text, requested_max_output, scorer_name, scorer_version) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "response_text, thinking_text, requested_max_output, scorer_name, scorer_version, "
+            "finish_reason) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT DO NOTHING",
             (
                 measurement_id,
@@ -262,6 +264,7 @@ def _insert_measurement(
                 requested_max_output,
                 scorer_name,
                 scorer_version,
+                finish_reason,
             ),
         )
         try:

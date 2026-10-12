@@ -48,6 +48,9 @@ class ModelResponse:
     latency_ms: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
+    #: Server-stated stop cause ("stop"/"length"/"tool_calls"); None when the
+    #: transport never reported one.
+    finish_reason: str | None = None
 
 
 # ---------------------------------------------------------------------------

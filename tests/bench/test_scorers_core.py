@@ -239,3 +239,16 @@ def test_attention_probe_builder_planted_needles_and_keys() -> None:
         f"{i}) {expected[label]}" for i, label in enumerate(labels, 1)
     )
     assert score_attention_probe(perfect, expected).score == pytest.approx(100.0)
+
+
+def test_score_reasoning_single_candidate_ladder() -> None:
+    from hr.bench.scorer_reasoning import score_reasoning_single
+
+    assert score_reasoning_single("work work\nA: 42", 42).passed
+    assert score_reasoning_single("answer sheet style A3: 42", 42).passed
+    assert score_reasoning_single(r"so \boxed{42} done", 42).passed
+    assert score_reasoning_single("the answer is 42", 42).passed
+    assert not score_reasoning_single("the answer is 43", 42).passed
+    assert not score_reasoning_single("", 42).passed
+    out = score_reasoning_single("A: 42", 42)
+    assert out.score == 100.0 and out.status == "scored"

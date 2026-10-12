@@ -333,3 +333,28 @@ def test_fuse_reaches_budget_none_lane_only_when_fired(sandbox_adapter, monkeypa
         "acme/model-x", [{"role": "user", "content": "go"}], thinking_budget=None
     )
     assert calls2[0]["json"].get("reasoning_effort") == "low"
+
+
+def test_chat_captures_finish_reason_and_counts_completion_once(
+    sandbox_adapter, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # P3 case (2026-10-12): completion_tokens already INCLUDES reasoning
+    # tokens; the pre-0.6.5 code added reasoning_tokens again (191 local-qwen
+    # rows reported 65431 for a 32768-cap generation). And the server-stated
+    # stop cause must reach ModelResponse (0.6.5 finish_reason lane).
+    lines = _sse(
+        {"choices": [{"index": 0, "delta": {"reasoning_content": "thinking hard"}}]},
+        {"choices": [{"index": 0, "delta": {"content": "A: 7"}, "finish_reason": "length"}]},
+        {"usage": {"prompt_tokens": 11, "completion_tokens": 100,
+                   "completion_tokens_details": {"reasoning_tokens": 80}}},
+        "[DONE]",
+    )
+    _script_post(monkeypatch, FakeStreamResponse(lines=lines))
+
+    response = sandbox_adapter.chat(
+        "acme/m", [{"role": "user", "content": "hi"}], max_output=2048
+    )
+
+    assert response.finish_reason == "length"
+    assert response.text == "A: 7"
+    assert response.tokens_out == 100
