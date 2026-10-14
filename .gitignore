@@ -42,3 +42,4 @@ dist/
 .npmrc
 opencode_plugin/hr-invocation.js
 coverage.xml
+pypi-dist-*/
