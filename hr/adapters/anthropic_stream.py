@@ -10,6 +10,18 @@ from hr.adapters.base import AdapterError
 from hr.graders.base import ModelResponse
 from hr.scheduler.taxonomy import classify_failure
 
+# 0.6.6 (P5 preflight finding): the anthropic wire dropped stop_reason, so
+# every finish_reason-consuming battery (ENV-STARVED, truncation-capacity
+# verdict) saw None on this half of the fleet. Closed map onto the
+# openai-compat vocabulary the batteries are written against; an unmapped
+# stop_reason passes through VERBATIM so downstream run-level ENV states
+# name it (ENV-UNKNOWN-STOP) instead of guessing.
+_STOP_REASON_MAP = {
+    "max_tokens": "length",
+    "end_turn": "stop",
+    "stop_sequence": "stop",
+}
+
 
 def decode_stream(
     client: Any,
@@ -23,6 +35,7 @@ def decode_stream(
     started_at = time.perf_counter()
     input_tokens = 0
     output_tokens = 0
+    stop_reason: str | None = None
     text_parts: list[str] = []
     thinking_parts: list[str] = []
     tool_calls: list[dict[str, Any]] = []
@@ -43,7 +56,7 @@ def decode_stream(
         open_tool = None
 
     def flush() -> None:
-        nonlocal input_tokens, output_tokens, open_tool
+        nonlocal input_tokens, output_tokens, stop_reason, open_tool
         if not data_lines:
             return
         payload = "\n".join(data_lines)
@@ -86,6 +99,9 @@ def decode_stream(
             case "message_delta":
                 usage = event.get("usage") or {}
                 output_tokens = int(usage.get("output_tokens", 0) or 0)
+                delta = event.get("delta") or {}
+                if delta.get("stop_reason"):
+                    stop_reason = str(delta["stop_reason"])
             case _:
                 pass
 
@@ -151,6 +167,7 @@ def decode_stream(
         latency_ms=int((time.perf_counter() - started_at) * 1000),
         tokens_in=input_tokens,
         tokens_out=output_tokens,
+        finish_reason=_STOP_REASON_MAP.get(stop_reason, stop_reason),
     )
 
 
