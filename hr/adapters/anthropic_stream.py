@@ -167,7 +167,7 @@ def decode_stream(
         latency_ms=int((time.perf_counter() - started_at) * 1000),
         tokens_in=input_tokens,
         tokens_out=output_tokens,
-        finish_reason=_STOP_REASON_MAP.get(stop_reason, stop_reason),
+        finish_reason=(None if stop_reason is None else _STOP_REASON_MAP.get(stop_reason, stop_reason)),
     )
 
 
