@@ -152,7 +152,11 @@ class EngineStorageMixin:
                     if item.requested_max_output is not None
                     else outcome.requested_max_output
                 ),
-                finish_reason=item.finish_reason,
+                finish_reason=(
+                    item.finish_reason
+                    if item.finish_reason is not None
+                    else outcome.finish_reason
+                ),
                 scorer_name=f"livebench:{battery_code(battery)}",
                 scorer_version=GRADER_VERSION,
                 model_id=model_id,

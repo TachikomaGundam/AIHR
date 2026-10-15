@@ -381,6 +381,7 @@ class LivebenchEngine(EngineStorageMixin, EngineRunnersMixin, EngineInteractiveM
             response_text=result.response_text,
             thinking_text=result.thinking_text,
             requested_max_output=result.requested_max_output,
+            finish_reason=result.finish_reason,
         )
 
 
