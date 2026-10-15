@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 
+from dataclasses import replace
+
 import pytest
 
 from hr.bench.engine_results import BenchOutcome, ItemResult
@@ -158,3 +160,26 @@ def test_store_does_not_persist_unscored_measurements(status: str) -> None:
     sqls = [sql for sql, _ in conn.executed]
     assert sum("INSERT INTO hr.run" in sql for sql in sqls) == 1
     assert sum("INSERT INTO hr.measurement" in sql for sql in sqls) == 0
+
+
+def test_store_falls_back_to_outcome_finish_reason() -> None:
+    # Single-call batteries (9 of 11) build items via the scorer, which never
+    # sees the wire finish_reason; the run-level value must reach every row
+    # (191 acceptance sweep 2026-10-15: 274/443 rows NULL — the two rebuilt
+    # batteries had data, the nine shared-path ones did not).
+    conn = FakeConn()
+    outcome = _outcome(n_items=2)
+    outcome.finish_reason = "length"
+    EngineStorageMixin().store(conn, "sweep-1", "acme/m1", LIVEBENCH_BATTERIES[0], outcome)
+    rows = [p for s, p in conn.executed if "INSERT INTO hr.measurement" in s]
+    assert [r[14] for r in rows] == ["length", "length"]
+
+
+def test_store_item_finish_reason_wins_over_outcome() -> None:
+    conn = FakeConn()
+    outcome = _outcome(n_items=2)
+    outcome.finish_reason = "stop"
+    outcome.items[0] = replace(outcome.items[0], finish_reason="length")
+    EngineStorageMixin().store(conn, "sweep-1", "acme/m1", LIVEBENCH_BATTERIES[0], outcome)
+    rows = [p for s, p in conn.executed if "INSERT INTO hr.measurement" in s]
+    assert rows[0][14] == "length" and rows[1][14] == "stop"

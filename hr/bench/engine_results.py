@@ -44,6 +44,7 @@ class BenchOutcome:
     response_text: str = ""
     thinking_text: str = ""
     requested_max_output: int = 16384
+    finish_reason: str | None = None
 
 
 @dataclass(frozen=True)
