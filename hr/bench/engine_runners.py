@@ -32,6 +32,7 @@ class EngineRunnersMixin(Protocol):
         details: list[ItemDetail] = []
         total_in = total_out = total_lat = 0
         answered = False
+        fr_last: str | None = None
         for name, spec in prompts.CODE_GEN_TASK_SPECS:
             first, count = code_gen_task_slice(name)
             result = self._single_call(
@@ -48,6 +49,7 @@ class EngineRunnersMixin(Protocol):
                 lambda text, _n=name: score_code_gen_task(text, _n),
             )
             outcome = result.outcome
+            fr_last = result.finish_reason or fr_last
             if outcome.status == "scored":
                 answered = True
             slice_scores = outcome.item_scores or [
@@ -77,7 +79,8 @@ class EngineRunnersMixin(Protocol):
                     score=0.0, passed=False, status="inconclusive",
                     raw_output=f"INCONCLUSIVE: all {len(prompts.CODE_GEN_TASK_SPECS)} "
                     "code calls generated tokens without a gradeable answer",
-                )
+                ),
+                finish_reason=fr_last,
             )
         correct = sum(1 for _label, passed in scores if passed)
         return _RunResult(
@@ -91,6 +94,7 @@ class EngineRunnersMixin(Protocol):
             latency_ms=total_lat,
             tokens_in=total_in,
             tokens_out=total_out,
+            finish_reason=fr_last,
         )
 
     def _run_factuality(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
@@ -105,6 +109,7 @@ class EngineRunnersMixin(Protocol):
         results: list[tuple[str, str]] = []
         text_log: list[str] = []
         tokens_in = tokens_out = latency = 0
+        fr_last: str | None = None
         for card in FACTUALITY_CARDS:
             texts: list[str] = []
             for tmpl in (FACT_ANSWER_HEADER, FACT_TRAP_HEADER):
@@ -121,6 +126,7 @@ class EngineRunnersMixin(Protocol):
                 tokens_out += resp.tokens_out
                 latency += resp.latency_ms
                 texts.append(resp.text)
+                fr_last = resp.finish_reason or fr_last
             results.append((texts[0], texts[1]))
             # #12: persist BOTH sides per card — a blind auditor must be able
             # to re-derive key_hit and fabrication from the DB alone; the
@@ -135,6 +141,7 @@ class EngineRunnersMixin(Protocol):
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             requested_max_output=512,
+            finish_reason=fr_last,
         )
 
     def _run_reasoning(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
@@ -154,6 +161,7 @@ class EngineRunnersMixin(Protocol):
         verdicts: list[str] = []
         correct = 0
         empty_finals = 0
+        fr_last = None
         total_in = total_out = total_lat = 0
         for q_idx, question in enumerate(prompts.REASONING_QUESTIONS, start=1):
             truth = truths[q_idx]
@@ -172,6 +180,7 @@ class EngineRunnersMixin(Protocol):
                 combine_thinking=True,
             )
             outcome = result.outcome
+            fr_last = result.finish_reason or fr_last
             if outcome.status != "scored":
                 empty_finals += 1
             passed = outcome.status == "scored" and outcome.passed
@@ -200,7 +209,8 @@ class EngineRunnersMixin(Protocol):
                     score=0.0, passed=False, status="inconclusive",
                     raw_output=f"INCONCLUSIVE: {n}/{n} calls generated tokens "
                     "without ever emitting a final answer",
-                )
+                ),
+                finish_reason=fr_last,
             )
         return _RunResult(
             outcome=_BenchmarkOutcome(
@@ -213,6 +223,7 @@ class EngineRunnersMixin(Protocol):
             latency_ms=total_lat,
             tokens_in=total_in,
             tokens_out=total_out,
+            finish_reason=fr_last,
         )
 
     def _run_instruction_follow(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
@@ -288,6 +299,7 @@ class EngineRunnersMixin(Protocol):
         resp = self._chat(model_id, adapter, caps, cr)
         return _RunResult(
             outcome=score_speed(resp.tokens_out, resp.latency_ms, resp.text),
+            finish_reason=resp.finish_reason,
             response_text=resp.text,
             latency_ms=resp.latency_ms,
             tokens_in=resp.tokens_in,
