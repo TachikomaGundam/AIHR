@@ -42,6 +42,7 @@ class _StubEngine:
         return SimpleNamespace(
             text=self.responder(prompt, self.calls), thinking="", tool_calls=[],
             raw={}, latency_ms=50, tokens_in=100, tokens_out=20,
+            finish_reason="stop",
         )
 
 

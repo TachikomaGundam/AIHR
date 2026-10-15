@@ -38,6 +38,7 @@ class EngineInteractiveMixin(Protocol):
         final_text = ""
         tokens_in = tokens_out = 0
         latency_ms = 0
+        fr_last: str | None = None
         for turn in range(6):
             cr = ChatRequest(
                 model_id=model_id,
@@ -58,6 +59,7 @@ class EngineInteractiveMixin(Protocol):
             tokens_in += resp.tokens_in
             tokens_out += resp.tokens_out
             latency_ms += resp.latency_ms
+            fr_last = resp.finish_reason or fr_last
             if resp.text:
                 final_text = resp.text
 
@@ -113,6 +115,7 @@ class EngineInteractiveMixin(Protocol):
                 tokens_in=tokens_in,
                 tokens_out=tokens_out,
                 requested_max_output=4096,
+                finish_reason=fr_last,
             )
 
         outcome = score_tool_use_text(final_text, tool_used)
@@ -123,6 +126,7 @@ class EngineInteractiveMixin(Protocol):
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             requested_max_output=4096,
+            finish_reason=fr_last,
         )
 
     def _run_attention_stress(self, model_id: str, adapter: Adapter, caps: Capabilities) -> _RunResult:
@@ -148,6 +152,7 @@ class EngineInteractiveMixin(Protocol):
         latency_ms = first.latency_ms
         tokens_in = first.tokens_in
         tokens_out = first.tokens_out
+        fr_last: str | None = first.finish_reason
 
         checkpoints: dict[str, str] = {}
         for i, prompt in enumerate(stress_prompts.STRESS_CANNED_TURNS, start=2):
@@ -163,6 +168,7 @@ class EngineInteractiveMixin(Protocol):
             latency_ms += resp.latency_ms
             tokens_in += resp.tokens_in
             tokens_out += resp.tokens_out
+            fr_last = resp.finish_reason or fr_last
             messages.append({"role": "assistant", "content": self._stress_content(resp)})
             if i in stress_prompts.STRESS_CHECKPOINT_TURNS:
                 checkpoints[f"survive_t{i}"] = resp.text
@@ -175,6 +181,7 @@ class EngineInteractiveMixin(Protocol):
             tokens_in=tokens_in,
             tokens_out=tokens_out,
             requested_max_output=16384,
+            finish_reason=fr_last,
         )
 
     @staticmethod
