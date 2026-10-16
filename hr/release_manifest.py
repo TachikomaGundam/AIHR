@@ -133,6 +133,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/calibration_cli.py",               # calibration command cluster (calibration_runner + config)
     "hr/config_resources.py",              # shipped yaml config files resolved as package resources
     "hr/fleet_policy.py",                  # fleet scope policy (yaml + config.load_yaml)
+    "hr/parity.py",                        # generation-parity predicates: anchor vs live fleet (charter gate #1)
     "hr/graders/constraint_dsl.py",        # constraint-DSL evaluator (graders.base)
     "hr/health_metrics.py",                # behavioral health metrics (stdlib + decimal)
     "hr/items/payloads.py",                # typed benchmark item payloads (pydantic)
@@ -220,6 +221,7 @@ RELEASE_ASSETS: List[str] = [
     "configs/fleet.yaml",
     "configs/fleet.local.yaml.example",
     "configs/knowledge.yaml",
+    "configs/model_parity.yaml",
     "configs/models.yaml",
     "configs/seats.yaml",
     "configs/thresholds.yaml",
