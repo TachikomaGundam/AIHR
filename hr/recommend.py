@@ -883,7 +883,9 @@ class RecommendationEngine:
             self._evidence_errors.append(message)
             return {}
 
-    def seat_recommendations(self, seats: list[dict] | None = None) -> str:
+    def seat_recommendations(
+        self, seats: list[dict] | None = None, *, fmt: str = "text"
+    ) -> str:
         from hr.decision import (
             battery_codes,
             model_capabilities,
@@ -916,12 +918,7 @@ class RecommendationEngine:
             else {},
         )
         by_seat = {str(item["seat_code"]): item for item in assignments}
-        lines = [
-            f"# Seat recommendations ({len(selected_seats)} seats from configs/seats.yaml)",
-            "",
-            "| seat | domain | recommended model | gate |",
-            "|------|--------|-------------------|------|",
-        ]
+        rows: list[dict[str, object]] = []
         for seat in selected_seats:
             seat_code = str(seat["seat_code"])
             assignment = by_seat.get(seat_code)
@@ -931,12 +928,36 @@ class RecommendationEngine:
                     "(custom seat via overlay?); emitting no-data row",
                     seat_code,
                 )
-                lines.append(f"| {seat_code} | {seat.get('domain', '—')} | — | no-data |")
+                rows.append(
+                    {
+                        "seat_code": seat_code,
+                        "domain": seat.get("domain"),
+                        "recommended": None,
+                        "gate_level": "no-data",
+                    }
+                )
                 continue
-            model = assignment["primary"] or "—"
+            rows.append(
+                {
+                    "seat_code": seat_code,
+                    "domain": seat.get("domain"),
+                    "recommended": assignment["primary"] or None,
+                    "gate_level": assignment["gate_level"],
+                }
+            )
+        if fmt == "json":
+            return json.dumps({"seats": rows}, indent=2)
+        lines = [
+            f"# Seat recommendations ({len(selected_seats)} seats from configs/seats.yaml)",
+            "",
+            "| seat | domain | recommended model | gate |",
+            "|------|--------|-------------------|------|",
+        ]
+        for row in rows:
+            model = row["recommended"] or "—"
+            domain = row["domain"] if row["domain"] is not None else "—"
             lines.append(
-                f"| {seat_code} | {seat.get('domain', '—')} | {model} | "
-                f"{assignment['gate_level']} |"
+                f"| {row['seat_code']} | {domain} | {model} | {row['gate_level']} |"
             )
         lines.extend(
             [
