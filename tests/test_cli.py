@@ -23,37 +23,39 @@ from hr.health import HealthReport, summary_table  # noqa: F401 (re-export; cons
 runner = CliRunner()
 
 COMMANDS = {
-    "support-bundle",
-    "discover", "db-dsn",
-    "seed",
-    "bench",
-    "verdict",
-    "health",
-    "sweeps",
-    "calibrate",
-    "reference",
-    "research",
-    "publish",
-    "recommend",
-    "setup",
-    "status",
-    "db-up",
-    "db-down",
-    "db-status",
-    "install-post",
-    "self-uninstall",
-    "py-fetch",
     "apply",
-    "apply-preview",
-    "apply-rollback",
     "apply-backups",
+    "apply-preview",
     "apply-prune",
-    "release-build",
-    "release-verify",
+    "apply-rollback",
+    "bench",
+    "calibrate",
+    "db-down",
+    "db-dsn",
+    "db-status",
+    "db-up",
+    "discover",
+    "health",
+    "install-post",
+    "parity",
+    "publish",
+    "py-fetch",
+    "recommend",
+    "reference",
     "release-activate",
-    "release-rollback",
+    "release-build",
     "release-list",
     "release-prune",
+    "release-rollback",
+    "release-verify",
+    "research",
+    "seed",
+    "self-uninstall",
+    "setup",
+    "status",
+    "support-bundle",
+    "sweeps",
+    "verdict",
 }
 
 class _FakeCursor:
@@ -156,3 +158,27 @@ def _health_router(measurement_rows):
     }
 
 _BATTERY_KEY = "COUNT(DISTINCT m.item_id)::int"
+
+
+def test_command_count_claims_pin_to_registry() -> None:
+    """Four hand-maintained count surfaces (README EN prose + table, README ZH
+    prose + table, cli.py docstring) must equal the live registry - the SR4-60
+    policy-site-inventory law made mechanical: one drift = red."""
+    import re
+    from pathlib import Path
+    from typer.main import get_command
+
+    from hr.cli import app as cli_app
+
+    n = len(get_command(cli_app).commands)
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    zh = (root / "README.zh-CN.md").read_text(encoding="utf-8")
+    assert re.search(rf"and {n} CLI commands\.", readme), "EN prose count"
+    assert re.search(rf"{n} 条 CLI 命令", zh), "ZH prose count"
+    assert f"({n} shipped commands)" in (root / "hr" / "cli.py").read_text(encoding="utf-8")
+    rows = re.findall(r"^\| `hr ([\w-]+)` \|", readme, re.M)
+    assert len(rows) == len(set(rows)) == n, f"EN table rows={len(rows)} want {n}"
+    assert set(rows) == set(get_command(cli_app).commands), "EN table set"
+    zh_rows = set(re.findall(r"^\| `hr ([\w-]+)` \|", zh, re.M))
+    assert zh_rows == set(get_command(cli_app).commands), "ZH table set"
