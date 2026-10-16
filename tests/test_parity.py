@@ -3,9 +3,11 @@ import datetime as dt
 import pytest
 
 from hr.parity import (
+    assert_tier_ceiling,
     assert_pricing_parity,
     check_parity,
     check_pricing_parity,
+    check_tier_ceiling,
     classify,
     resolve_price,
 )
@@ -143,3 +145,36 @@ def test_estimate_cost_shares_the_resolver() -> None:
     from hr.recommend import _estimate_cost
     assert _estimate_cost("p/k3", 1_000_000, {"k3": 3.0}) == 3.0
     assert _estimate_cost("p/nope", 100, {}) is None
+
+
+# ---- gate #3: tier ceiling (ruler health; the P5 disease made mechanical) ----
+
+def test_ceiling_all_max_is_frozen() -> None:
+    rep = check_tier_ceiling({"vision": [100.0] * 6})
+    assert rep.frozen == ("vision",) and rep.no_signal == ("vision",)
+
+
+def test_ceiling_mixed_is_healthy() -> None:
+    rep = check_tier_ceiling({"code_gen": [100.0, 99.0, 100.0, 88.0, 100.0, 100.0]})
+    assert rep.healthy == ("code_gen",) and not rep.no_signal
+
+
+def test_ceiling_flat_offceiling_is_flagged() -> None:
+    rep = check_tier_ceiling({"speed": [0.0] * 8})
+    assert rep.flat == ("speed",)  # uniform-zero = grader-broken, not ceiling
+
+
+def test_ceiling_insufficient_never_silent_clean() -> None:
+    rep = check_tier_ceiling({"factuality": [55.0, 60.0]}, min_samples=6)
+    assert rep.insufficient == ("factuality:n=2<6",) and rep.healthy == ()
+
+
+def test_ceiling_empty_map_refuses() -> None:
+    with pytest.raises(ValueError, match="refusing"):
+        check_tier_ceiling({})
+
+
+def test_ceiling_assert_lists_offenders() -> None:
+    with pytest.raises(ValueError, match="frozen=\['vision'\]"):
+        assert_tier_ceiling({"vision": [100.0] * 6,
+                             "code_gen": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]})
