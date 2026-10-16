@@ -120,7 +120,7 @@ def test_build_sweeps_report_with_fake_conn():
         ("stage1-x", datetime(2026, 1, 2), 156, 13, 8288, 5513),
         ("stage0-y", datetime(2026, 1, 1), 24, 2, 540, 0),
     ]
-    report = build_sweeps_report(_FakeConn(rows))
+    report = build_sweeps_report(_FakeConn(rows), source="mock")
     assert "stage1-x" in report and "stage0-y" in report
     assert "stage1-x (largest, latest)" in report
 

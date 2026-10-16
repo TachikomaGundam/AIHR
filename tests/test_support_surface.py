@@ -43,7 +43,7 @@ def _router(**over: object) -> dict[str, object]:
 
 
 def test_status_on_empty_board_is_friendly_and_shows_contracts() -> None:
-    report = build_status_report(_KeyedConn(_router()))
+    report = build_status_report(_KeyedConn(_router()), source="mock")
     assert "board is empty" in report
     assert "hr bench" in report
     assert "xhigh" in report  # contract block rendered, not swallowed

@@ -141,7 +141,7 @@ def publish_from_target(target: dict[str, Any]) -> None:
     conn = connect()
     try:
         sweep_id = latest_sweep_id(conn)
-        verdict = build_verdict_report(conn, sweep_id)
+        verdict = build_verdict_report(conn, sweep_id, source="live")
     finally:
         conn.close()
     try:

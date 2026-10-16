@@ -59,7 +59,8 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/cli_knowledge.py",                 # publish/recommend/reference/research commands
     "hr/cli_report_base.py",               # shared report helpers (_fetch/_tag/_verdict_gates/_verdict_seats + health/sweeps builders)
     "hr/cli_report_commands.py",           # verdict/health/sweeps/calibrate commands
-    "hr/cli_report_verdict.py",            # build_status_report/build_verdict_report
+    "hr/cli_report_verdict.py",
+    "hr/report_source.py",            # build_status_report/build_verdict_report
     "hr/cli_inventory.py",                 # bench/discover/seed commands
     "hr/cli_selection.py",                 # interactive model picker / selection indices
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
