@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .report_source import require_source
 from .cli_app import _runtime_load_deployable
 from .cli_report_base import (
     _fetch,
@@ -50,7 +51,7 @@ def _truncation_suffix(conn) -> str:
 
 
 def build_verdict_report(
-    conn, sweep_id: str, *, include_retired: bool = False,
+    conn, sweep_id: str, *, source: str, include_retired: bool = False,
     deployable: set[str] | None = None,
 ) -> str:
     dep = deployable if deployable is not None else _runtime_load_deployable()
@@ -69,6 +70,7 @@ def build_verdict_report(
 
     header = (
         f"# Verdict — profile (latest scored run per model×battery) · anchor sweep {sweep_id}\n"
+        f"# source: {require_source(source)}\n"
         f"n measurements: {n_meas} · "
         "zero new API calls (mined from existing measurements) · "
         f"deployable pool: {len(pool)}/{len(model_ids)} models "
@@ -160,7 +162,7 @@ def build_verdict_report(
     return "\n\n".join(sections)
 
 
-def build_status_report(conn) -> str:
+def build_status_report(conn, *, source: str) -> str:
     """DB-only status: sweeps and latest-sweep capability means.
 
     Zero API calls — everything is mined from already-run measurements,
@@ -172,6 +174,7 @@ def build_status_report(conn) -> str:
         from .dialect_contract import status_lines as _contract_lines
 
         return (
+            f"# source: {require_source(source)}\n"
             "board is empty — no sweeps yet. Run `hr bench <model>`; every "
             "openai-compatible endpoint first gets its dialect contract probed, "
             "and batteries whose dialect facts stay unproven skip honestly.\n\n"
@@ -202,9 +205,10 @@ def build_status_report(conn) -> str:
 
     return (
         f"# Status — latest sweep {sweep_id}\n"
+        f"# source: {require_source(source)}\n"
         f"deployable pool: {len(set(model_ids) & deployable)}/{len(model_ids)} "
         "models · zero new API calls (mined from existing measurements)\n\n"
-        f"{build_sweeps_report(conn)}\n\n"
+        f"{build_sweeps_report(conn, source=source)}\n\n"
         f"## Capability battery averages (per model)\n{cap_table}\n\n"
         f"## Dialect contracts\n{_contract_lines(conn)}"
     )

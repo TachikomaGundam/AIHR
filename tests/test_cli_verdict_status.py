@@ -154,7 +154,7 @@ def test_build_health_report_passes_cap_through():
         ("i1", 0.8, 16000, "结论: 42."),
     ]
     conn = _KeyedConn(_health_router(rows))
-    out = build_health_report(conn, "s1", cap=16000)
+    out = build_health_report(conn, "s1", cap=16000, source="mock")
     assert "| m1 | 1 |" in out
 
 def test_build_status_report_function_smoke():
@@ -177,7 +177,7 @@ def test_build_status_report_function_smoke():
     orig = cli_mod.load_deployable
     cli_mod.load_deployable = lambda: set()
     try:
-        out = build_status_report(_KeyedConn(router))
+        out = build_status_report(_KeyedConn(router), source="mock")
     finally:
         cli_mod.load_deployable = orig
     assert "# Status — latest sweep s0" in out

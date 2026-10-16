@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .decision import measurement_count_profile, seat_assignments
+from .report_source import require_source
 from .health import HealthReport, summary_table, sweep_health
 from .seats.health_gates import SEAT_HEALTH_GATE, evaluate_gate
 
@@ -28,10 +29,11 @@ def _fetch(conn, sql: str, params: tuple | None = None) -> list[tuple]:
 # report builders
 # ---------------------------------------------------------------------------
 
-def build_sweeps_report(conn) -> str:
+def build_sweeps_report(conn, *, source: str) -> str:
+    src = f"# source: {require_source(source)}\n"
     rows = _fetch(conn, _SWEEPS_SQL)
     if not rows:
-        return "no sweeps found in hr.sweep"
+        return src + "no sweeps found in hr.sweep"
     largest = max(rows, key=lambda r: r[4])
     latest = max(rows, key=lambda r: r[1])
     lines = [
@@ -48,17 +50,19 @@ def build_sweeps_report(conn) -> str:
         lines.append(
             f"{r[0]}{tag} | {r[2]} | {r[3]} | {r[4]} | {r[5]}"
         )
-    return "\n".join(lines)
+    return src + "\n".join(lines)
 
 
 def build_health_report(
-    conn, sweep_id: str, cap: int | None = None, *, deployable: set[str] | None = None
+    conn, sweep_id: str, cap: int | None = None, *, source: str,
+    deployable: set[str] | None = None,
 ) -> str:
     reports = sweep_health(conn, sweep_id, cap=cap)
     if not reports:
         return f"no measurements for sweep {sweep_id}"
     header = (
         f"# Health report — sweep {sweep_id}\n"
+        f"# source: {require_source(source)}\n"
         f"# n measurements: {measurement_count_profile(conn)} "
         "(zero new API calls — mined from existing measurements)"
     )

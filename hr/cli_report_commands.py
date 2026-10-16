@@ -37,6 +37,7 @@ def verdict(
             _resolve_sweep_id(conn, sweep, latest),
             include_retired=include_retired,
             deployable=_runtime_load_deployable(),
+            source="live",
         )
     )
 
@@ -64,6 +65,7 @@ def health(
             _resolve_sweep_id(conn, sweep, latest),
             cap=cap,
             deployable=_runtime_load_deployable(),
+            source="live",
         )
     )
 
@@ -71,7 +73,7 @@ def health(
 @app.command()
 def sweeps() -> None:
     """List sweeps from the DB with run/model/measurement counts."""
-    _with_conn(build_sweeps_report)
+    _with_conn(lambda conn: build_sweeps_report(conn, source="live"))
 
 
 @app.command()

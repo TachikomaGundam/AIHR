@@ -186,7 +186,8 @@ def test_publish_from_target_end_to_end(tmp_path, monkeypatch) -> None:
     conn = type("Conn", (), {"close": lambda self: None})()
     monkeypatch.setattr("hr.publish.connect", lambda: conn)
     monkeypatch.setattr("hr.cli.latest_sweep_id", lambda conn: "sw-9")
-    monkeypatch.setattr("hr.cli.build_verdict_report", lambda conn, sweep_id: f"verdict {sweep_id}")
+    monkeypatch.setattr("hr.cli.build_verdict_report",
+                  lambda conn, sweep_id, *, source: f"verdict {sweep_id}")
     published: list[tuple[str, str]] = []
 
     class _FakeWiki:
@@ -226,7 +227,7 @@ def test_publish_from_target_wraps_http_errors(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr("hr.publish.connect", lambda: type("Conn", (), {"close": lambda self: None})())
     monkeypatch.setattr("hr.cli.latest_sweep_id", lambda conn: "sw-9")
-    monkeypatch.setattr("hr.cli.build_verdict_report", lambda conn, sweep_id: "v")
+    monkeypatch.setattr("hr.cli.build_verdict_report", lambda conn, sweep_id, *, source: "v")
 
     class _BrokenWiki:
         def __init__(self, url: str, key_file_path) -> None:

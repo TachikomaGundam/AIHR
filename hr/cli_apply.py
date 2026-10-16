@@ -42,7 +42,7 @@ def status() -> None:
     from .cli_report_verdict import build_status_report  # untracked at some checkouts (T8)
 
     try:
-        _with_conn(build_status_report)
+        _with_conn(lambda conn: build_status_report(conn, source="live"))
     except ValueError as exc:
         if "no sweeps found" in str(exc):
             # empty board is a state, not an error (191 first-boot: fresh
