@@ -16,7 +16,7 @@ from __future__ import annotations
 import datetime as _dt
 import re
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Mapping, Sequence
 
 from hr.config import load_yaml
 
@@ -183,4 +183,65 @@ def assert_pricing_parity(
         raise ValueError(
             f"pricing parity gate: missing={list(rep.missing)} "
             f"shadow_conflicts={list(rep.shadow_conflicts)}")
+    return rep
+
+
+@dataclass(frozen=True)
+class CeilingReport:
+    frozen: tuple[str, ...]        # every measurement == max_score (P5 disease)
+    flat: tuple[str, ...]          # single distinct value, not at ceiling
+    insufficient: tuple[str, ...]  # too few samples to judge — never silent-clean
+    healthy: tuple[str, ...]
+
+    @property
+    def no_signal(self) -> tuple[str, ...]:
+        return self.frozen + self.flat
+
+
+def check_tier_ceiling(
+    scores_by_battery: Mapping[str, Sequence[float]],
+    *,
+    min_samples: int = 6,
+    max_score: float = 100.0,
+) -> CeilingReport:
+    """Gate #3 (tier-ceiling): a battery whose recent-window scores are ALL
+    at the ceiling measures nothing — the fleet-wide-100 pattern that killed
+    P5 is now mechanically flaggable before a release leans on it.
+    all==max -> frozen; one distinct value off-ceiling -> flat (grader-broken
+    signal); < min_samples -> insufficient (never silently healthy).
+    min_samples defaults to 6 = one round across the named pilot roster."""
+    if not scores_by_battery:
+        raise ValueError("check_tier_ceiling: empty battery map — refusing "
+                         "to certify ruler health for zero batteries")
+    frozen: list[str] = []
+    flat: list[str] = []
+    insufficient: list[str] = []
+    healthy: list[str] = []
+    for battery in sorted(scores_by_battery):
+        scores = [float(v) for v in scores_by_battery[battery]]
+        if len(scores) < min_samples:
+            insufficient.append(f"{battery}:n={len(scores)}<{min_samples}")
+        elif all(v == max_score for v in scores):
+            frozen.append(battery)
+        elif len(set(scores)) < 2:
+            flat.append(battery)
+        else:
+            healthy.append(battery)
+    return CeilingReport(tuple(frozen), tuple(flat), tuple(insufficient),
+                         tuple(healthy))
+
+
+def assert_tier_ceiling(
+    scores_by_battery: Mapping[str, Sequence[float]],
+    *,
+    min_samples: int = 6,
+    max_score: float = 100.0,
+) -> CeilingReport:
+    """Fail-loud entry: no-signal batteries raise with full lists — verdict/
+    seating consumers must not proceed on a ruler proven mute."""
+    rep = check_tier_ceiling(scores_by_battery, min_samples=min_samples,
+                             max_score=max_score)
+    if rep.no_signal:
+        raise ValueError(
+            f"tier-ceiling gate: frozen={list(rep.frozen)} flat={list(rep.flat)}")
     return rep
