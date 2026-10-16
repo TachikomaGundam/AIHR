@@ -106,6 +106,50 @@ _ITEM_LABELS: dict[BenchmarkCategory, tuple[str, ...]] = {
 }
 
 
+#: Charter gate #5: every battery declares the seats whose routing decisions
+#: its score feeds. A battery that informs no seat measures nothing (the P5
+#: retirement lesson). Completeness is checked at import (in-memory only);
+#: validity of the codes against configs/seats.yaml is checked by the guard
+#: test, so package import never couples to operator config files.
+BATTERY_SEAT_CODES: dict[BenchmarkCategory, tuple[str, ...]] = {
+    BenchmarkCategory.code_gen: ("quick", "sisyphus_junior"),
+    BenchmarkCategory.reasoning: ("oracle", "ultrabrain", "metis"),
+    BenchmarkCategory.instruction_follow:
+        ("quick", "sisyphus_junior", "atlas", "writing"),
+    BenchmarkCategory.tool_use: ("deep", "sisyphus_junior", "atlas"),
+    BenchmarkCategory.long_context: ("deep", "ultrabrain"),
+    BenchmarkCategory.attention_probe: ("deep", "ultrabrain"),
+    BenchmarkCategory.attention_stress: ("deep", "sisyphus_junior"),
+    BenchmarkCategory.vision: ("visual_engineering", "multimodal_looker", "artistry"),
+    BenchmarkCategory.speed: ("quick", "atlas", "explore", "librarian"),
+    BenchmarkCategory.long_horizon: ("prometheus", "metis", "ultrabrain", "deep"),
+    BenchmarkCategory.factuality: ("librarian", "oracle", "writing", "momus"),
+}
+
+
+def battery_seat_codes(battery: BenchmarkCategory) -> tuple[str, ...]:
+    """Seats this battery's score feeds (declared, import-validated)."""
+    return BATTERY_SEAT_CODES[battery]
+
+
+def validate_seat_declarations(
+    declarations: dict[BenchmarkCategory, tuple[str, ...]] | None = None,
+    batteries: tuple[BenchmarkCategory, ...] | None = None,
+) -> None:
+    """Fail loud when a registered battery informs no seat."""
+    decl = BATTERY_SEAT_CODES if declarations is None else declarations
+    reg = LIVEBENCH_BATTERIES if batteries is None else batteries
+    missing = sorted(b.value for b in reg if not decl.get(b))
+    if missing:
+        raise ValueError(
+            "battery(ies) missing seat_code declaration — a battery that "
+            f"informs no seat measures nothing: {missing}"
+        )
+
+
+validate_seat_declarations()
+
+
 def battery_code(battery: BenchmarkCategory) -> str:
     """Database battery code for a livebench battery."""
     return f"livebench_{battery.value}"
@@ -158,8 +202,11 @@ def battery_strata(battery: BenchmarkCategory) -> dict[str, tuple[str, ...]]:
 
 
 __all__ = [
+    "BATTERY_SEAT_CODES",
     "LIVEBENCH_BATTERIES",
     "battery_code",
+    "battery_seat_codes",
+    "validate_seat_declarations",
     "battery_description",
     "battery_item_id",
     "battery_item_labels",

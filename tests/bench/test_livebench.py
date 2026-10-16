@@ -166,7 +166,11 @@ def test_engine_validates_thresholds_missing_entry(
     assert ok.thresholds["livebench_reasoning"] == 3.0
 
     # Drop one entry -> explicit error naming the battery.
-    cfg["half_width"].pop("livebench_speed")
+    half_width = cfg["half_width"]
+    assert isinstance(half_width, dict)
+    cfg["half_width"] = {
+        k: v for k, v in half_width.items() if k != "livebench_speed"
+    }
     (thresholds / "thresholds.yaml").write_text(
         yaml.safe_dump(cfg), encoding="utf-8"
     )
@@ -218,3 +222,48 @@ def test_scorer_uses_lazy_long_horizon_truths() -> None:
     outcome = score_long_horizon(answer)
     assert outcome.score == pytest.approx(100.0)
     assert [lbl for lbl, _ in (outcome.item_scores or [])] == labels
+
+
+class TestSeatDeclarationGate:
+    """Charter gate #5: batteries declare the seats they inform (P5 lesson)."""
+
+    def test_every_registered_battery_declares_nonempty_seats(self):
+        from hr.bench.livebench import BATTERY_SEAT_CODES, LIVEBENCH_BATTERIES
+        assert set(BATTERY_SEAT_CODES) == set(LIVEBENCH_BATTERIES)
+        assert all(v for v in BATTERY_SEAT_CODES.values())
+
+    def test_declared_codes_resolve_in_seats_yaml(self):
+        from pathlib import Path
+        import yaml
+        from hr.bench.livebench import BATTERY_SEAT_CODES
+        data = yaml.safe_load(
+            (Path(__file__).resolve().parents[2] / "configs/seats.yaml").read_text()
+        )
+        known = {s["seat_code"] for s in data["seats"]}
+        for battery, codes in BATTERY_SEAT_CODES.items():
+            unknown = set(codes) - known
+            assert not unknown, f"{battery.value}: seats not in seats.yaml: {sorted(unknown)}"
+
+    def test_gate_fails_loud_when_declaration_missing(self):
+        import pytest
+        from hr.bench.livebench import LIVEBENCH_BATTERIES, validate_seat_declarations
+        broken = {b: v for b, v in _current_decls().items()}
+        victim = next(b for b in LIVEBENCH_BATTERIES if b.value == "code_gen")
+        del broken[victim]
+        with pytest.raises(ValueError, match="code_gen"):
+            validate_seat_declarations(declarations=broken)
+
+    def test_gate_fails_loud_on_empty_tuple(self):
+        import pytest
+        from hr.bench.livebench import validate_seat_declarations
+        broken = {
+            b: (() if b.value == "speed" else v)
+            for b, v in _current_decls().items()
+        }
+        with pytest.raises(ValueError, match="speed"):
+            validate_seat_declarations(declarations=broken)
+
+
+def _current_decls():
+    from hr.bench.livebench import BATTERY_SEAT_CODES
+    return BATTERY_SEAT_CODES
