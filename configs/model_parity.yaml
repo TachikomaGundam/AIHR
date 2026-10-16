@@ -1,0 +1,24 @@
+# model_parity.yaml — provider family/version manifest (the ONE source for
+# model-generation parsing; charter §III drift sibling #1). Machine-checked by
+# hr.parity against the live fleet and the seats.local.yaml anchors.
+#
+# closed enumeration: a family regex that does not match a discovered model
+# id reports the model as family=unknown (flag, never a silent fresh verdict).
+# Bump discipline (council 0f00 must-fix): `as_of` is bumped by the operator
+# when provider generations change; age over `stale_days` WITHOUT a bump makes
+# every verdict from this file report stale-parity (fail-closed: the parity
+# check refuses to certify, naming the last bump date and this file's path).
+as_of: "2026-10-16"
+stale_days: 90
+families:
+  - family: qwen
+    pattern: '^qwen(\d+)\.(\d+)'
+  - family: deepseek
+    pattern: '^deepseek-v(\d+)(?:\.(\d+))?'
+  - family: glm
+    pattern: '^glm-(\d+)\.(\d+)'
+  - family: kimi
+    pattern: '^k(\d+)(?:$|[-\d])'
+  - family: kimi
+    pattern: '^kimi'          # versionless product names (kimi-for-coding):
+                              # family known, generation unknown -> incomparable flag

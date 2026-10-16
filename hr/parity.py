@@ -1,0 +1,115 @@
+"""Model-generation parity predicates (AIHR charter section III, gate #1).
+
+Answers one question mechanically: are the calibration anchors in
+configs/seats.local.yaml still same-generation as the live fleet derived from
+opencode config? A generation counts as drifted when the anchor's family
+version is no longer present in the fleet while a higher version is (council
+ruling sibyl-20261016T083925Z-1ce8 must-fix: provider change or major.minor
+increment = one generation; the provider is compared INSIDE the family view,
+a mirrored same-version model under another provider keeps the generation
+alive). Unparseable ids and un-bumped manifests report flags, never silent
+freshness.
+"""
+
+from __future__ import annotations
+
+import datetime as _dt
+import re
+from dataclasses import dataclass
+from typing import Iterable
+
+from hr.config import load_yaml
+
+
+@dataclass(frozen=True)
+class Gen:
+    provider: str
+    family: str | None
+    version: tuple[int, int] | None
+    raw: str
+
+
+@dataclass(frozen=True)
+class DriftEntry:
+    anchor_key: str
+    anchor: Gen
+    successor: Gen
+    reason: str
+
+
+@dataclass(frozen=True)
+class ParityReport:
+    stale_manifest: str | None
+    drifted: tuple[DriftEntry, ...]
+    incomparable: tuple[str, ...]
+    clean: tuple[str, ...]
+
+    @property
+    def seating_stale(self) -> bool:
+        return bool(self.drifted) or self.stale_manifest is not None
+
+
+def classify(model_id: str, families: list[dict[str, str]]) -> Gen:
+    provider, _, name = model_id.partition("/")
+    for rule in families:
+        match = re.match(rule["pattern"], name)
+        if match:
+            groups = match.groups() or ()
+            digits = tuple(g for g in groups if g and g.isdigit())
+            version = (int(digits[0]), int(digits[1]) if len(digits) > 1 else 0) \
+                if digits else None
+            return Gen(provider, rule["family"], version, model_id)
+    return Gen(provider, None, None, model_id)
+
+
+def check_parity(
+    anchors: dict[str, str],
+    fleet_ids: Iterable[str],
+    *,
+    today: _dt.date | None = None,
+    manifest: dict | None = None,
+) -> ParityReport:
+    if manifest is None:
+        manifest = load_yaml("model_parity.yaml")
+    families = list(manifest.get("families", []))
+    stale_manifest: str | None = None
+    as_of = _dt.date.fromisoformat(str(manifest["as_of"]))
+    age = ((today or _dt.date.today()) - as_of).days
+    if age > int(manifest.get("stale_days", 90)):
+        stale_manifest = (
+            f"model_parity.yaml as_of={as_of} age={age}d > stale_days; "
+            "operator must bump after provider-generation changes"
+        )
+    fleet = [classify(m, families) for m in fleet_ids]
+    drifted: list[DriftEntry] = []
+    incomparable: list[str] = []
+    clean: list[str] = []
+    for key, anchor_id in anchors.items():
+        anchor = classify(anchor_id, families)
+        if anchor.family is None:
+            incomparable.append(f"{key}:{anchor_id}:unknown-family")
+            continue
+        same_family = [g for g in fleet if g.family == anchor.family]
+        if anchor.version is None:
+            incomparable.append(f"{key}:{anchor_id}:generation-uncomparable")
+            continue
+        if any(g.version == anchor.version for g in same_family):
+            clean.append(key)
+            continue
+        higher = sorted((g for g in same_family
+                         if g.version and g.version > anchor.version),
+                        key=lambda g: g.version or (0, 0))
+        if higher:
+            successor = higher[0]
+            reason = "version-increment" if any(
+                g.provider == anchor.provider for g in higher) else "provider-change"
+            drifted.append(DriftEntry(key, anchor, successor, reason))
+        elif any(g.version is not None for g in same_family):
+            drifted.append(DriftEntry(key, anchor,
+                                      next(g for g in same_family
+                                           if g.version is not None),
+                                      "generation-absent"))
+        else:
+            incomparable.append(f"{key}:{anchor_id}:generation-uncomparable")
+    return ParityReport(stale_manifest, tuple(drifted),
+                        tuple(incomparable), tuple(clean))
