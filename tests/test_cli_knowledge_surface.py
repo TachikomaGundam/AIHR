@@ -24,7 +24,9 @@ class _FakeEngine:
     def recommend(self, task: str):  # noqa: ARG002
         return self.result
 
-    def seat_recommendations(self, seats):  # noqa: ARG002
+    def seat_recommendations(self, seats, *, fmt="text"):  # noqa: ARG002
+        if fmt == "json":
+            return json.dumps({"seats": [{"seat_code": "oracle"}]})
         return self.seats_output
 
     def close(self) -> None:
@@ -191,3 +193,37 @@ def test_recommend_engine_construction_fails(monkeypatch) -> None:
     result = runner.invoke(app, ["recommend", "--task", "t"])
     assert result.exit_code == 1
     assert "error: cannot load seats" in result.stderr
+
+class _FakeItem:
+    """Shaped like RecommendationItem; content carries both known #17 poison
+    classes: bracket pairs (rich markup swallow) and a long string (rich wrap
+    injects newlines into the machine surface)."""
+
+    model_id = "gpt[4]-beta"
+    status = "eligible"
+    score = 99.5
+    interval = (99.0, 100.0)
+    thresholds = {"code": ">=60"}
+    caveats = ["x" * 300]
+    reasons = ["real production measurement — see INTENT-LEDGER 2026-10-12"]
+    cost_estimate_usd = 0.02
+
+
+def test_recommend_task_json_machine_surface_is_strictly_parseable(monkeypatch) -> None:
+    engine = _FakeEngine(result=_FakeResult())
+    engine.result = type("R", (_FakeResult,), {"eligible": [_FakeItem()]})()
+    monkeypatch.setattr("hr.recommend.RecommendationEngine", lambda: engine)
+    result = runner.invoke(app, ["recommend", "--task", "t", "--json"])
+    assert result.exit_code == 0
+    payload = json.loads(result.output)
+    assert payload["eligible"][0]["model_id"] == "gpt[4]-beta"
+    assert len(payload["eligible"][0]["caveats"][0]) == 300
+
+
+def test_recommend_no_task_json_emits_parseable_seats(monkeypatch) -> None:
+    engine = _FakeEngine(seats_output="seat table text")
+    monkeypatch.setattr("hr.recommend.load_seat_specs", lambda: {"oracle": {}})
+    monkeypatch.setattr("hr.recommend.RecommendationEngine", lambda: engine)
+    result = runner.invoke(app, ["recommend", "--json"])
+    assert result.exit_code == 0
+    json.loads(result.output)

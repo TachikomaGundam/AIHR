@@ -658,8 +658,8 @@ class _SpyCliEngine:
             indeterminate=(),
         )
 
-    def seat_recommendations(self, seats: object) -> str:
-        return ""
+    def seat_recommendations(self, seats: object, *, fmt: str = "text") -> str:  # noqa: ARG002
+        return "" if fmt == "text" else "{}"
 
     def close(self) -> None:
         self.closed = True

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from typing import Optional
 
 import typer
@@ -134,13 +135,19 @@ def recommend(
         if task:
             result = engine.recommend(task)
             if as_json or (result.eligible or result.excluded or result.indeterminate):
-                console.print(
-                    format_recommendation_result(
-                        result, fmt="json" if as_json else "table"
-                    )
+                payload = format_recommendation_result(
+                    result, fmt="json" if as_json else "table"
                 )
+                if as_json:
+                    # machine surface: rich parses markup and wraps long
+                    # lines (defect #17) — strict bytes to stdout instead.
+                    sys.stdout.write(payload + "\n")
+                else:
+                    console.print(payload)
             else:
                 console.print("[yellow](no recommendations returned)[/yellow]")
+        elif as_json:
+            sys.stdout.write(engine.seat_recommendations(seats, fmt="json") + "\n")
         else:
             console.print(engine.seat_recommendations(seats))
     except Exception as exc:
