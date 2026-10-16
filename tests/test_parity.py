@@ -1,6 +1,14 @@
 import datetime as dt
 
-from hr.parity import check_parity, classify
+import pytest
+
+from hr.parity import (
+    assert_pricing_parity,
+    check_parity,
+    check_pricing_parity,
+    classify,
+    resolve_price,
+)
 
 FAMILIES: list[dict[str, str]] = [
     {"family": "qwen", "pattern": r"^qwen(\d+)\.(\d+)"},
@@ -95,3 +103,43 @@ def test_stale_manifest_refuses_certification():
                  today=dt.date(2027, 2, 1))
     assert report.stale_manifest is not None
     assert report.seating_stale is True
+
+
+# ---- gate #2: pricing parity (charter drift-gate plan item 2) ----
+
+def test_resolve_price_exact_and_bare_fallback() -> None:
+    pricing = {"qwen3.6-flash": 1.0}
+    assert resolve_price(pricing, "bailian/qwen3.6-flash") == 1.0
+    assert resolve_price(pricing, "qwen3.6-flash") == 1.0
+    assert resolve_price(pricing, "bailian/nosuch") is None
+
+
+def test_pricing_gate_missing_is_fail_loud() -> None:
+    rep = check_pricing_parity(["a/x", "a/k3"], pricing={"k3": 3.0})
+    assert rep.missing == ("a/x",)
+    assert not rep.ok
+    with pytest.raises(ValueError, match="missing=\['a/x'\]"):
+        assert_pricing_parity(["a/x", "a/k3"], pricing={"k3": 3.0})
+
+
+def test_pricing_gate_shadow_conflict() -> None:
+    rep = check_pricing_parity(["p/m"], pricing={"p/m": 1.0, "m": 2.0})
+    assert rep.shadow_conflicts and not rep.ok
+
+
+def test_pricing_gate_all_priced_ok() -> None:
+    rep = check_pricing_parity(["p/k3", "glm"],
+                               pricing={"k3": 3.0, "glm": 2.0})
+    assert rep.ok and set(rep.priced) == {"p/k3", "glm"}
+
+
+def test_pricing_gate_empty_fleet_refuses() -> None:
+    with pytest.raises(ValueError, match="refusing"):
+        check_pricing_parity([], pricing={})
+
+
+def test_estimate_cost_shares_the_resolver() -> None:
+    # refactor guard: recommend must resolve through hr.parity.resolve_price
+    from hr.recommend import _estimate_cost
+    assert _estimate_cost("p/k3", 1_000_000, {"k3": 3.0}) == 3.0
+    assert _estimate_cost("p/nope", 100, {}) is None

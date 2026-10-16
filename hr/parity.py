@@ -113,3 +113,74 @@ def check_parity(
             incomparable.append(f"{key}:{anchor_id}:generation-uncomparable")
     return ParityReport(stale_manifest, tuple(drifted),
                         tuple(incomparable), tuple(clean))
+
+
+def resolve_price(pricing: dict[str, float], model_id: str) -> float | None:
+    """SINGLE SOURCE of pricing resolution (the same rule `hr recommend`
+    consumes and gate #2 certifies — they can never drift apart):
+    exact key wins, then the bare slug after the first '/'."""
+    price = pricing.get(model_id)
+    if price is None and "/" in model_id:
+        price = pricing.get(model_id.split("/", 1)[1])
+    return float(price) if price is not None else None
+
+
+@dataclass(frozen=True)
+class PricingReport:
+    missing: tuple[str, ...]           # fleet ids resolving to NO price
+    shadow_conflicts: tuple[str, ...]  # namespaced+bare both present, unequal
+    priced: tuple[str, ...]
+
+    @property
+    def ok(self) -> bool:
+        return not self.missing and not self.shadow_conflicts
+
+
+def check_pricing_parity(
+    fleet_ids: Iterable[str],
+    pricing: dict[str, float] | None = None,
+) -> PricingReport:
+    """Gate #2 (charter: pricing 齐平闸): every model id the active fleet
+    surfaces must resolve to a pricing entry in configs/models.yaml — the
+    $/1M rail behind `hr recommend`'s cost constraint. Missing = the
+    silent-zero failure this gate exists to stop (no price -> no cost
+    signal -> the $0.10 rail no-ops and the seat passes on no evidence).
+    Entry freshness has no per-row date in models.yaml (knowledge data,
+    bare floats); generation currency is certified by gate #1, which
+    covers the "非过期" dimension jointly. Empty fleet raises: certifying
+    pricing for zero models would be the same silent-pass this law bans."""
+    fleet = list(fleet_ids)
+    if not fleet:
+        raise ValueError("check_pricing_parity: empty fleet — refusing to "
+                         "certify pricing for zero models")
+    if pricing is None:
+        pricing = dict(load_yaml("models.yaml").get("pricing", {}))
+    missing: list[str] = []
+    conflicts: list[str] = []
+    priced: list[str] = []
+    for mid in fleet:
+        if resolve_price(pricing, mid) is None:
+            missing.append(mid)
+            continue
+        if "/" in mid:
+            bare = mid.split("/", 1)[1]
+            if (mid in pricing and bare in pricing
+                    and float(pricing[mid]) != float(pricing[bare])):
+                conflicts.append(f"{mid}: namespaced={pricing[mid]} "
+                                 f"vs bare={pricing[bare]}")
+        priced.append(mid)
+    return PricingReport(tuple(missing), tuple(conflicts), tuple(priced))
+
+
+def assert_pricing_parity(
+    fleet_ids: Iterable[str],
+    pricing: dict[str, float] | None = None,
+) -> PricingReport:
+    """Fail-loud entry point for the seating/apply chain: raises with the
+    full gap list instead of returning a report someone might ignore."""
+    rep = check_pricing_parity(fleet_ids, pricing)
+    if not rep.ok:
+        raise ValueError(
+            f"pricing parity gate: missing={list(rep.missing)} "
+            f"shadow_conflicts={list(rep.shadow_conflicts)}")
+    return rep
