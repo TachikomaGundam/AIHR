@@ -258,11 +258,51 @@ def _local_overlay_path(name: str) -> Path:
     return config_path(name[: -len(suffix)] + ".local.yaml")
 
 
+# Identity-keyed list merge: overlay entries for these config keys merge
+# per unique key value (local wins per field on same code, new codes append)
+# instead of replacing the list wholesale — the seats table is authoritative
+# in the tracked file, and a machine-local overlay adds ACTIVE SEATS for this
+# box without touching that authority ("do not invent others" law: the tracked
+# 18 stay exactly 18). Any other list keeps replace-wholesale semantics.
+_KEYED_LIST_MERGE: dict[str, str] = {"seats": "seat_code"}
+
+
+def _merge_keyed_rows(key: str, id_field: str, base: list, overlay: list) -> list:
+    def index_rows(rows: list, source: str) -> dict[str, dict]:
+        out: dict[str, dict] = {}
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get(id_field), str):
+                raise ValueError(
+                    f"{key} overlay merge: every entry in {source} needs a "
+                    f"string {id_field!r}; got {row!r}"
+                )
+            code = row[id_field]
+            if code in out:
+                raise ValueError(f"{key} overlay merge: duplicate {id_field} {code!r} in {source}")
+            out[code] = row
+        return out
+
+    base_rows = index_rows(base, "tracked config")
+    over_rows = index_rows(overlay, "local overlay")
+    merged = [
+        _deep_merge(row, over_rows[code]) if code in over_rows else row
+        for code, row in base_rows.items()
+    ]
+    merged.extend(row for code, row in over_rows.items() if code not in base_rows)
+    return merged
+
+
 def _deep_merge(base: dict, overlay: dict) -> dict:
     merged = dict(base)
     for key, value in overlay.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
             merged[key] = _deep_merge(merged[key], value)
+        elif (
+            key in _KEYED_LIST_MERGE
+            and isinstance(value, list)
+            and isinstance(merged.get(key), list)
+        ):
+            merged[key] = _merge_keyed_rows(key, _KEYED_LIST_MERGE[key], merged[key], value)
         else:
             merged[key] = value
     return merged

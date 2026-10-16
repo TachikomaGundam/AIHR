@@ -443,3 +443,35 @@ def test_oauth_token_present_but_never_an_api_key(hr_sandbox):
     msg = str(exc.value)
     assert "auth-v2.json" in msg
     assert "auth.json" in msg
+
+
+# ---- identity-keyed seats overlay (machine-local active seats, tracked authority untouched) ----
+
+def test_seats_overlay_merges_keyed_by_seat_code() -> None:
+    from hr.config_resources import _deep_merge
+
+    base = {"seats": [{"seat_code": "a", "cost_tier": "mid"},
+                      {"seat_code": "b", "cost_tier": "high"}]}
+    overlay = {"seats": [{"seat_code": "b", "cost_tier": "low"}, {"seat_code": "c"}]}
+    merged = _deep_merge(base, overlay)
+    codes = [row["seat_code"] for row in merged["seats"]]
+    assert codes == ["a", "b", "c"]
+    assert merged["seats"][1]["cost_tier"] == "low"
+
+
+def test_seats_overlay_rejects_keyless_and_duplicate_rows() -> None:
+    import pytest
+
+    from hr.config_resources import _deep_merge
+
+    base = {"seats": [{"seat_code": "a"}]}
+    with pytest.raises(ValueError):
+        _deep_merge(base, {"seats": [{"cost_tier": "low"}]})
+    with pytest.raises(ValueError):
+        _deep_merge(base, {"seats": [{"seat_code": "a"}, {"seat_code": "a"}]})
+
+
+def test_other_lists_keep_replace_wholesales_semantics() -> None:
+    from hr.config_resources import _deep_merge
+
+    assert _deep_merge({"tags": [1, 2, 3]}, {"tags": [9]})["tags"] == [9]

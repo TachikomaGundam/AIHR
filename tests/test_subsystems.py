@@ -68,9 +68,19 @@ class TestBlendValue:
 
 
 class TestSeatSpecs:
-    def test_seats_yaml_has_18_seats(self):
+    def test_tracked_seats_authority_is_18_and_merged_is_superset(self):
+        # the 18-seat invariant belongs to the TRACKED authority table; an
+        # operator-local overlay (seats.local.yaml) adds this box's active
+        # seats and must never be asserted against.
+        import yaml
+
+        from hr.config import config_path
+
+        tracked = yaml.safe_load(config_path("seats.yaml").read_text())["seats"]
+        assert len(tracked) == 18
         seats = load_seat_specs()
-        assert len(seats) == 18
+        assert len(seats) >= 18
+        assert {t["seat_code"] for t in tracked} <= {s["seat_code"] for s in seats}
 
     def test_seat_fields_present(self):
         for seat in load_seat_specs():
@@ -224,7 +234,7 @@ class TestCommandSmoke:
         result = runner.invoke(app, ["recommend"])
         assert result.exit_code == 0
         seats = load_seat_specs()
-        assert len(seats) == 18
+        assert len(seats) >= 18
         for seat in seats:
             assert f"| {seat['seat_code']} " in result.output
         assert "Capability prior" in result.output
@@ -262,7 +272,7 @@ class TestSeatRecommendations:
             report = engine.seat_recommendations(seats)
         finally:
             engine.close()
-        assert len(seats) == 18
+        assert len(seats) >= 18
         for seat in seats:
             assert f"| {seat['seat_code']} " in report
         assert "docs/en/capability-prior.md" in report
