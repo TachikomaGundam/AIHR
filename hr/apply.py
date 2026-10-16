@@ -186,6 +186,45 @@ def write_state(agents: dict[str, str], config_dir: Path) -> Path:
     return path
 
 
+def verify_written(
+    agents: dict[str, str],
+    name: str,
+    preset_path: Path,
+    state_path: Optional[Path],
+) -> list[str]:
+    """Read-back reconciliation: re-parse the WRITTEN files exactly as
+    FastDraw would load them and compare every seat against the intended
+    seating. Returns issue lines (empty = verified); never raises — the
+    caller turns issues into a failure so the safety envelope auto-restores
+    the backup. An absent seat, a wrong model, an extra seat and a state
+    file that diverges are each named per seat.
+    """
+    issues: list[str] = []
+    store = _load_store(preset_path)
+    entry = store.get("presets", {}).get(name)
+    written: dict[str, str] = {}
+    if not isinstance(entry, dict) or not isinstance(entry.get("agents"), dict):
+        issues.append(f"preset {name!r} absent or malformed in {preset_path}")
+    else:
+        written = entry["agents"]
+    for agent, model in sorted(agents.items()):
+        got = written.get(agent)
+        if got != model:
+            issues.append(f"seat {agent}: intended {model!r}, read-back {got!r}")
+    for extra in sorted(set(written) - set(agents)):
+        issues.append(f"seat {extra}: read-back {written[extra]!r} is not in the intended seating")
+    if state_path is not None:
+        try:
+            raw = json.loads(state_path.read_text())
+        except (json.JSONDecodeError, OSError) as exc:
+            issues.append(f"state file unreadable ({state_path}): {exc}")
+        else:
+            got_state = raw.get("agents") if isinstance(raw, dict) else None
+            if got_state != agents:
+                issues.append(f"state file agents map diverges from the preset seating ({state_path})")
+    return issues
+
+
 def apply(
     conn,
     *,
@@ -206,13 +245,25 @@ def apply(
     name = preset_name or f"verdict-{date.today().isoformat()}"
     description = f"hr verdict seating from sweep {sweep_id}"
     preset_path = write_preset(agents, name, cfg_dir, description=description)
+    state_path = write_state(agents, cfg_dir) if set_state else None
+    issues = verify_written(agents, name, preset_path, state_path)
+    if issues:
+        raise RuntimeError(
+            "apply read-back failed (the safety envelope auto-restores the "
+            "backup; nothing is left half-written): " + "; ".join(issues)
+        )
+    import hashlib
+
+    digest = hashlib.sha256(preset_path.read_bytes()).hexdigest()
+    stamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     summary = [
         f"preset {name!r} -> {preset_path} ({len(agents)} agent"
-        f"{'s' if len(agents) != 1 else ''})",
+        f"{'s' if len(agents) != 1 else ''}), sha256 {digest}, verified {stamp}",
     ]
-    if set_state:
-        state_path = write_state(agents, cfg_dir)
-        summary.append(f"state -> {state_path}")
+    for agent, model in sorted(agents.items()):
+        summary.append(f"  verified: {agent} -> {model}")
+    if state_path is not None:
+        summary.append(f"state -> {state_path} (read-back verified)")
         summary.append(
             "NOTE: opencode restart required — FastDraw's config hook applies "
             ".fastdraw.json only at boot; presets take effect at tool-call time."
