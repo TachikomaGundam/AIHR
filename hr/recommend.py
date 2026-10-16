@@ -18,6 +18,7 @@ from hr.config import config_path, load_yaml
 from hr.db import connect as get_connection
 from hr.deployable import load_deployable
 from hr.models import BenchmarkCategory
+from hr.parity import resolve_price
 from hr.seats.health_gates import health_rank_score
 from hr.seats.health_gates import evaluate_gate
 from hr.recommendation_constraints import (
@@ -198,12 +199,13 @@ def _estimate_task_tokens(
 def _estimate_cost(
     model_id: str, task_tokens: int, pricing: dict[str, float]
 ) -> float | None:
-    price = pricing.get(model_id)
-    if price is None and "/" in model_id:
-        price = pricing.get(model_id.split("/", 1)[1])
+    # resolution rule lives in hr.parity.resolve_price — the SAME function
+    # pricing gate #2 certifies (L-SINGLE-SOURCE: gate and consumer can
+    # never drift apart again).
+    price = resolve_price(pricing, model_id)
     if price is None:
         return None
-    return float(price) * task_tokens / 1_000_000.0
+    return price * task_tokens / 1_000_000.0
 
 
 def default_constraints() -> RecommendationConstraints:
