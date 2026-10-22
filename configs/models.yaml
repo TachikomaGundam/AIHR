@@ -31,6 +31,7 @@ pricing:
   glm-5: 2.00
   glm-5.1: 2.50
   glm-5.2: 4.40
+  glm-5.3: 4.40
   deepseek-v3.2: 0.41
   deepseek-v4-flash: 0.28
   deepseek-v4-pro: 0.87
@@ -69,6 +70,7 @@ capabilities:
   glm-5: {thinking: true, vision: false}
   glm-5.1: {thinking: true, vision: false}
   glm-5.2: {thinking: true, vision: false}
+  glm-5.3: {thinking: true, vision: false}
   MiniMax-M2.5: {thinking: false, vision: true}
   # Kimi gateway (kimi-for-coding) — models.json reasoning:true + image/video
   # modalities; these slugs were unlisted before (old default said no thinking).
