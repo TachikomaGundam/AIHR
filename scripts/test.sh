@@ -62,7 +62,11 @@ clear_database_environment() {
 }
 
 run_test_suite() {
-    python3 -m pytest --cov=hr --cov-report=term-missing --cov-fail-under=80 -q "$@"
+    # Product hygiene: pytest must not drop bytecode caches into the worktree.
+    # Generated caches inside the source tree are untracked build junk that
+    # pollutes every whole-tree scan and release check (witnessed 2026-10-23).
+    # Skipping cache writes does not affect results.
+    PYTHONDONTWRITEBYTECODE=1 python3 -m pytest --cov=hr --cov-report=term-missing --cov-fail-under=80 -q "$@"
 }
 
 run_universality_gate() {
