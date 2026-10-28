@@ -102,3 +102,10 @@ reportMissingTypeArgument = false
 [tool.coverage.run]
 branch = true
 source = ["hr"]
+
+[tool.uv]
+# Toolchain floor (owner ruling 2026-10-23): uv < 0.12 is rejected outright — the
+# 0.11-era venv layout and the current lock handling are not forward-compatible
+# (witnessed: dual-ruff drift + venv refusal on rebuild). No upper bound by design;
+# lock-revision changes carry their own policy in scripts/check_universal.sh (e).
+required-version = ">=0.12"

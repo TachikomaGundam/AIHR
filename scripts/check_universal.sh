@@ -242,14 +242,63 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# (e) uv.lock header revision pin - lock-revision change policy, three rules:
+#     1. exactly one machine regenerates the lock at a time (single point);
+#     2. every other seat is notified before the bump lands;
+#     3. the bump ships in the SAME commit that updates this pin below.
+#     Rationale (owner ruling 2026-10-23): the toolchain floor in pyproject
+#     [tool.uv] guards the uv version; this pin guards the lock format itself —
+#     an unannounced revision change silently splits the fleet.
+# ---------------------------------------------------------------------------
+echo "== (e) uv.lock revision pin =="
+LOCK_REV=$(head -2 uv.lock 2>/dev/null | sed -n 's/^revision = //p')
+if [ "${LOCK_REV:-}" = "3" ]; then
+    echo "revision = 3 -> PASS (e)"
+else
+    echo "uv.lock revision is '${LOCK_REV:-<missing>}', this gate pins 3."
+    echo "FAIL (e): lock revision changed without the coordinated bump (see policy above)."
+    FAIL=1
+fi
+
+# ---------------------------------------------------------------------------
+# (f) repo-root markdown: machine-local paths + machine-local deny-markers
+#     Root *.md files (AGENTS.md and friends) sit outside section (b)'s scan
+#     surface. The marker list is a gitignored overlay (same pattern as
+#     configs/*.local.yaml): scripts/universal-denylist.local.txt, one marker
+#     per line, never committed - the gate itself ships zero institution data.
+#     Known limit (named 2026-10-23): this is a lexical gate; prose rewording
+#     of a marker passes it. Per-change human review of AGENTS.md remains the
+#     real control.
+# ---------------------------------------------------------------------------
+echo "== (f) repo-root markdown machine paths/markers =="
+f_hits=$(grep -nE '/home/|/root/|[A-Za-z]:\\Users\\' *.md 2>/dev/null)
+if [ -f scripts/universal-denylist.local.txt ]; then
+    while IFS= read -r marker; do
+        [ -n "$marker" ] || continue
+        marker_hits=$(grep -nF -- "$marker" *.md 2>/dev/null)
+        if [ -n "$marker_hits" ]; then
+            f_hits="${f_hits}
+${marker_hits}"
+        fi
+    done < scripts/universal-denylist.local.txt
+fi
+if [ -n "$f_hits" ]; then
+    echo "$f_hits"
+    echo "FAIL (f): repo-root markdown references machine-local paths or deny-markers."
+    FAIL=1
+else
+    echo "0 hits -> PASS (f)"
+fi
+
+# ---------------------------------------------------------------------------
 echo
 if [ "$FAIL" -ne 0 ]; then
     echo "UNIVERSALITY GATE: FAIL"
     exit 1
 fi
 if [ "${D_SKIPPED:-0}" -eq 1 ]; then
-    echo "UNIVERSALITY GATE: PASS (a) (b) (c) (d skipped — see notice above)"
+    echo "UNIVERSALITY GATE: PASS (a) (b) (c) (e) (f) (d skipped — see notice above)"
 else
-    echo "UNIVERSALITY GATE: PASS (a) (b) (c) (d)"
+    echo "UNIVERSALITY GATE: PASS (a) (b) (c) (d) (e) (f)"
 fi
 exit 0
