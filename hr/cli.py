@@ -1,4 +1,4 @@
-"""Unified public CLI facade and command registry (33 shipped commands)."""
+"""Unified public CLI facade and command registry (34 shipped commands)."""
 
 from __future__ import annotations
 
@@ -30,6 +30,7 @@ from .cli_knowledge import publish, recommend, reference, research
 from .cli_apply import apply, status
 from .cli_db import db_down, db_status, db_up
 from .cli_parity import parity
+from .cli_preflight import preflight
 from .cli_lifecycle import install_post, self_uninstall
 from .support_bundle import support_bundle
 from .cli_setup import setup
@@ -59,6 +60,7 @@ __all__ = [
     "load_deployable",
     "model_capabilities",
     "parity",
+    "preflight",
     "publish",
     "recommend",
     "reference",

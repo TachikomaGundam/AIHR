@@ -1,0 +1,25 @@
+# hr preflight gate configuration (S3 control baseline / first-shot gate).
+# Tracked file ships ZERO real deployment values, like every other configs/
+# surface: budgets and band STRUCTURE live here; the machine's anchor models
+# and measured strong-answer bands go in the gitignored preflight.local.yaml
+# overlay (local wins per key, lists replace).
+
+budget:
+  max_requests: 50            # request cap per preflight session
+  max_total_tokens: 400000    # cost cap per session (in+out)
+  per_request_max_tokens: 4096  # bound for unbounded-thinking models
+
+abort:
+  error_rate: 0.4             # infrastructure-sick share above which the
+                              # session answers nothing (cannot-answer)
+
+freshness_hours: 12           # a real sweep may only start on a PASS marker
+                              # this fresh
+
+# Session selection (machine overlay fills real ids):
+models: []                    # e.g. the two locally-served anchor endpoints
+batteries: [reasoning, factuality]
+
+# Known strong-answer bands per battery, 0-100. Defaults are permissive;
+# the overlay pins the measured bands for THIS machine's anchor endpoints.
+bands: {}

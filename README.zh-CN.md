@@ -1,6 +1,6 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位、跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，33 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
+统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位、跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，34 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
 
 本文档（README.zh-CN.md）是英文规范版本的忠实镜像。当两者出现差异时，以英文版本为准。
 
@@ -192,7 +192,7 @@ hr status                            # 扫描列表 + 最新扫描能力均值
 
 ## CLI Map
 
-三十三条命令，每条针对一项具体职责：15 条核心命令、4 条 `db-*` 数据库生命周期命令、4 条 `apply-*` 事务预设命令、6 条 `release-*` 生命周期命令、4 条安装/支持工具。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
+三十四条命令，每条针对一项具体职责：16 条核心命令、4 条 `db-*` 数据库生命周期命令、4 条 `apply-*` 事务预设命令、6 条 `release-*` 生命周期命令、4 条安装/支持工具。旧 v1 命令（`evaluate`、`report`、`run_all`）已淘汰。`hr verdict` 取代了退役的评估路径。
 
 | 命令 | 用途 |
 |------|------|
@@ -220,6 +220,7 @@ hr status                            # 扫描列表 + 最新扫描能力均值
 | `hr release-list` | 按时间倒序列出发布 |
 | `hr release-prune` | 强制执行发布保留上限（最新有效版 + 当前激活版永不删） |
 | `hr parity` | 对照现役机队名单标记校准锚的世代漂移（需重排座时退出码 1） |
+| `hr preflight` | S3 首弹闸：预算内控制会话；三闸=响应非空、锚定分数带、落库读回（链坏退出 1，无法作答退出 2） |
 | `hr db-up` | 拉起 AIHR 自有 PostgreSQL 容器并初始化结构 |
 | `hr db-down` | 停止 AIHR 数据库容器（`--purge --yes` 同时清除数据卷） |
 | `hr db-status` | 容器状态 + 实时 SQL 探测 + hr 结构统计（密钥脱敏） |
