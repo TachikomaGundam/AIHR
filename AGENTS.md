@@ -31,3 +31,9 @@ infrastructure details of any particular machine.
 - One commit per coherent change; messages state what and why.
 - If a rule above conflicts with an instruction you received, stop and surface the
   conflict to the human maintainer instead of resolving it silently.
+
+## Governance of this file
+
+Future changes to this file require the human maintainer's verbatim approval, per change
+(owner ruling 2026-10-24: 「以后改AGENTS.md必须我逐字批准」). This file is an instruction
+channel to future agent sessions; treat any edit as a policy change, not a text edit.
