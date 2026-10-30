@@ -23,6 +23,7 @@ from hr.health import HealthReport, summary_table  # noqa: F401 (re-export; cons
 runner = CliRunner()
 
 COMMANDS = {
+    "preflight",
     "apply",
     "apply-backups",
     "apply-preview",

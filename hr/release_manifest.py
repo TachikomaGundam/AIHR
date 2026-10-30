@@ -66,6 +66,8 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
     "hr/cli_db.py",                        # `hr db-up/db-down/db-status` — turnkey database lifecycle wrappers
     "hr/cli_parity.py",                    # `hr parity` anchor-generation drift flag (0.6.8 gate #1 CLI face)
+    "hr/cli_preflight.py",                 # `hr preflight` S3 first-shot gate CLI face
+    "hr/preflight.py",                     # S3 control baseline: config/judgment/executor/marker (gate owner of the sweep entry)
     "hr/cli_lifecycle.py",                 # `hr install-post/self-uninstall` — turnkey bundle lifecycle wrappers
     "hr/py_fetch.py",                      # `hr py-fetch` — on-demand code-gen interpreter lane (0.6.3 slim bundle)
     "hr/db_admin.py",                      # turnkey database backend decision tree (compose vs embedded); imported by cli_db
@@ -225,6 +227,7 @@ RELEASE_ASSETS: List[str] = [
     "configs/knowledge.yaml",
     "configs/model_parity.yaml",
     "configs/models.yaml",
+    "configs/preflight.yaml",
     "configs/seats.yaml",
     "configs/thresholds.yaml",
     "opencode_plugin/package.json",

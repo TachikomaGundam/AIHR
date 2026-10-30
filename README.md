@@ -1,6 +1,6 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. One Python engine on PyPI (`aihr`), two OpenCode plugins on npm, one database schema, and 33 CLI commands.
+Unified harness that matches autonomous LLM coding agents to task-appropriate seats, runs capability benchmarks across model fleets, and emits deployment verdicts. One Python engine on PyPI (`aihr`), two OpenCode plugins on npm, one database schema, and 34 CLI commands.
 
 The English version is canonical. The Chinese version (`README.zh-CN.md`) is a faithful mirror. When the two diverge, the English text governs.
 
@@ -219,7 +219,7 @@ Live benchmarks (`hr bench`, `hr discover`) additionally read provider credentia
 
 ## CLI Map
 
-Thirty-three commands, each targeting a specific concern: 15 core commands, 4 `db-*` database-lifecycle commands, 4 `apply-*` transactional-preset commands, 6 `release-*` lifecycle commands, and 4 installer/support tools. A guard test (`tests/test_cli.py`) pins every count claim in this file to the live command registry, so these numbers cannot silently drift. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
+Thirty-four commands, each targeting a specific concern: 16 core commands, 4 `db-*` database-lifecycle commands, 4 `apply-*` transactional-preset commands, 6 `release-*` lifecycle commands, and 4 installer/support tools. A guard test (`tests/test_cli.py`) pins every count claim in this file to the live command registry, so these numbers cannot silently drift. Legacy v1 commands (`evaluate`, `report`, `run_all`) were retired. `hr verdict` supersedes the retired evaluation path.
 
 | Command | Purpose |
 |---------|---------|
@@ -247,6 +247,7 @@ Thirty-three commands, each targeting a specific concern: 15 core commands, 4 `d
 | `hr release-list` | List releases, newest first |
 | `hr release-prune` | Enforce bounded release retention (newest-valid + active preserved) |
 | `hr parity` | Flag calibration-anchor generation drift against a live fleet roster (exit 1 when reseating is needed) |
+| `hr preflight` | S3 first-shot gate: budgeted control session; gates = non-empty responses, anchor bands, store-then-read-back (exit 1 chain broken, 2 cannot-answer) |
 | `hr db-up` | Bring up the AIHR-owned PostgreSQL container and initialize the schema |
 | `hr db-down` | Stop the AIHR database container (`--purge --yes` also drops its volume) |
 | `hr db-status` | Container state + live SQL probe + hr-schema stats (secrets masked) |
