@@ -16,7 +16,9 @@ from typing import Any, Callable, Literal, Mapping, Protocol, Sequence
 
 import yaml
 
+from hr.adapters.base import Adapter
 from hr.bench.engine_results import BenchOutcome, make_sweep_id
+from hr.graders.base import ModelResponse
 
 PREFLIGHT_PURPOSE = "preflight-pass"
 Verdict = Literal["pass", "fail", "cannot-answer"]
@@ -280,7 +282,39 @@ def marker_age_hours(conn) -> float | None:
     return (datetime.now(timezone.utc) - newest).total_seconds() / 3600.0
 
 
+class _CappedAdapter:
+    """Adapter proxy: clamps every chat's max_output to the session cap and
+    forwards everything else (probe_capabilities, endpoint_for, ...) verbatim.
+    Chat signature mirrors hr.adapters.base.Adapter.chat - the engine calls it
+    with model_id/messages positional and the rest by keyword."""
+
+    def __init__(self, inner: Adapter, cap: int) -> None:
+        self._inner = inner
+        self._cap = cap
+
+    def chat(self, model_id: str, messages: list[dict[str, Any]], **kwargs: Any) -> ModelResponse:
+        max_output = kwargs.get("max_output")
+        if isinstance(max_output, int):
+            kwargs["max_output"] = min(max_output, self._cap)
+        return self._inner.chat(model_id, messages, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def with_output_cap(factory, cap: int):
+    """Wrap an adapter factory so every request's max_output is clamped to
+    ``cap`` - the bound for unbounded-thinking anchors that turns an
+    uncontrolled 16K-token generation into a budgeted one (S3 budget item)."""
+
+    def make(model_id: str) -> object:
+        return _CappedAdapter(factory(model_id), cap)
+
+    return make
+
+
 __all__ = [
+    "with_output_cap",
     "Budget",
     "CellView",
     "Judgment",

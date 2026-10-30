@@ -136,6 +136,36 @@ class TestConfig:
             load_preflight_config(tmp_path / "preflight.yaml")
 
 
+class TestOutputCap:
+    def test_clamps_oversized_max_output(self) -> None:
+        from hr.preflight import with_output_cap
+
+        seen: dict[str, object] = {}
+
+        class Inner:
+            def chat(self, model_id, messages, **kwargs):
+                seen["max_output"] = kwargs.get("max_output")
+                return object()
+
+        adapter = with_output_cap(lambda m: Inner(), 4096)("prov/x")
+        adapter.chat("prov/x", [{"role": "user", "content": "hi"}], max_output=16384)
+        assert seen["max_output"] == 4096
+
+    def test_small_requests_pass_through(self) -> None:
+        from hr.preflight import with_output_cap
+
+        seen: dict[str, object] = {}
+
+        class Inner:
+            def chat(self, model_id, messages, **kwargs):
+                seen["max_output"] = kwargs.get("max_output")
+                return object()
+
+        adapter = with_output_cap(lambda m: Inner(), 4096)("prov/x")
+        adapter.chat("prov/x", [{"role": "user", "content": "hi"}], max_output=64)
+        assert seen["max_output"] == 64
+
+
 class TestStage0Flag:
     def test_parser_accepts_skip_preflight(self) -> None:
         from hr.stage0_cli import _build_arg_parser
