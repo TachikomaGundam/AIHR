@@ -178,7 +178,7 @@ def test_live_run_success(monkeypatch, capsys) -> None:
         "run_sweep",
         lambda **kwargs: seen.update(kwargs),
     )
-    rc = cli._cli_main(["--models", "m1"])
+    rc = cli._cli_main(["--models", "m1", "--skip-preflight"])
     assert rc == 0
     assert seen["models"] == ("m1",)
     assert seen["n_initial"] == 3
@@ -207,6 +207,31 @@ def test_live_run_failure_prints_clean_error(capsys, monkeypatch) -> None:
         raise RuntimeError("adapter auth exploded")
 
     monkeypatch.setattr(stage0_mod, "run_sweep", boom)
-    rc = cli._cli_main([])
+    rc = cli._cli_main(["--skip-preflight"])
     assert rc == 1
     assert "Stage 0 failed: adapter auth exploded" in capsys.readouterr().err
+
+def test_preflight_gate_refuses_without_marker(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("hr.preflight.marker_age_hours", lambda conn: None)
+    monkeypatch.setattr("hr.db.connect", lambda *a, **k: object())
+    rc = cli._cli_main(["--models", "m1"])
+    assert rc == 2
+    assert "preflight gate" in capsys.readouterr().err
+
+
+def test_preflight_gate_passes_on_fresh_marker(monkeypatch) -> None:
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(stage0_mod, "run_sweep", lambda **kwargs: seen.update(kwargs))
+    monkeypatch.setattr("hr.preflight.marker_age_hours", lambda conn: 0.5)
+    monkeypatch.setattr("hr.db.connect", lambda *a, **k: object())
+    rc = cli._cli_main(["--models", "m1"])
+    assert rc == 0 and seen
+
+
+def test_preflight_gate_override_is_logged(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(stage0_mod, "run_sweep", lambda **kwargs: None)
+    monkeypatch.setattr("hr.preflight.marker_age_hours", lambda conn: None)
+    monkeypatch.setattr("hr.db.connect", lambda *a, **k: object())
+    rc = cli._cli_main(["--models", "m1", "--skip-preflight"])
+    assert rc == 0
+    assert "OVERRIDE" in capsys.readouterr().err

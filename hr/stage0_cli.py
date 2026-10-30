@@ -75,6 +75,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Sweep ID to query for --separation (default: latest stage0 sweep)",
     )
     p.add_argument("--token-cap", type=int, default=None, help="Token budget cap (default: configs/thresholds.yaml stage0.token_cap)")
+    p.add_argument("--skip-preflight", action="store_true",
+                   help="start a real sweep without a fresh preflight PASS marker (logged override)")
     p.add_argument("--n-initial", type=int, default=3, help="Number of pilot repetitions")
     p.add_argument(
         "--models",
@@ -158,6 +160,45 @@ def _cli_main(argv: list[str] | None = None) -> int:
 
     adapter = RoutedAdapter()
     item_repo = Path(args.item_repo) if args.item_repo else itemrepo_path()
+
+    if not args.dry_run and not args.no_db:
+        # S3 first-shot gate: a real sweep runs only on a fresh preflight PASS
+        # marker (hr preflight). --skip-preflight overrides, loudly and in the
+        # log - the escape hatch stays human-visible. --no-db is exempt: a
+        # run that records nothing cannot pollute measurements.
+        from hr.preflight import load_preflight_config, marker_age_hours
+
+        _age: float | None = None
+        _unreadable: str | None = None
+        try:
+            from hr.db import connect as _gate_connect
+
+            _age = marker_age_hours(_gate_connect())
+            _fresh = load_preflight_config().freshness_hours
+        except Exception as exc:  # noqa: BLE001 - a gate that cannot read is a gate that stops
+            _unreadable = str(exc)
+            _fresh = -1
+        if _unreadable is not None:
+            if not args.skip_preflight:
+                print(f"preflight gate: cannot read marker ({_unreadable}); refusing to start",
+                      file=sys.stderr)
+                return 2
+            print("preflight gate: OVERRIDE via --skip-preflight (marker unreadable)", file=sys.stderr)
+        elif _age is None or _age > _fresh:
+            if args.skip_preflight:
+                print(
+                    "preflight gate: OVERRIDE via --skip-preflight "
+                    f"(marker {'absent' if _age is None else f'{_age:.1f}h old'}, window {_fresh}h)",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    "preflight gate: no fresh PASS marker "
+                    f"({'absent' if _age is None else f'{_age:.1f}h old'}, window {_fresh}h). "
+                    "Run `hr preflight` first, or --skip-preflight to override (logged).",
+                    file=sys.stderr,
+                )
+                return 2
     try:
         from hr.stage0 import run_sweep
 
