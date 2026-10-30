@@ -79,6 +79,10 @@ def preflight(
         "g3_readback_ok": run.g3_ok,
         "error_rate": round(run.judgment.error_rate, 4),
         "requeue": list(run.judgment.requeue),
+        "cell_scores": {
+            f"{c.model_id}|{c.battery}": (round(c.score, 4) if c.scored and c.score is not None else None)
+            for c in run.cells
+        },
         "requests_used": run.budget.requests,
         "tokens_used": run.budget.tokens,
         "marker_age_hours": None if age is None else round(age, 3),

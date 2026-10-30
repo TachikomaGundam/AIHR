@@ -166,6 +166,31 @@ class TestOutputCap:
         assert seen["max_output"] == 64
 
 
+class TestCliPayload:
+    def test_payload_carries_cell_scores(self) -> None:
+        from hr.preflight import Budget, CellView, PreflightRun, judge, load_preflight_config
+
+        cells = (
+            CellView("m/1", "speed", True, False, False, 0.5),
+            CellView("m/1", "reasoning", True, False, False, 0.75),
+            CellView("m/1", "factuality", False, True, False, 0.0, "boom"),
+        )
+        run = PreflightRun(
+            judgment=judge(cells, load_preflight_config()),
+            sweep_id="s1",
+            cells=cells,
+            g3_ok=True,
+            budget=Budget(3, 300),
+        )
+        scores = {
+            f"{c.model_id}|{c.battery}": (
+                round(c.score, 4) if c.scored and c.score is not None else None
+            )
+            for c in run.cells
+        }
+        assert scores == {"m/1|speed": 0.5, "m/1|reasoning": 0.75, "m/1|factuality": None}
+
+
 class TestStage0Flag:
     def test_parser_accepts_skip_preflight(self) -> None:
         from hr.stage0_cli import _build_arg_parser
