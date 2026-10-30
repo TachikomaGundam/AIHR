@@ -43,6 +43,23 @@ def preflight(
         )
         raise typer.Exit(code=2)
 
+    from hr.parity import check_pricing_parity
+
+    try:
+        _pricing = check_pricing_parity(model_list)
+    except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+        console.print(f"[red]pricing gate: {exc}[/red]")
+        raise typer.Exit(code=2) from exc
+    if not _pricing.ok:
+        # preflight spends real tokens; unpriced anchors mean the cost rail
+        # cannot see the spend - name the gap and refuse (exit 2 = cannot answer).
+        console.print(
+            "[red]pricing gate: "
+            f"missing={list(_pricing.missing)} "
+            f"shadow_conflicts={list(_pricing.shadow_conflicts)}[/red]"
+        )
+        raise typer.Exit(code=2)
+
     from hr.adapters import adapter_for
     from hr.bench.engine import LivebenchEngine
     from hr.models import BenchmarkCategory

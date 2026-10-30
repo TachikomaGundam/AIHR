@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import uuid
 
 import pytest
 from typer.testing import CliRunner
@@ -19,6 +18,19 @@ from hr.models import BenchmarkCategory
 from tests.bench.fake_adapter import FakeAdapter
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _certify_fake_fleet(monkeypatch):
+    """The S4 pricing gate reads real configs/models.yaml; this file drives
+    fake model ids through OTHER seams, so certify them here and let the
+    dedicated pricing-gate tests at the bottom exercise the real checker."""
+    from hr.parity import PricingReport
+
+    monkeypatch.setattr(
+        "hr.parity.check_pricing_parity",
+        lambda fleet, pricing=None: PricingReport((), (), tuple(fleet)),
+    )
 
 ALL_10 = [
     "code_gen",
@@ -112,7 +124,6 @@ def test_bench_missing_threshold_entry_is_explicit_error(
     import yaml
 
     import hr.config as config
-    from hr.stats.sequential import SequentialConfig
 
     configs = tmp_path / "configs"
     configs.mkdir()
@@ -162,3 +173,30 @@ def test_bench_command_uses_threshold_guard(
     result = runner.invoke(app, ["bench", "--battery", "code_gen", "--models", "x/y"])
     assert result.exit_code == 1
     assert "livebench_code_gen" in result.output
+
+
+class TestBenchPricingGate:
+    def test_bench_refuses_unpriced_model_before_any_engine(self, monkeypatch) -> None:
+        from hr.parity import PricingReport
+
+        monkeypatch.setattr(
+            "hr.parity.check_pricing_parity",
+            lambda fleet, pricing=None: PricingReport(("fake/unpriced",), (), ()),
+        )
+        monkeypatch.setattr(
+            engine_mod, "LivebenchEngine",
+            lambda *a, **k: (_ for _ in ()).throw(
+                AssertionError("engine built despite pricing gate gap")
+            ),
+        )
+        result = runner.invoke(app, ["bench", "--battery", "speed", "--models", "fake/unpriced"])
+        assert result.exit_code != 0
+        assert "pricing" in result.stdout + result.stderr
+
+    def test_bench_dry_run_skips_the_pricing_gate(self, monkeypatch) -> None:
+        def _boom(*a, **k):
+            raise AssertionError("dry-run must not reach the pricing gate")
+
+        monkeypatch.setattr("hr.parity.check_pricing_parity", _boom)
+        result = runner.invoke(app, ["bench", "--battery", "speed", "--models", "x/y", "--dry-run"])
+        assert result.exit_code == 0

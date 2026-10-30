@@ -263,3 +263,38 @@ class TestEngineWiring:
         outcome = engine.run_battery("prov/x", BenchmarkCategory.speed)
         assert seen and all(v <= 4096 for v in seen), seen
         assert outcome.status == "scored"
+
+
+class TestCliPricingGate:
+    def test_cli_refuses_unpriced_anchor(self, monkeypatch) -> None:
+        from hr.parity import PricingReport
+        from typer.testing import CliRunner
+
+        from hr.cli import app
+
+        monkeypatch.setattr(
+            "hr.parity.check_pricing_parity",
+            lambda fleet, pricing=None: PricingReport(("prov/x",), (), ()),
+        )
+        result = CliRunner().invoke(app, ["preflight", "--models", "prov/x"])
+        assert result.exit_code == 2
+        assert "pricing gate" in result.output
+
+    def test_cli_dry_paths_never_built_before_gate(self, monkeypatch) -> None:
+        # gate fires before engine/DB construction: neither may be touched
+        def _boom(*a, **k):
+            raise AssertionError("engine/db built despite pricing gap")
+
+        from typer.testing import CliRunner
+
+        from hr.cli import app
+
+        from hr.parity import PricingReport
+
+        monkeypatch.setattr(
+            "hr.parity.check_pricing_parity",
+            lambda fleet, pricing=None: PricingReport(("prov/x",), (), ()),
+        )
+        monkeypatch.setattr("hr.db.connect", _boom)
+        result = CliRunner().invoke(app, ["preflight", "--models", "prov/x"])
+        assert result.exit_code == 2
