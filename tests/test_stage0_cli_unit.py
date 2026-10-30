@@ -15,7 +15,7 @@ import hr.adapters as adapters_mod
 import hr.calibrate as calibrate_mod
 import hr.stage0 as stage0_mod
 import hr.stage0_cli as cli
-from hr.items.schema import ItemType, build_envelope
+from hr.items.schema import ItemType
 
 from tests.test_stage0_selection_unit import make_env as _make_env
 
@@ -66,6 +66,15 @@ def _patch_runtime_deps(monkeypatch):
     )
     monkeypatch.setattr(adapters_mod, "RoutedAdapter", _FakeRoutedAdapter)
     monkeypatch.setattr(stage0_mod, "run_sweep", lambda **kwargs: None)
+    # the S4 pricing gate would refuse the synthetic m1/m2 fleet; these
+    # tests exercise OTHER seams, so certify the fake fleet through it and
+    # let the dedicated pricing-gate tests below drive the real checker
+    from hr.parity import PricingReport
+
+    monkeypatch.setattr(
+        "hr.parity.check_pricing_parity",
+        lambda fleet, pricing=None: PricingReport((), (), tuple(fleet)),
+    )
 
 
 def _subsets() -> dict[str, list[object]]:
@@ -235,3 +244,24 @@ def test_preflight_gate_override_is_logged(monkeypatch, capsys) -> None:
     rc = cli._cli_main(["--models", "m1", "--skip-preflight"])
     assert rc == 0
     assert "OVERRIDE" in capsys.readouterr().err
+
+
+class TestPricingGateSeam:
+    def test_live_sweep_refuses_unpriced_fleet(self, monkeypatch, capsys) -> None:
+        from hr.parity import PricingReport
+
+        monkeypatch.setattr(
+            "hr.parity.check_pricing_parity",
+            lambda fleet, pricing=None: PricingReport(("m1",), (), ()),
+        )
+        rc = cli._cli_main(["--models", "m1", "--skip-preflight"])
+        assert rc == 2
+        assert "pricing gate" in capsys.readouterr().err
+
+    def test_dry_run_never_meets_the_pricing_gate(self, monkeypatch, capsys) -> None:
+        def _boom(*a, **k):
+            raise AssertionError("dry-run must not reach the pricing gate")
+
+        monkeypatch.setattr("hr.parity.check_pricing_parity", _boom)
+        rc = cli._cli_main(["--dry-run"])
+        assert rc == 0

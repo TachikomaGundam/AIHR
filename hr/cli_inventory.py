@@ -252,6 +252,19 @@ def bench(
         )
         return
 
+    from .parity import check_pricing_parity
+
+    try:
+        _pricing = check_pricing_parity(model_ids)
+    except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+        _fail(f"error: {exc}")
+    if not _pricing.ok:
+        _fail(
+            "error: pricing parity gate: "
+            f"missing={list(_pricing.missing)} "
+            f"shadow_conflicts={list(_pricing.shadow_conflicts)}"
+        )
+
     engine = LivebenchEngine()
     try:
         engine.require_thresholds(batteries)

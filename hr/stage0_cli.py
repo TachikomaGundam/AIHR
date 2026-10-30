@@ -161,6 +161,28 @@ def _cli_main(argv: list[str] | None = None) -> int:
     adapter = RoutedAdapter()
     item_repo = Path(args.item_repo) if args.item_repo else itemrepo_path()
 
+    if not args.dry_run:
+        # S4 pricing gate: a real run proceeds only on a fleet where every
+        # model carries a pricing entry - unpriced live spend is exactly the
+        # silent-zero cost rail the gate exists to stop. --no-db is NOT exempt
+        # here: money spent is money spent, database or not.
+        from hr.parity import check_pricing_parity
+
+        try:
+            _pricing = check_pricing_parity(models)
+        except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+            print(f"pricing gate: {exc}", file=sys.stderr)
+            return 2
+        if not _pricing.ok:
+            print(
+                f"pricing gate: missing={list(_pricing.missing)} "
+                f"shadow_conflicts={list(_pricing.shadow_conflicts)}; add entries to "
+                "configs/models.yaml (or the gitignored models.local.yaml overlay) "
+                "before live runs",
+                file=sys.stderr,
+            )
+            return 2
+
     if not args.dry_run and not args.no_db:
         # S3 first-shot gate: a real sweep runs only on a fresh preflight PASS
         # marker (hr preflight). --skip-preflight overrides, loudly and in the
