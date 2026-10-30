@@ -43,10 +43,12 @@ def preflight(
         )
         raise typer.Exit(code=2)
 
+    from hr.adapters import adapter_for
     from hr.bench.engine import LivebenchEngine
     from hr.models import BenchmarkCategory
+    from hr.preflight import with_output_cap
 
-    engine = LivebenchEngine()
+    engine = LivebenchEngine(adapter_factory=with_output_cap(adapter_for, cfg.per_request_max_tokens))
     conn = connect()
 
     def store(sweep_id: str, model_id: str, battery_key: str, outcome) -> None:

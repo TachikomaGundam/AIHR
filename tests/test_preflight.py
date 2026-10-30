@@ -197,3 +197,37 @@ class TestStage0Flag:
 
         args = _build_arg_parser().parse_args(["--dry-run"])
         assert args.skip_preflight is False
+
+
+class TestEngineWiring:
+    def test_speed_battery_arrives_clamped_at_inner_adapter(self) -> None:
+        """Engine -> capped factory -> inner adapter: the runner's 16384 ask
+        must reach the wire as <= the session cap. This is the wiring the
+        first live fire silently lacked - unit clamp tests alone passed
+        while the CLI never wrapped the factory."""
+        from hr.adapters.base import Capabilities
+        from hr.bench.engine import LivebenchEngine
+        from hr.graders.base import ModelResponse
+        from hr.models import BenchmarkCategory
+        from hr.preflight import with_output_cap
+
+        seen: list[int] = []
+
+        class Inner:
+            def chat(self, model_id, messages, **kwargs):
+                seen.append(kwargs.get("max_output") or 0)
+                return ModelResponse(
+                    text="A: 4", tokens_in=10, tokens_out=5, latency_ms=1,
+                    finish_reason="stop",
+                )
+
+            def probe_capabilities(self, model_id):
+                return Capabilities(model_id=model_id, provider="prov")
+
+        engine = LivebenchEngine(
+            adapter_factory=with_output_cap(lambda mid: Inner(), 4096),
+            timeout_s=5,
+        )
+        outcome = engine.run_battery("prov/x", BenchmarkCategory.speed)
+        assert seen and all(v <= 4096 for v in seen), seen
+        assert outcome.status == "scored"

@@ -16,7 +16,7 @@ from typing import Any, Callable, Literal, Mapping, Protocol, Sequence
 
 import yaml
 
-from hr.adapters.base import Adapter
+from hr.adapters.base import Adapter, Capabilities
 from hr.bench.engine_results import BenchOutcome, make_sweep_id
 from hr.graders.base import ModelResponse
 
@@ -292,22 +292,42 @@ class _CappedAdapter:
         self._inner = inner
         self._cap = cap
 
-    def chat(self, model_id: str, messages: list[dict[str, Any]], **kwargs: Any) -> ModelResponse:
-        max_output = kwargs.get("max_output")
-        if isinstance(max_output, int):
-            kwargs["max_output"] = min(max_output, self._cap)
-        return self._inner.chat(model_id, messages, **kwargs)
+    def chat(
+        self,
+        model_id: str,
+        messages: list[dict[str, Any]],
+        *,
+        images: list[dict[str, Any]] | None = None,
+        tools: list[dict[str, Any]] | None = None,
+        thinking_budget: int | None = None,
+        max_output: int = 16384,
+        timeout_s: int = 600,
+    ) -> ModelResponse:
+        return self._inner.chat(
+            model_id,
+            messages,
+            images=images,
+            tools=tools,
+            thinking_budget=thinking_budget,
+            max_output=min(max_output, self._cap),
+            timeout_s=timeout_s,
+        )
+
+    def probe_capabilities(self, model_id: str) -> Capabilities:
+        return self._inner.probe_capabilities(model_id)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
 
-def with_output_cap(factory, cap: int):
+def with_output_cap(
+    factory: Callable[[str], Adapter], cap: int
+) -> Callable[[str], Adapter]:
     """Wrap an adapter factory so every request's max_output is clamped to
     ``cap`` - the bound for unbounded-thinking anchors that turns an
     uncontrolled 16K-token generation into a budgeted one (S3 budget item)."""
 
-    def make(model_id: str) -> object:
+    def make(model_id: str) -> Adapter:
         return _CappedAdapter(factory(model_id), cap)
 
     return make
