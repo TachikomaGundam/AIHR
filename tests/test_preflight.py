@@ -191,6 +191,38 @@ class TestCliPayload:
         assert scores == {"m/1|speed": 0.5, "m/1|reasoning": 0.75, "m/1|factuality": None}
 
 
+class TestCellViewEmptiness:
+    def test_multi_item_battery_with_item_text_is_not_empty(self) -> None:
+        from hr.bench.engine_results import BenchOutcome, ItemResult
+        from hr.preflight import cell_view
+        from hr.models import BenchmarkCategory
+
+        outcome = BenchOutcome(
+            battery=BenchmarkCategory.reasoning,
+            model_id="m/1",
+            score=92.0,
+            passed=False,
+            items=[ItemResult(label="q1", item_id="i1", score=100.0, passed=True,
+                              response_text="A: 5")],
+        )
+        assert cell_view(outcome).empty_response is False
+
+    def test_battery_with_no_text_anywhere_is_empty(self) -> None:
+        from hr.bench.engine_results import BenchOutcome, ItemResult
+        from hr.preflight import cell_view
+        from hr.models import BenchmarkCategory
+
+        outcome = BenchOutcome(
+            battery=BenchmarkCategory.reasoning,
+            model_id="m/1",
+            score=0.0,
+            passed=False,
+            items=[ItemResult(label="q1", item_id="i1", score=0.0, passed=False,
+                              response_text="   ")],
+        )
+        assert cell_view(outcome).empty_response is True
+
+
 class TestStage0Flag:
     def test_parser_accepts_skip_preflight(self) -> None:
         from hr.stage0_cli import _build_arg_parser
