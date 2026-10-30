@@ -137,13 +137,19 @@ def cell_view(outcome: BenchOutcome) -> CellView:
     raw = outcome.raw_output or ""
     scored = outcome.status == "scored"
     infra = outcome.status == "inconclusive"
+    # G1 emptiness = no transport evidence anywhere: the aggregate text OR
+    # any per-item response counts as an answer having arrived. Multi-item
+    # batteries structurally leave the aggregate empty (factuality fills a
+    # log, reasoning leaves "") - aggregate-only emptiness was a false G1
+    # violation class that masked the real per-item signal.
     text = outcome.response_text or ""
+    evidence = [text, *(it.response_text or "" for it in outcome.items)]
     return CellView(
         model_id=outcome.model_id,
         battery=outcome.battery.value,
         scored=scored,
         infra=infra,
-        empty_response=not text.strip(),
+        empty_response=not any(t.strip() for t in evidence),
         score=outcome.score,
         detail=raw[:200],
     )
