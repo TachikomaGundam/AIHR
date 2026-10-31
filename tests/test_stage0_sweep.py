@@ -53,6 +53,15 @@ def test_cli_no_db_disables_initialization_and_recording(
         "hr.stage0.run_sweep",
         lambda *_args, **kwargs: received.update(kwargs),
     )
+    # the S4 pricing gate is live for --no-db (unpriced spend is unpriced
+    # spend) - certify the synthetic fleet here, the plumbing is what's under
+    # test; the gate's own --no-db behaviour has its dedicated test below
+    from hr.parity import PricingReport
+
+    monkeypatch.setattr(
+        "hr.parity.check_pricing_parity",
+        lambda fleet, pricing=None: PricingReport((), (), tuple(fleet)),
+    )
 
     # When
     result = stage0._cli_main(
@@ -189,3 +198,19 @@ def test_subset_selection_is_idempotent() -> None:
     s2 = select_subsets(items2)
     for b in STAGE0_BATTERIES:
         assert [e.item_key for e in s1[b]] == [e.item_key for e in s2[b]]
+
+
+def test_no_db_still_meets_the_pricing_gate(fleet_env, monkeypatch, capsys) -> None:  # noqa: F811
+    """Design guarantee: --no-db skips the DB marker gate but NOT the pricing
+    gate - skipping the database does not make token spend free."""
+    from hr.parity import PricingReport
+
+    monkeypatch.setattr(
+        "hr.parity.check_pricing_parity",
+        lambda fleet, pricing=None: PricingReport(("acme-ai/flash",), (), ()),
+    )
+    result = stage0._cli_main(
+        ["--no-db", "--models", "acme-ai/flash", "--item-repo", str(ITEM_REPO)]
+    )
+    assert result == 2
+    assert "pricing gate" in capsys.readouterr().err
