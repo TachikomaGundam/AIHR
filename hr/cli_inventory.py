@@ -256,7 +256,7 @@ def bench(
 
     try:
         _pricing = check_pricing_parity(model_ids)
-    except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+    except (ValueError, FileNotFoundError) as exc:  # empty fleet or unreadable pricing file: refuse, never crash
         _fail(f"error: {exc}")
     if not _pricing.ok:
         _fail(

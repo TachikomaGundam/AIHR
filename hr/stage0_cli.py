@@ -170,7 +170,7 @@ def _cli_main(argv: list[str] | None = None) -> int:
 
         try:
             _pricing = check_pricing_parity(models)
-        except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+        except (ValueError, FileNotFoundError) as exc:  # empty fleet or unreadable pricing file: a gate that cannot read is a gate that stops
             print(f"pricing gate: {exc}", file=sys.stderr)
             return 2
         if not _pricing.ok:

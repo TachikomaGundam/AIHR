@@ -47,7 +47,7 @@ def preflight(
 
     try:
         _pricing = check_pricing_parity(model_list)
-    except ValueError as exc:  # empty fleet: refusing to certify is refusing to run
+    except (ValueError, FileNotFoundError) as exc:  # empty fleet or unreadable pricing file: a gate that cannot read is a gate that stops
         console.print(f"[red]pricing gate: {exc}[/red]")
         raise typer.Exit(code=2) from exc
     if not _pricing.ok:
