@@ -74,7 +74,14 @@ class OpenAICompatAdapter(Adapter):
         opencode_config_path: str | None = None,
         auth_json_path: str | None = None,
         base_url_override: str | None = None,
+        transport_post: Any | None = None,
     ) -> None:
+        # transport_post is the tape seam (S2): None keeps the live path;
+        # replay/record inject a tape-backed stand-in. Resolved at CALL time
+        # (not construction) so module-level patching stays effective.
+        # Mirrors AnthropicCompatAdapter.http_client; the SSE parse chain is
+        # untouched either way, so replay walks the live parse path.
+        self._post = transport_post
         self._config_path = (
             str(default_models_cache_path())
             if opencode_config_path is None
@@ -169,7 +176,9 @@ class OpenAICompatAdapter(Adapter):
         for attempt in range(1, MAX_RETRIES + 1):
             started_at = time.monotonic()
             try:
-                response = requests.post(
+                response = (
+                    requests.post if self._post is None else self._post
+                )(
                     endpoint.url,
                     headers=endpoint.headers,
                     json=body,
