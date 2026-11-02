@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: uv run --no-project python scripts/build_bundle.py --self-test
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/aihr-build/pg
           key: aihr-pg-${{ hashFiles('release/pg-pin.json') }}-${{ matrix.target_os }}-${{ matrix.arch }}
