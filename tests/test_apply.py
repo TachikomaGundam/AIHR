@@ -58,8 +58,12 @@ _MODEL_SQL_KEY = "FROM hr.model"
 _BATTERY_SQL_KEY = "battery_code FROM hr.battery"
 
 # Router key for hr.decision.latest_sweep_id — single-table newest-by-created_at
-# query since T3 (audit bug 6). Keep in sync with the SQL literal in hr/decision.py.
-_LATEST_SQL_KEY = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1"
+# query since T3 (audit bug 6), with the preflight-marker exclusion added
+# 2026-11-02 (191 ladder). Keep in sync with the SQL literal in hr/decision.py.
+_LATEST_SQL_KEY = (
+    "SELECT sweep_id FROM hr.sweep WHERE purpose IS DISTINCT FROM %s "
+    "ORDER BY created_at DESC LIMIT 1"
+)
 
 _BATTERIES = [
     "reasoning",

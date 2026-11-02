@@ -9,6 +9,7 @@ from typing import TypedDict
 import numpy as np
 
 from hr.assign.ranker import CandidateModel, RankerResult, rank
+from hr.preflight import PREFLIGHT_PURPOSE
 from hr.config import load_yaml
 from hr.health import HealthReport
 from hr.seats.health_gates import SEAT_HEALTH_GATE
@@ -62,10 +63,17 @@ def _fetch(conn, sql: str, params: tuple | None = None) -> list[tuple]:
 
 
 def latest_sweep_id(conn) -> str:
-    """Newest sweep by wall clock; contaminated-sweep selection fix (audit bug 6)."""
+    """Newest DATA-bearing sweep by wall clock; contaminated-sweep selection
+    fix (audit bug 6) + preflight-marker exclusion (191 ladder, 2026-11-02:
+    the freshness marker is a bookkeeping row — newest-by-created_at without
+    the purpose filter lands the CLI on an empty row right after preflight).
+    """
     rows = _fetch(
         conn,
-        "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1",
+        "SELECT sweep_id FROM hr.sweep "
+        "WHERE purpose IS DISTINCT FROM %s "
+        "ORDER BY created_at DESC LIMIT 1",
+        (PREFLIGHT_PURPOSE,),
     )
     if not rows:
         raise ValueError("no sweeps found in hr.sweep")

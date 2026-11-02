@@ -45,6 +45,36 @@ app = _PinnedNameTyper(
 console = Console()
 
 
+def _installed_version() -> str:
+    from importlib.metadata import PackageNotFoundError, version
+
+    try:
+        return version("aihr")
+    except PackageNotFoundError:
+        # PyInstaller bundle ships no dist-info; the receipt beside the
+        # binary carries the truth, so say "unknown" rather than lie here.
+        return "0.0.0+unknown"
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        print(f"aihr {_installed_version()}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _root(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Print the installed aihr package version and exit.",
+    ),
+) -> None:
+    """Root callback exists solely to carry --version; commands are wired in cli.py."""
+
+
 def _runtime_connect():
     from . import cli
 
