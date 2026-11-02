@@ -112,7 +112,6 @@ def test_single_call_empty_final_answer_is_inconclusive_never_scored_zero() -> N
     fake zero and store() would persist 13 of them (191 dcd978)."""
     from hr.adapters.base import ChatRequest
     from hr.bench import engine as eng
-    from hr.bench.scorer_shared import _BenchmarkOutcome
     from hr.graders.base import ModelResponse
 
     e = eng.LivebenchEngine.__new__(eng.LivebenchEngine)

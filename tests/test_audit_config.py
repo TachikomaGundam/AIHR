@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tests.test_audit_regressions import hr_env
+from tests.test_audit_regressions import hr_env  # noqa: F401 (pytest fixture registration)
+
 from tests.test_audit_regressions import (
     BC,
     Path,
@@ -8,7 +9,6 @@ from tests.test_audit_regressions import (
     config_path,
     gateway_urls,
     get_provider_config,
-    hr_env,
     itemrepo_path,
     json,
     pytest,

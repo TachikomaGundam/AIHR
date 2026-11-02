@@ -53,10 +53,6 @@ def test_runner_end_to_end_offline() -> None:
         # trap calls carry the exact trap instruction marker
         if "say exactly 'not stated'" in prompt:
             return "not stated"
-        import re
-        m = re.search(r"How many drivers|captain.*name|people are in the archive|"
-                      r"beta product called|minutes do trams|PTA founded|"
-                      r"tall is the mast|roast", prompt)
         return {1: "42", 2: "Vasik", 3: "6", 4: "Plumspace", 5: "6",
                 6: "1974", 7: "87", 8: "Harbor Dark"}.get((call_no + 1) // 2, "42")
 

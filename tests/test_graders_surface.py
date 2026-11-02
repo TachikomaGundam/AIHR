@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from hr.graders.base import GradeResult, ModelResponse
+from hr.graders.base import ModelResponse
 from hr.graders.citation import CitationGrader, _parse_cites
 from hr.graders.constraint import ConstraintGrader
 from hr.graders.exact_match import (

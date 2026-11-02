@@ -12,7 +12,6 @@ a clean error (never an infinite loop).
 
 from __future__ import annotations
 
-import json
 import textwrap
 
 import pytest

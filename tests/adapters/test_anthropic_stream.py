@@ -5,7 +5,6 @@ import json
 from contextlib import contextmanager
 
 from hr.adapters.anthropic_stream import decode_stream
-from hr.adapters.base import AdapterError
 
 
 class _FakeStream:

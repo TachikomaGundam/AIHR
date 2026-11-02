@@ -4,7 +4,6 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hr.assign import ranker
 from hr.assign.ranker import CandidateModel, rank
 from hr.health import HealthReport
 

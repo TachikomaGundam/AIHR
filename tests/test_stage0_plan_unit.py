@@ -7,7 +7,6 @@ lists), and both printed branches of print_call_plan.
 
 from __future__ import annotations
 
-from hr.fleet import fleet_models
 from hr.items.schema import ItemType, build_envelope
 from hr.stage0_plan import (
     build_call_plan,

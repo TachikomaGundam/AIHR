@@ -30,7 +30,6 @@ from hr.scorer_calibration import (
     ScorerCalibrationManager,
     ScorerDrift,
     aggregation_summary,
-    classify_agreement,
     guarded_aggregate,
 )
 from tests._db_contracts_helpers import (
