@@ -1,5 +1,7 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
+[English](README.md) | **简体中文**
+
 统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位——席位指代理所担任的一个具名岗位职责（例如"后端实现"或"测试修复"），各有其能力要求——跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，34 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
 
 本文档（README.zh-CN.md）是英文规范版本的忠实镜像。当两者出现差异时，以英文版本为准。
