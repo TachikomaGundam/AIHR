@@ -1,0 +1,28 @@
+name: Bug report
+description: Something does not behave as documented
+labels: ["bug"]
+body:
+  - type: textarea
+    attributes:
+      label: What happened
+      description: The command you ran, what you saw, what you expected.
+      placeholder: |
+        $ hr …
+        (actual output)
+        Expected: …
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment
+      description: >
+        OS, `hr --version` output (or `pip show aihr`), Python version,
+        and whether you use the turnkey bundle or a pip install.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Relevant config (redacted)
+      description: >
+        Paste your configs only with endpoints, keys, and seat names you
+        care about removed or replaced — never paste credentials.

@@ -387,6 +387,11 @@ Provider-specific hardcoding was removed during unification. The model fleet is 
 
 Knowledge data lives in `configs/models.yaml` (pricing/capabilities) and `configs/knowledge.yaml` (reference scores, findings), both with safe defaults for unknown models.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup and the
+gates every change must pass.
+
 ## License
 
 See `LICENSE`.

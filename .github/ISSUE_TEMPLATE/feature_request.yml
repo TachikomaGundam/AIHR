@@ -1,0 +1,12 @@
+name: Feature request
+description: An idea for the CLI, the benchmark layer, or the docs
+labels: ["enhancement"]
+body:
+  - type: textarea
+    attributes:
+      label: What do you want and why
+      description: >
+        The workflow you are trying to accomplish and where hr stops
+        short today. Commands and actual output beat adjectives.
+    validations:
+      required: true
