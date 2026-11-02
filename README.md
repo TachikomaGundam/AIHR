@@ -1,5 +1,7 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
+**English** | [简体中文](README.zh-CN.md)
+
 Unified harness that matches autonomous LLM coding agents to task-appropriate seats — a seat is a named job role an agent fills (for example "backend implementer" or "test fixer"), each with its own required capability profile — runs capability benchmarks across model fleets, and emits deployment verdicts. One Python engine on PyPI (`aihr`), two OpenCode plugins on npm, one database schema, and 34 CLI commands.
 
 The English version is canonical. The Chinese version (`README.zh-CN.md`) is a faithful mirror. When the two diverge, the English text governs.
