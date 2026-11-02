@@ -57,7 +57,7 @@ test = [
 # Vision item authoring toolchain (itemrepo/vision): drawing primitives load
 # lazily, so the core package never imports Pillow; install this extra to
 # regenerate vision items.
-vision = ["pillow~=12.1"]
+vision = ["pillow>=12.1,<14.0"]
 
 [project.scripts]
 hr = "hr.cli:app"
