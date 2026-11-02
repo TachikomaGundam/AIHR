@@ -62,6 +62,7 @@ a green offline run is not the full suite.
 
 ## Pull requests
 
+Participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 - One logical change per PR; say which gate output changed.
 - New behavior needs a test that fails before the change (name the bug
   it pins).
