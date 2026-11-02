@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tests.test_stage1 import fleet_env
+from tests.test_stage1 import fleet_env  # noqa: F401 (pytest fixture registration)
+
 from tests.test_stage1 import (
     DEFAULT_THRESHOLDS_PATH,
     FakeAdapter,

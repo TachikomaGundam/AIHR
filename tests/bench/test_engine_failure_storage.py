@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from tests.bench.test_engine import engine
+from tests.bench.test_engine import engine  # noqa: F401 (pytest fixture registration)
+
 from tests.bench.test_engine import (
     BenchmarkCategory,
     FakeAdapter,
@@ -9,7 +10,6 @@ from tests.bench.test_engine import (
     PERFECT_INSTRUCTION_JSON,
     _run_all_batteries,
     _sql,
-    engine,
     engine_mod,
     pytest,
     uuid

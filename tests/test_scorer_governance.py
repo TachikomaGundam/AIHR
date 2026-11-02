@@ -20,7 +20,6 @@ network:
 
 from __future__ import annotations
 
-import math
 
 import numpy as np
 import pytest
@@ -28,7 +27,6 @@ import pytest
 from hr.scorer_calibration import (
     CALIBRATION_POLICY,
     AgreementBlockedError,
-    AggregationVerdict,
     RESAMPLES,
     SEED,
     aggregation_allowed,

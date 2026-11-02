@@ -94,6 +94,14 @@ markers = [
 [tool.ruff.lint]
 select = ["E9", "F"]
 
+[tool.ruff.lint.per-file-ignores]
+# The tests register pytest fixtures by importing them into the module
+# namespace (from tests.x import hr_env); the names are consumed by fixture
+# injection, never by expressions, so every later binding reads to ruff as
+# a redefinition of an "unused" import. Renaming the import would rename
+# the fixture itself. F811 in tests/ is this idiom, not dead code.
+"tests/**" = ["F811"]
+
 [tool.basedpyright]
 typeCheckingMode = "recommended"
 reportImportCycles = false

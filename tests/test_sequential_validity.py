@@ -26,7 +26,7 @@ from hr.stats.sequential import (
     bonferroni_pair_alpha,
     normalize_bounded_score,
 )
-from hr.stats.empirical_bernstein import EmpiricalBernsteinSequence, PairDecision
+from hr.stats.empirical_bernstein import EmpiricalBernsteinSequence
 
 from hr.stage1_state import (
     STAGE1_STATE_VERSION,
@@ -379,7 +379,6 @@ def test_min_effect_default_and_override() -> None:
 def test_real_thresholds_yaml_has_min_effect_for_every_battery() -> None:
     """The shipped config covers every half_width battery with a positive
     min_effect and honors n_max as the round budget cap."""
-    path = SequentialConfig.__module__.replace("hr.stats.sequential", "configs")  # unused guard
     import hr.stage1_selection as sel
 
     cfg = SequentialConfig.from_yaml(str(sel.DEFAULT_THRESHOLDS_PATH))

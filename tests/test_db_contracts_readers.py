@@ -26,14 +26,12 @@ import pytest
 
 from hr import decision
 from hr import health
-from hr import recommend as recommend_mod
 from hr.benchmark_banks import BenchmarkBankManager
 from hr.recommend import RecommendationEngine
 from hr.scorer_calibration import ScorerCalibrationManager
 from tests._db_contracts_helpers import (
     columns,
     connect,
-    scalar,
     seed_battery,
     seed_battery_item,
     seed_measurement,

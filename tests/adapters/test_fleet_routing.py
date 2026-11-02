@@ -9,7 +9,6 @@ HR_HOME point at tmp trees, no real config and no network is touched.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 import yaml

@@ -9,10 +9,8 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from hr.adapters.openai_protocol import (
-    _strip_prefix,
     build_tools_payload,
     extract_int,
     parse_sse_stream,

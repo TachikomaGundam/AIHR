@@ -21,7 +21,6 @@ Pure offline: ``_blend_value`` is a pure function, no DB, no network.
 
 from __future__ import annotations
 
-import pytest
 
 from hr.recommend import _REFERENCE_PRIOR, _blend_value
 
