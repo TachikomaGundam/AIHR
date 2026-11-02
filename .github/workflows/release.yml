@@ -74,7 +74,7 @@ jobs:
             --os "${{ matrix.target_os }}" --arch "${{ matrix.arch }}" \
             --version "$AIHR_VERSION" --out dist --py-home "$PY_HOME"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: aihr-bundle-${{ matrix.target_os }}-${{ matrix.arch }}
           path: dist/aihr-*
