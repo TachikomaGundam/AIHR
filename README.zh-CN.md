@@ -1,6 +1,6 @@
 # HR: Agent Seat Matching and Capability Benchmarking
 
-统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位、跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，34 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
+统一工具链，用于将自主 LLM 编码代理匹配至任务适当的席位——席位指代理所担任的一个具名岗位职责（例如"后端实现"或"测试修复"），各有其能力要求——跨模型集群执行能力基准测试、并发布部署判定。Python 引擎发布于 PyPI（`aihr`），两个 OpenCode 插件发布于 npm；单一数据库结构，34 条 CLI 命令。CLI 本身运行时不需要 API 密钥。
 
 本文档（README.zh-CN.md）是英文规范版本的忠实镜像。当两者出现差异时，以英文版本为准。
 
@@ -68,7 +68,21 @@ powershell -c "irm https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/s
 
 参数：`--version X.Y.Z` 锁定版本 · `--bundle <path>` 从本地 bundle 安装、不联网下载 · `--port N` 指定数据库端口 · `--reinstall` 覆盖重装（幂等：数据目录连数据库一并原封不动）。装完另开一个 shell，让 `~/.aihr/bin` 的 shim 进入 PATH，然后 `hr db-up && hr status`。
 
-安装器放下的一切，全都住在同一个归它自有的目录里：`~/.aihr`（Linux/macOS）或 `%LOCALAPPDATA%\aihr`（Windows）——`app/` 是自带运行时的引擎（目标机器无需装 Python），`pg/` 是 vendored PostgreSQL，`bin/` 是 PATH shim，`data/pgdata` 是数据库本身，`db.env` 以 `0600` 权限存放首次启动生成的随机密码，`share/aihr` 是随包配置，`receipt.json` 逐条记录每个落盘路径。目录之外安装器只碰两样东西：shell rc 里那段指向 shim、带醒目标记的 PATH 块，以及它写入插件注册的两个 opencode 配置数组——统统在回执里。npm 不是安装步骤：安装收尾命令 `hr install-post` 把插件登记进 opencode 的配置数组（`opencode.jsonc` 的主 `plugin` 数组，FastDraw TUI 那半边在 `tui.json`），opencode/bun 在启动时自行拉取并缓存这些 npm 包。`hr db-up` 不需要 Docker：后端自动三选一，内嵌 vendored Postgres（bundle 默认）、compose 容器（保留的原有通道）、或用 `HR_DSN` / `hr.toml` 指向你自己已有的 PostgreSQL；`hr db-status` 会报告当前生效的是哪个后端。无 Docker 的 turnkey 随 **aihr 0.4.0（2026-09）**落地；0.3.0 那个 `hr db-up` 还要求预装 Docker 的"docker not found"时代已被取代。
+安装器放下的一切，全都住在同一个归它自有的目录里：`~/.aihr`（Linux/macOS）或 `%LOCALAPPDATA%\aihr`（Windows）。目录内含：
+
+- `app/` —— 自带运行时的引擎（目标机器无需装 Python）
+- `pg/` —— vendored PostgreSQL
+- `bin/` —— PATH shim
+- `data/pgdata` —— 数据库本身
+- `db.env` —— 首次启动生成的随机密码，`0600` 权限
+- `share/aihr` —— 随包配置
+- `receipt.json` —— 逐条记录每个落盘路径
+
+目录之外安装器只碰两样东西：shell rc 里那段指向 shim、带醒目标记的 PATH 块，以及它写入插件注册的两个 opencode 配置数组——统统在回执里。
+
+npm 不是安装步骤：安装收尾命令 `hr install-post` 把插件登记进 opencode 的配置数组（`opencode.jsonc` 的主 `plugin` 数组，FastDraw TUI 那半边在 `tui.json`），opencode/bun 在启动时自行拉取并缓存这些 npm 包。
+
+`hr db-up` 不需要 Docker：后端自动三选一，内嵌 vendored Postgres（bundle 默认）、compose 容器（保留的原有通道）、或用 `HR_DSN` / `hr.toml` 指向你自己已有的 PostgreSQL；`hr db-status` 会报告当前生效的是哪个后端。无 Docker 的 turnkey 随 **aihr 0.4.0（2026-09）**落地；0.3.0 那个 `hr db-up` 还要求预装 Docker 的"docker not found"时代已被取代。
 
 ### Uninstall
 
@@ -286,7 +300,7 @@ harness/hr/               # 仓库根目录（pip install -e .）
     bench/                # 基准测试电池 + stage0/stage1 扫描引擎
     graders/              # 评分函数（factuality、reasoning、vision、tools）
     items/                # 基准测试题目的加载器
-    scheduler/            # 任务调度（按 Metis C1 保留）
+    scheduler/            # 任务调度
     seats/                # 席位分类和档案辅助
     stats/                # 扫描结果的统计汇总
   itemrepo/               # 按类别组织的 Git 版本化基准测试题库
@@ -314,7 +328,11 @@ hr bench --model gpt-4o --battery reasoning
 
 本代码库针对自主 LLM 编码代理这个通用类别，而非特定产品。席位分类（tier 1 至 tier 4）、基准测试题目类别（factuality、reasoning、vision、tool_a、tool_b）、判定流水线（discover、bench、assign、verdict）适用于任何消费 LLM 输出并产出代码工件的代理。
 
-统一过程中已移除提供者特定的硬编码。模型机队在运行时从 opencode 的实时配置推导（`opencode.jsonc` 的 provider 块：每个 `provider.*.models` 条目即一个机队模型，`npm` 字段推导 wire 类型）；`configs/fleet.yaml` 只保留可选覆盖（`wire_overrides` 用于仅注册表提供的模型、`scope_excludes`、`gateway_urls`），`configs/deployable.yaml` 的 `extra_deployable` 是唯一手工维护的模型列表（在 opencode 配置之外提供的模型）。在 opencode 配置中新增模型即自动进入扫描池、discover 与路由，此处零改动。知识数据存于 `configs/models.yaml`（定价/能力）与 `configs/knowledge.yaml`（参考分数、研究结论），未知模型均有安全默认值。
+统一过程中已移除提供者特定的硬编码。模型机队在运行时从 opencode 的实时配置推导（`opencode.jsonc` 的 provider 块：每个 `provider.*.models` 条目即一个机队模型，`npm` 字段推导 wire 类型）。
+
+`configs/fleet.yaml` 只保留可选覆盖（`wire_overrides` 用于仅注册表提供的模型、`scope_excludes`、`gateway_urls`），`configs/deployable.yaml` 的 `extra_deployable` 是唯一手工维护的模型列表（在 opencode 配置之外提供的模型）。在 opencode 配置中新增模型即自动进入扫描池、discover 与路由，此处零改动。
+
+知识数据存于 `configs/models.yaml`（定价/能力）与 `configs/knowledge.yaml`（参考分数、研究结论），未知模型均有安全默认值。
 
 ## License
 
