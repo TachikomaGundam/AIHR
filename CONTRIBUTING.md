@@ -55,6 +55,10 @@ a green offline run is not the full suite.
   named reason; missing data produces an explicit gap, not a silent zero.
 - **Machine state is append-only.** The evolution ledger and measurement
   rows are never rewritten after the fact.
+- **Release tags are annotated.** `git tag -a vM.N.P -m "<summary>"` —
+  the message carries the release summary, so version history travels
+  with every clone and survives independently of GitHub Releases. The
+  CHANGELOG stays a pointer file (one authority per fact).
 
 ## Pull requests
 
