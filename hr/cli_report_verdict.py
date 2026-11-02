@@ -18,6 +18,7 @@ LATEST_SWEEP_SQL = (
 )
 
 from .decision import (
+    PREFLIGHT_PURPOSE,
     battery_codes,
     capability_means_profile,
     measurement_count_profile,
@@ -27,7 +28,6 @@ from .decision import (
     separation_probabilities,
 )
 from .health import summary_table, sweep_health
-from .preflight import PREFLIGHT_PURPOSE
 
 def _starved_suffix(codes: list[str]) -> str:
     from .decision import starved_knobs

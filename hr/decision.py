@@ -9,7 +9,6 @@ from typing import TypedDict
 import numpy as np
 
 from hr.assign.ranker import CandidateModel, RankerResult, rank
-from hr.preflight import PREFLIGHT_PURPOSE
 from hr.config import load_yaml
 from hr.health import HealthReport
 from hr.seats.health_gates import SEAT_HEALTH_GATE
@@ -17,6 +16,12 @@ from hr.seats.rolespec import DEFAULT_BATTERY_BY_SEAT, SEAT_CODES
 
 
 logger = logging.getLogger(__name__)
+
+# Purpose tag on the preflight pass marker row (sweeps.purpose). Lives on
+# the reader plane (decision/verdict exclude it from default sweep
+# selection; preflight writes it) so the CLI import closure stays light —
+# hr.preflight must not be imported from here.
+PREFLIGHT_PURPOSE = "preflight-pass"
 
 # Knob defaults live on the LIVEBENCH plane: every customer install produces
 # these codes (191, 2026-10-06: three knobs silently starved at fitness 0).

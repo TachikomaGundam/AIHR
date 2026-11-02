@@ -18,9 +18,8 @@ import yaml
 
 from hr.adapters.base import Adapter, Capabilities
 from hr.bench.engine_results import BenchOutcome, make_sweep_id
+from hr.decision import PREFLIGHT_PURPOSE
 from hr.graders.base import ModelResponse
-
-PREFLIGHT_PURPOSE = "preflight-pass"
 Verdict = Literal["pass", "fail", "cannot-answer"]
 
 

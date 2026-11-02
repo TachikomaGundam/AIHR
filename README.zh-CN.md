@@ -336,6 +336,11 @@ hr bench --model gpt-4o --battery reasoning
 
 知识数据存于 `configs/models.yaml`（定价/能力）与 `configs/knowledge.yaml`（参考分数、研究结论），未知模型均有安全默认值。
 
+## 参与贡献
+
+开发环境与每笔改动必须通过的关卡见
+[CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## License
 
 见 `LICENSE`。
