@@ -27,6 +27,11 @@
 #                    default (new providers auto-inherit); an explicit
 #                    exclusion here is the ONLY way to opt a provider out.
 #
+#   fleet:           default roster (list of provider/model id strings) for
+#                    `hr parity` when neither --fleet nor --fleet-file is
+#                    given. Flags-only check; machines with a stable anchor
+#                    set declare it once instead of passing a file each run.
+#
 #   gateway_urls:    per-provider gateway base URL used when a provider has
 #                    NO options.baseURL in the opencode config (registry-only
 #                    providers such as kimi-for-coding / deepseek, served via

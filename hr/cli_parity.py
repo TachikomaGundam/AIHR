@@ -9,6 +9,25 @@ import typer
 from .cli_app import app
 
 
+def _fleet_yaml_roster() -> list[str]:
+    """Versioned default roster: top-level `fleet:` in configs/fleet.yaml
+    (machine-local overlays win through the standard local-wins merge)."""
+    from .config_resources import load_yaml
+
+    try:
+        data = load_yaml("fleet.yaml")
+    except (FileNotFoundError, ValueError):
+        return []
+    roster = data.get("fleet")
+    if roster is None:
+        return []
+    if not isinstance(roster, list) or not all(isinstance(x, str) for x in roster):
+        typer.secho("invalid configs/fleet.yaml: 'fleet:' must be a list of "
+                    "model id strings", fg="red", err=True)
+        raise typer.Exit(code=2)
+    return [x.strip() for x in roster if x.strip()]
+
+
 @app.command()
 def parity(
     fleet: Optional[str] = typer.Option(
@@ -35,8 +54,10 @@ def parity(
             if token:
                 ids.extend(t.strip() for t in token.split(",") if t.strip())
     if not ids:
-        typer.secho("no fleet ids given: pass --fleet or --fleet-file "
-                    "(roster of model ids, one per line)", fg="red", err=True)
+        ids.extend(_fleet_yaml_roster())
+    if not ids:
+        typer.secho("no fleet ids given: pass --fleet, --fleet-file, or a "
+                    "'fleet:' roster in configs/fleet.yaml", fg="red", err=True)
         raise typer.Exit(code=2)
 
     from .calibration_items import load_anchors
