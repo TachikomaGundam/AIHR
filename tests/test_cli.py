@@ -183,3 +183,17 @@ def test_command_count_claims_pin_to_registry() -> None:
     assert set(rows) == set(get_command(cli_app).commands), "EN table set"
     zh_rows = set(re.findall(r"^\| `hr ([\w-]+)` \|", zh, re.M))
     assert zh_rows == set(get_command(cli_app).commands), "ZH table set"
+
+
+def test_root_version_flag_prints_package_version():
+    """191 ladder named gap (2026-11-02): no way to ask an installed artifact
+    which version it is. --version must answer from package metadata and
+    exit 0 before any command runs."""
+    import re
+
+    from importlib.metadata import version as pkg_version
+
+    result = runner.invoke(app, ["--version"])
+    assert result.exit_code == 0
+    assert result.output.strip() == f"aihr {pkg_version('aihr')}"
+    assert re.match(r"^aihr \d+\.\d+", result.output.strip())

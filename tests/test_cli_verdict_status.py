@@ -20,7 +20,12 @@ from tests.test_cli import (
 # tests.test_cli._LATEST_SQL_KEY pins the pre-T3 JOIN/COUNT SQL; the shared
 # fixture must stay untouched, so this module keys the single-table
 # latest_sweep_id query from hr/decision.py locally.
-_LATEST_SQL_NEW = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1"
+# Re-pinned 2026-11-02 (191 ladder): the query now excludes preflight marker
+# rows via a parameterized purpose predicate; the key tracks the new text.
+_LATEST_SQL_NEW = (
+    "SELECT sweep_id FROM hr.sweep WHERE purpose IS DISTINCT FROM %s "
+    "ORDER BY created_at DESC LIMIT 1"
+)
 
 def test_verdict_latest_flag_uses_latest_sweep(monkeypatch):
     router = {

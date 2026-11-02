@@ -9,7 +9,13 @@ from .cli_report_base import (
     _verdict_seats,
     build_sweeps_report,
 )
-LATEST_SWEEP_SQL = "SELECT sweep_id FROM hr.sweep ORDER BY created_at DESC LIMIT 1"
+# Marker rows (purpose='preflight-pass') are bookkeeping, never data-bearing
+# (191 ladder finding, 2026-11-02) — same exclusion as hr.decision.latest_sweep_id.
+LATEST_SWEEP_SQL = (
+    "SELECT sweep_id FROM hr.sweep "
+    "WHERE purpose IS DISTINCT FROM %s "
+    "ORDER BY created_at DESC LIMIT 1"
+)
 
 from .decision import (
     battery_codes,
@@ -21,6 +27,7 @@ from .decision import (
     separation_probabilities,
 )
 from .health import summary_table, sweep_health
+from .preflight import PREFLIGHT_PURPOSE
 
 def _starved_suffix(codes: list[str]) -> str:
     from .decision import starved_knobs
@@ -169,7 +176,7 @@ def build_status_report(conn, *, source: str) -> str:
     mirroring ``sweeps``/``verdict``. Retired models (not in the deployable
     pool) are tagged ⚠ like ``build_verdict_report`` does.
     """
-    board = _fetch(conn, LATEST_SWEEP_SQL)
+    board = _fetch(conn, LATEST_SWEEP_SQL, (PREFLIGHT_PURPOSE,))
     if not board:
         from .dialect_contract import status_lines as _contract_lines
 

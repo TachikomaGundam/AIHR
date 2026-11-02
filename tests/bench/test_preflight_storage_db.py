@@ -67,3 +67,23 @@ def test_marker_survives_same_sweep_livebench_row(scratch_conn) -> None:
     with scratch_conn.cursor() as cur:
         cur.execute("SELECT purpose FROM hr.sweep WHERE sweep_id = %s", (f"{sweep_id}-pass",))
         assert cur.fetchone()[0] == "preflight-pass"
+
+
+@pytest.mark.db
+def test_latest_sweep_id_skips_marker_rows_on_real_db(scratch_conn) -> None:
+    """191 ladder (2026-11-02): the marker is always created after its data
+    sweep, so on real Postgres the health/verdict default sweep must never
+    land on the empty marker row."""
+    from hr.bench.engine_storage import SEAT_CODE
+    from hr.decision import latest_sweep_id
+    from hr.stage0_storage import _insert_sweep
+
+    _insert_sweep(scratch_conn, "data-before-marker", SEAT_CODE, "livebench")
+    write_marker(scratch_conn, "data-before-marker")
+    # Determinism over insert-order luck: pin the marker a full hour newer.
+    with scratch_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE hr.sweep SET created_at = created_at + interval '1 hour' "
+            "WHERE purpose = 'preflight-pass'"
+        )
+    assert latest_sweep_id(scratch_conn) == "data-before-marker"

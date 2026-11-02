@@ -174,6 +174,25 @@ def test_latest_sweep_id_no_rows_raises():
     with pytest.raises(ValueError, match="no sweeps found in hr.sweep"):
         latest_sweep_id(_CapturingConn([]))
 
+
+def test_latest_sweep_id_excludes_preflight_marker_rows():
+    """191 ladder finding (2026-11-02): the preflight freshness marker is a
+    bookkeeping sweep row (purpose='preflight-pass', no runs, no
+    measurements). A newest-by-created_at pick without the purpose filter
+    lands the CLI on that empty row right after any preflight — health then
+    reports 'no measurements'. Marker rows are never data-bearing sweeps."""
+    conn = _CapturingConn([("data-sweep",)])
+    assert latest_sweep_id(conn) == "data-sweep"
+    sql, params = _normalize_sql(conn.executed[0][0]), conn.executed[0][1]
+    assert "IS DISTINCT FROM" in sql
+    assert params == ("preflight-pass",)
+
+
+def test_verdict_board_sql_excludes_preflight_marker_rows():
+    from hr.cli_report_verdict import LATEST_SWEEP_SQL
+
+    assert "IS DISTINCT FROM" in _normalize_sql(LATEST_SWEEP_SQL)
+
 def test_sweeps_dispatch_via_fake_conn(monkeypatch):
     from datetime import datetime
 
