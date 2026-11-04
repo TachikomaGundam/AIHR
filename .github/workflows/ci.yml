@@ -29,7 +29,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.14"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
@@ -79,7 +79,7 @@ jobs:
       matrix:
         node-version: ["22", "24"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # No cache: key — the plugin lane needs no install at all and the
       # fastdraw lane installs uncached (its lockfile churns with the
       # @opencode-ai/plugin devDep; caching buys nothing here).
