@@ -92,3 +92,23 @@ def test_overlay_paths_ordering(layers):
     paths: Any = config_resources._local_overlay_paths("demo.yaml")
     assert paths[0] == install / "configs" / "demo.local.yaml"
     assert paths[1] == user / "configs" / "demo.local.yaml"
+
+
+def test_preflight_config_sees_user_layer(tmp_path, monkeypatch):
+    install = tmp_path / "install"
+    (install / "configs").mkdir(parents=True)
+    user = tmp_path / "aihr-home"
+    (user / "configs").mkdir(parents=True)
+    monkeypatch.setenv("HR_HOME", str(install))
+    monkeypatch.setenv("AIHR_HOME_DIR", str(user))
+    import shutil
+    from pathlib import Path
+    repo_cfg = Path(__file__).resolve().parent.parent / "configs" / "preflight.yaml"
+    shutil.copy(repo_cfg, install / "configs" / "preflight.yaml")
+    (user / "configs" / "preflight.local.yaml").write_text(
+        "models: [userbox/anchor-x]\n", encoding="utf-8"
+    )
+    from hr.preflight import load_preflight_config
+
+    cfg = load_preflight_config()
+    assert list(cfg.default_models) == ["userbox/anchor-x"]

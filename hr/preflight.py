@@ -61,21 +61,41 @@ def load_preflight_config(tracked: Path | None = None) -> PreflightConfig:
     deep-merge discipline as every other configs/ surface: local wins per key,
     lists replace). Fail-loud on a malformed shape - a broken gate never
     reads as a permissive one."""
-    from hr.config import config_path
+    if tracked is not None:
+        return _parse_preflight_doc(_read_tracked_with_overlay(tracked))
 
-    path = tracked if tracked is not None else config_path("preflight.yaml")
+    from hr.config_resources import load_yaml
+
+    raw: dict[str, Any] = dict(_DEFAULTS)
+    try:
+        raw = _deep_merge(raw, load_yaml("preflight.yaml"))
+    except FileNotFoundError:
+        pass  # no tracked config anywhere: defaults, as before
+    return _parse_preflight_doc(raw)
+
+
+def _read_tracked_with_overlay(path: Path) -> dict[str, Any]:
+    """Explicit-file path (tests and callers with a hand-picked file):
+    the file plus a same-directory .local.yaml, no ambient layers - the
+    HR_HOME/user-layer world belongs to the loader, not to this path."""
     raw: dict[str, Any] = dict(_DEFAULTS)
     if path.is_file():
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(doc, dict):
             raise ValueError(f"{path}: top level must be a mapping")
         raw = _deep_merge(raw, doc)
-    overlay = path.with_name("preflight.local.yaml")
+    overlay = path.with_name(path.stem + ".local.yaml")
     if overlay.is_file():
         odoc = yaml.safe_load(overlay.read_text(encoding="utf-8")) or {}
         if not isinstance(odoc, dict):
             raise ValueError(f"{overlay}: top level must be a mapping")
         raw = _deep_merge(raw, odoc)
+    return raw
+
+
+def _parse_preflight_doc(raw: dict[str, Any]) -> PreflightConfig:
+    """Shape validation + band parsing; fail-loud - a broken gate never
+    reads as a permissive one."""
     bands_raw = raw.get("bands") or {}
     bands: dict[str, tuple[float, float]] = {}
     for battery_code, pair in bands_raw.items():

@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.11] - 2026-11-04
+
+### Fixed
+- `hr preflight` (and `load_preflight_config`) now read the unified
+  three-layer config loader: the per-user `~/.aihr/configs/preflight.local.yaml`
+  overlay was previously ignored by the preflight's private two-file merge,
+  so a pip-installed box with a user-layer overlay reported "no anchor
+  models" (caught on the 191 testbed during the 0.6.10 field pass).
+
 ## [0.6.10] - 2026-11-04
 
 ### Fixed
