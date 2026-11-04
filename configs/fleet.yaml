@@ -43,7 +43,10 @@
 
 # EXAMPLES ONLY — this tracked file ships with zero real deployment values.
 # A live machine declares its real overrides in the gitignored
-# configs/fleet.local.yaml overlay (deep-merged by hr.config.load_yaml:
+# configs/fleet.local.yaml overlay — in the install/HR_HOME configs dir, or
+# in the per-user ~/.aihr/configs/ (Windows %LOCALAPPDATA%\aihr\configs\),
+# which survives pip/bundle upgrades and wins the three-layer merge
+# (deep-merged by hr.config.load_yaml:
 # dicts merge per key, LIST VALUES ARE REPLACED, not merged). Keep the real
 # wire_overrides / scope_excludes / gateway_urls entries there; wire
 # overrides must cover every registry-only provider served via the

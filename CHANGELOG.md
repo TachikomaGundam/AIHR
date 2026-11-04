@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `hr bench` / `hr preflight` gained `--tape-record DIR` / `--tape-replay DIR`
+  (S2b): explicit recording with a manifest receipt (path + sha256 +
+  endpoints), and strict replay that answers only from the tape — a miss
+  aborts by name with the re-record procedure and never falls through to
+  live calls.
+- Per-user config overlay layer `~/.aihr/configs/*.local.yaml` (Windows
+  `%LOCALAPPDATA%\aihr\configs\`): machine truth now survives
+  `pip install -U` and bundle replacements; it outranks the install-tree
+  overlay, which keeps working unchanged.
+
 ## [0.6.8] - 2026-11-02
 
 ### Added

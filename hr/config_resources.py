@@ -251,11 +251,18 @@ def config_path(name: str) -> Path:
     return hr_home() / "configs" / name
 
 
-def _local_overlay_path(name: str) -> Path:
+def _local_overlay_paths(name: str) -> list[Path]:
+    """Overlay layers in merge order (later wins): install-local, then the
+    user directory that outlives pip/bundle upgrades."""
     suffix = ".yaml"
     if not name.endswith(suffix):
         raise ValueError(f"overlay only supported for *.yaml configs: {name!r}")
-    return config_path(name[: -len(suffix)] + ".local.yaml")
+    local_name = name[: -len(suffix)] + ".local.yaml"
+    paths = [config_path(local_name)]
+    user_overlay = aihr_home_dir() / "configs" / local_name
+    if user_overlay != paths[0]:
+        paths.append(user_overlay)
+    return paths
 
 
 # Identity-keyed list merge: overlay entries for these config keys merge
@@ -315,8 +322,9 @@ def load_yaml(name: str) -> dict:
         raise FileNotFoundError(f"config file not found: {path}")
     with path.open("r", encoding="utf-8") as stream:
         data = yaml.safe_load(stream) or {}
-    overlay_path = _local_overlay_path(name)
-    if overlay_path.exists():
+    for overlay_path in _local_overlay_paths(name):
+        if not overlay_path.exists():
+            continue
         with overlay_path.open("r", encoding="utf-8") as stream:
             extra = yaml.safe_load(stream) or {}
         if not isinstance(extra, dict):
