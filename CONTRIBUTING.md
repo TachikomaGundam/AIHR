@@ -42,7 +42,9 @@ a green offline run is not the full suite.
 - **Tracked config ships zero deployment values.** `configs/*.yaml`
   contains policy knobs and commented examples only. Real endpoints,
   keys, and machine-specific values live in gitignored
-  `configs/*.local.yaml` overlays (local file wins on merge).
+  `configs/*.local.yaml` overlays (local file wins on merge; the per-user
+  `~/.aihr/configs/` layer outranks the install-tree copy and survives
+  upgrades).
 - **The README pair is bilingual with one canonical source.** `README.md`
   (English) is canonical; `README.zh-CN.md` mirrors it section-for-section.
   Keep both in sync in the same commit, and keep the top-of-page language
