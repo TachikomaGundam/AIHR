@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.10] - 2026-11-04
+
+### Fixed
+- `configs/preflight.yaml` and `configs/model_parity.yaml` were missing from
+  the wheel's shipped data (`share/aihr/configs`) - pip-installed preflight
+  and the parity gate could not find their tracked config (found by the
+  first pip-channel field use on the 191 testbed; invisible in
+  repo/HR_HOME installs). A new pin
+  (`tests/test_package_data.py`) fails when any tracked config is absent
+  from the ship list.
+
 ### Added
 - `hr bench` / `hr preflight` gained `--tape-record DIR` / `--tape-replay DIR`
   (S2b): explicit recording with a manifest receipt (path + sha256 +
