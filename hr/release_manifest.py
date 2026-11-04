@@ -70,6 +70,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/preflight.py",                     # S3 control baseline: config/judgment/executor/marker (gate owner of the sweep entry)
     "hr/tape.py",                          # S2 tape store: record/replay core (fail-closed, no live fallback path)
     "hr/tape_transports.py",               # S2 tape transports: requests/httpx replay+record seams (same-parser replay)
+    "hr/tape_cli.py",                      # S2b CLI wiring: --tape-record/--tape-replay factories + receipts
     "hr/cli_lifecycle.py",                 # `hr install-post/self-uninstall` — turnkey bundle lifecycle wrappers
     "hr/py_fetch.py",                      # `hr py-fetch` — on-demand code-gen interpreter lane (0.6.3 slim bundle)
     "hr/db_admin.py",                      # turnkey database backend decision tree (compose vs embedded); imported by cli_db

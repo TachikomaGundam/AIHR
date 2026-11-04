@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -178,6 +179,17 @@ def bench(
         False, "--dry-run",
         help="print the selected models and exit (no engine run, no DB writes)",
     ),
+    tape_record: Optional[Path] = typer.Option(
+        None, "--tape-record",
+        help="record every live HTTP exchange into a tape dir (explicit "
+             "opt-in; a manifest receipt with sha256 prints on success)",
+    ),
+    tape_replay: Optional[Path] = typer.Option(
+        None, "--tape-replay",
+        help="answer every provider call from a recorded tape; a miss "
+             "aborts by name - replay never falls through to live calls "
+             "(mutually exclusive with --tape-record)",
+    ),
 ) -> None:
     """Run the live capability benchmarks and record measurement rows.
 
@@ -200,6 +212,17 @@ def bench(
     All model calls go through the unified hr.adapters (ChatRequest, no
     temperature).
     """
+
+    from .tape_cli import TapeWiringError, finalize_recording, format_receipt, make_tape_factory
+
+    try:
+        tape_factory, tape = make_tape_factory(
+            record_dir=tape_record, replay_dir=tape_replay
+        )
+    except TapeWiringError as exc:
+        typer.secho(f"error: {exc}", fg="red", err=True)
+        raise typer.Exit(code=2) from exc
+
     from hr.bench import LIVEBENCH_BATTERIES, LivebenchEngine, battery_code, make_sweep_id
 
     batteries: list[BenchmarkCategory] = (
@@ -265,7 +288,7 @@ def bench(
             f"shadow_conflicts={list(_pricing.shadow_conflicts)}"
         )
 
-    engine = LivebenchEngine()
+    engine = LivebenchEngine(adapter_factory=tape_factory)
     try:
         engine.require_thresholds(batteries)
     except Exception as exc:  # config guard: name the missing battery
@@ -316,6 +339,8 @@ def bench(
             f"[green]wrote {n_measurements} measurements to sweep {sweep_id}"
             f" ({n_failed} below-gate runs, {n_skipped} non-scored)[/green]"
         )
+        if tape is not None:
+            typer.echo(format_receipt(finalize_recording(tape)))
     except Exception as exc:
         _fail(f"error: {exc}")
     finally:

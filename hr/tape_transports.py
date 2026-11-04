@@ -81,6 +81,80 @@ class ReplayHttpxClient:
         return self._StreamCtx(self._tape.lookup(method, url, headers, json))
 
 
+class RecordingHttpxClient:
+    """Wraps the real httpx client, teeing completed SSE streams into the tape.
+
+    Mirrors RecordingRequestsPost for the anthropic stack: the exchange is
+    recorded only when the stream ran to completion inside the context;
+    mid-stream death records nothing and the next lookup misses (fail-closed
+    towards the re-record procedure)."""
+
+    def __init__(self, tape: TapeStore, inner: Any) -> None:
+        self._tape = tape
+        self._inner = inner
+
+    class _TeeCtx:
+        def __init__(
+            self,
+            tape: TapeStore,
+            method: str,
+            url: str,
+            headers: Any,
+            body: Any,
+            inner_ctx: Any,
+        ) -> None:
+            self._tape = tape
+            self._req = (method, url, headers, body)
+            self._inner = inner_ctx
+            self._lines: list[str] = []
+            self._resp: Any = None
+
+        def __enter__(self) -> "RecordingHttpxClient._TeeCtx":
+            self._resp = self._inner.__enter__()
+            return self
+
+        def __exit__(
+            self,
+            exc: type[BaseException] | None,
+            val: BaseException | None,
+            tb: TracebackType | None,
+        ) -> None:
+            if self._inner.__exit__(exc, val, tb):
+                return
+            if exc is None:
+                self._tape.record(
+                    *self._req,
+                    status=int(self._resp.status_code),
+                    sse_lines=self._lines,
+                )
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(self.__dict__["_resp"], name)
+
+        def iter_lines(self) -> Iterator[Any]:
+            for line in self._resp.iter_lines():
+                self._lines.append("" if line is None else str(line))
+                yield line
+
+        def read(self) -> bytes:
+            return str(self._resp.text).encode("utf-8")
+
+    def stream(
+        self,
+        method: str,
+        url: str,
+        *,
+        json: Any = None,
+        headers: Any = None,
+        timeout: Any = None,
+        **kw: Any,
+    ) -> "RecordingHttpxClient._TeeCtx":
+        inner = self._inner.stream(
+            method, url, json=json, headers=headers, timeout=timeout, **kw
+        )
+        return self._TeeCtx(self._tape, method, url, headers, json, inner)
+
+
 def replay_post(tape: Any) -> Callable[..., ReplayRequestsResponse]:
     """requests.post stand-in backed by the tape (openai stack)."""
 
