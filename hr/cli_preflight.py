@@ -3,6 +3,7 @@ decide, mechanically, whether the endpoint fleet and the measurement chain
 are healthy enough for a real sweep to collect measurements."""
 from __future__ import annotations
 
+from pathlib import Path
 import json
 from typing import Optional
 
@@ -18,6 +19,16 @@ def preflight(
     batteries: Optional[str] = typer.Option(
         None, "--batteries", help="comma-separated batteries (default: preflight.yaml batteries)"),
     as_json: bool = typer.Option(False, "--json", help="machine-readable verdict"),
+    tape_record: Optional[Path] = typer.Option(
+        None, "--tape-record",
+        help="record every live HTTP exchange into a tape dir (explicit "
+             "opt-in; a manifest receipt with sha256 prints on success)",
+    ),
+    tape_replay: Optional[Path] = typer.Option(
+        None, "--tape-replay",
+        help="answer every provider call from a recorded tape; a miss "
+             "aborts by name - replay never falls through to live calls",
+    ),
 ) -> None:
     """Run the preflight control session.
 
@@ -26,6 +37,16 @@ def preflight(
     2 = cannot answer (infrastructure sick or budget cap reached) -
     affected cells are named for re-queue, never scored.
     """
+    from hr.tape_cli import TapeWiringError, finalize_recording, format_receipt, make_tape_factory
+
+    try:
+        tape_factory, tape = make_tape_factory(
+            record_dir=tape_record, replay_dir=tape_replay
+        )
+    except TapeWiringError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(code=2) from exc
+
     from hr.db import connect
     from hr.preflight import load_preflight_config, marker_age_hours, run_preflight, write_marker
 
@@ -64,8 +85,8 @@ def preflight(
     from hr.bench.engine import LivebenchEngine
     from hr.models import BenchmarkCategory
     from hr.preflight import with_output_cap
-
-    engine = LivebenchEngine(adapter_factory=with_output_cap(adapter_for, cfg.per_request_max_tokens))
+    base = tape_factory or adapter_for
+    engine = LivebenchEngine(adapter_factory=with_output_cap(base, cfg.per_request_max_tokens))
     conn = connect()
 
     def store(sweep_id: str, model_id: str, battery_key: str, outcome) -> None:
@@ -113,6 +134,10 @@ def preflight(
         console.print(f"preflight {run.judgment.verdict.upper()}: {run.judgment.summary}")
         for line in (*run.judgment.g1_violations, *run.judgment.g2_violations, *run.judgment.requeue):
             console.print(f"  - {line}")
+    if tape is not None:
+        # --json stdout stays a single machine payload: the receipt rides
+        # stderr in that mode so parsers never trip over it.
+        typer.echo(format_receipt(finalize_recording(tape)), err=as_json)
     raise typer.Exit(code={"pass": 0, "fail": 1, "cannot-answer": 2}[run.judgment.verdict])
 
 

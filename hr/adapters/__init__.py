@@ -50,7 +50,12 @@ _anthropic_adapter: AnthropicCompatAdapter | None = None
 _openai_adapter: OpenAICompatAdapter | None = None
 
 
-def adapter_for(model_id: str) -> Adapter:
+def adapter_for(
+    model_id: str,
+    *,
+    transport_post: Any | None = None,
+    http_client: Any | None = None,
+) -> Adapter:
     """Route a model_id to the adapter whose wire matches the provider config.
 
     The provider is the namespace prefix of ``model_id`` (a bare slug is
@@ -61,6 +66,11 @@ def adapter_for(model_id: str) -> Adapter:
     - provider type ``openai-compat`` → :class:`OpenAICompatAdapter`
     - unknown provider or unknown type → :class:`ValueError` listing the
       valid types (``fleet.VALID_TYPES``).
+
+    ``transport_post``/``http_client`` are the tape seams (S2): passing one
+    builds a FRESH, uncached adapter carrying that seam (a tape instance
+    must never ride the wire singleton), and passing the seam the other wire
+    does not have is a named ValueError. Neither seam → cached singleton.
     """
     global _anthropic_adapter, _openai_adapter
     provider = model_id.split("/", 1)[0] if "/" in model_id else model_id
@@ -73,10 +83,18 @@ def adapter_for(model_id: str) -> Adapter:
             f"add the provider to the opencode config with a known 'npm'"
         )
     if wire == "anthropic-compat":
+        if transport_post is not None:
+            raise ValueError("anthropic wire has no transport_post seam")
+        if http_client is not None:
+            return AnthropicCompatAdapter(http_client=http_client)
         if _anthropic_adapter is None:
             _anthropic_adapter = AnthropicCompatAdapter()
         return _anthropic_adapter
     if wire == "openai-compat":
+        if http_client is not None:
+            raise ValueError("openai wire has no http_client seam")
+        if transport_post is not None:
+            return OpenAICompatAdapter(transport_post=transport_post)
         if _openai_adapter is None:
             _openai_adapter = OpenAICompatAdapter()
         return _openai_adapter
