@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aihr"
-version = "0.6.9"
+version = "0.6.10"
 description = "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
 readme = "README.md"
 license = "MIT"
@@ -77,8 +77,10 @@ exclude = ["hr.hr*"]
     "configs/deployable.yaml",
     "configs/fleet.yaml",
     "configs/knowledge.yaml",
+    "configs/model_parity.yaml",
     "configs/models.yaml",
     "configs/seats.yaml",
+    "configs/preflight.yaml",
     "configs/thresholds.yaml",
 ]
 
