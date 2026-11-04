@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment: github
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -78,7 +78,7 @@ jobs:
     needs: plugins
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Assert the registry serves the tag's plugin versions (CDN-tolerant)
         # first guard iteration died at 16:07:0x while the provenance PUT for
         # 0.2.3 was accepted at 16:08:10Z — single-shot assertions against a
