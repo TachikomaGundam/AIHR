@@ -91,7 +91,7 @@ jobs:
           # Explicit-file copy: never `cp -r opencode_plugin` — that would
           # drag the package-local .npmrc into the runner env view.
           mkdir -p "$RUNNER_TEMP/pkg"
-          cp opencode_plugin/package.json opencode_plugin/server.ts opencode_plugin/hr-invocation.ts opencode_plugin/install-cli.js "$RUNNER_TEMP/pkg/"
+          cp opencode_plugin/package.json opencode_plugin/server.ts opencode_plugin/hr-invocation.ts opencode_plugin/hr-invocation-core.mjs opencode_plugin/install-cli.js "$RUNNER_TEMP/pkg/"
           cp -r opencode_plugin/test "$RUNNER_TEMP/pkg/"
           # install-cli.test.mjs drift-guards against the fastdraw manifest two levels up
           mkdir -p "$RUNNER_TEMP/fastdraw" && cp fastdraw/package.json "$RUNNER_TEMP/fastdraw/"

@@ -236,6 +236,7 @@ RELEASE_ASSETS: List[str] = [
     "opencode_plugin/package.json",
     "opencode_plugin/server.ts",
     "opencode_plugin/hr-invocation.ts",
+    "opencode_plugin/hr-invocation-core.mjs",
     "opencode_plugin/install-cli.js",
     "fastdraw/package.json",
     "fastdraw/server.ts",
