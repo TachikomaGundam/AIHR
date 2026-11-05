@@ -1,15 +1,18 @@
-// node:test coverage for opencode_plugin/hr-invocation.ts (plan hr-agent-021, todo 3).
+// node:test coverage for opencode_plugin/hr-invocation-core.mjs (plan
+// hr-agent-021, todo 3).
 //
 // Zero-install by design: this file imports ONLY node builtins plus the pure
 // helper leaf (which itself imports node:fs / node:os / node:path and nothing
 // else — no SDK, no child_process). It never imports server.ts (Metis F2: its
 // value-import of @opencode-ai/plugin makes it un-importable by bare node).
 //
-// A1 dual-mode import: CI runs official node >= 22.18 where type-stripping
-// lets `import("../hr-invocation.ts")` resolve directly; local box binaries
-// without TypeScript support (e.g. Ubuntu's v22.22.1) throw
-// ERR_UNKNOWN_FILE_EXTENSION, and the tsc-erased sibling .js (A1 recipe) is
-// used instead. One test file is green in both modes.
+// The suite imports the .mjs core DIRECTLY — the implementation is plain
+// JavaScript, so every engines-satisfying node (official >= 22.18 with native
+// type-stripping AND distro builds compiled without the TS translator, e.g.
+// Ubuntu's v22.22.1) resolves it from a clean git checkout with no build step
+// and no gitignored fallback. The typed façade hr-invocation.ts re-exports
+// this same core and is exercised by the import-closure guard
+// (tests/test_plugin_import_closure.py), not by bare node.
 
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -17,23 +20,7 @@ import { chmodSync, existsSync, mkdtempSync, rmSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
-let hr;
-try {
-  hr = await import("../hr-invocation.ts");
-} catch (err) {
-  // Ubuntu's node 22.22.1 raises ERR_NO_TYPESCRIPT (compiled without the TS
-  // translator) where official node raises ERR_UNKNOWN_FILE_EXTENSION — pin
-  // both, or the A1 fallback dead-ends on exactly the boxes it was made for.
-  if (
-    err?.code === "ERR_UNKNOWN_FILE_EXTENSION" ||
-    err?.code === "ERR_NO_TYPESCRIPT" ||
-    err?.code === "ERR_MODULE_NOT_FOUND"
-  ) {
-    hr = await import("../hr-invocation.js"); // tsc-erased build (A1 local recipe)
-  } else {
-    throw err;
-  }
-}
+const hr = await import("../hr-invocation-core.mjs");
 
 // ---------------------------------------------------------------------------
 // Env hygiene: every test starts from a snapshotted HR_HOME/cwd and leaves

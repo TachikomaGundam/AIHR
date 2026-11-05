@@ -40,7 +40,6 @@ dist/
 
 # npm local auth (may contain publish tokens) — never ship
 .npmrc
-opencode_plugin/hr-invocation.js
 coverage.xml
 pypi-dist-*/
 scripts/*.local.txt

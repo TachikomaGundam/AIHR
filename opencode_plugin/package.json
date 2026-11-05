@@ -12,6 +12,7 @@
   "files": [
     "server.ts",
     "hr-invocation.ts",
+    "hr-invocation-core.mjs",
     "install-cli.js"
   ],
   "scripts": {
