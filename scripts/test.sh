@@ -23,7 +23,9 @@
 #                               never DSN targets.
 #   scripts/test.sh --ci        exact ci.yml step-order simulation (compileall,
 #                               ruff, basedpyright, pytest + coverage, universality
-#                               gate) — local only, no postgres service.
+#                               gate with a REQUIRED secret scan — export
+#                               HR_SECRET_NEEDLE or HR_COMPOSE_FILE first)
+#                               — local only, no postgres service.
 #
 # Any other argument prints this usage and exits 1.
 set -euo pipefail
@@ -49,11 +51,19 @@ Modes:
               resolved through the extended HR_COMPOSE_FILE compose fallback).
               Production databases (aihr/wiki) are never DSN targets.
   --ci        exact ci.yml step-order simulation (compileall, ruff,
-              basedpyright, pytest + coverage, universality gate).
+              basedpyright, pytest + coverage, universality gate with a
+              REQUIRED secret scan — export HR_SECRET_NEEDLE or
+              HR_COMPOSE_FILE first).
 
 Any other argument prints this usage and exits 1.
 EOF
 }
+
+# The secret-scan needle source legitimately outlives the DB-environment
+# hygiene below: the universality gate needs the compose file (or an explicit
+# HR_SECRET_NEEDLE) to scan for leaks, while offline DB discovery must never
+# ambient-discover it. Capture once at load; only the gate consumes it.
+NEEDLE_COMPOSE_FILE="${HR_COMPOSE_FILE:-}"
 
 clear_database_environment() {
     # The offline command must never discover an ambient production DSN.
@@ -70,11 +80,18 @@ run_test_suite() {
 }
 
 run_universality_gate() {
-    # Mirrors ci.yml: --require-secret-scan makes an unresolvable needle a
-    # FAIL, so a green --ci run always includes an actually-executed secret
-    # scan. Export HR_SECRET_NEEDLE=<value> or HR_COMPOSE_FILE=<compose-file>
-    # first (the needle is never stored in this repo).
-    bash scripts/check_universal.sh --require-secret-scan
+    # Mirrors ci.yml when called with "require" (--ci sim): --require-secret-scan
+    # turns an unresolvable needle into a FAIL, so a green --ci run always
+    # includes an actually-executed secret scan. Interactive modes stay
+    # needle-optional (skip-with-notice) for boxes without the compose file.
+    # Export HR_SECRET_NEEDLE=<value> or HR_COMPOSE_FILE=<compose-file>; the
+    # needle is never stored in this repo.
+    local -a needle_flags=()
+    if [ "${1:-}" = "require" ]; then
+        needle_flags=(--require-secret-scan)
+    fi
+    HR_COMPOSE_FILE="${HR_COMPOSE_FILE:-$NEEDLE_COMPOSE_FILE}" \
+        bash scripts/check_universal.sh "${needle_flags[@]}"
 }
 
 aihr_db_running() {
@@ -181,10 +198,20 @@ run_ci_sim() {
     clear_database_environment
     run_test_suite --cov-report=xml
     echo "== --ci: universality gate =="
-    run_universality_gate
+    run_universality_gate require
     echo "== --ci: wheel build =="
     wheel_dir="$(mktemp -d)"
-    python3 -m pip wheel --no-deps --wheel-dir "$wheel_dir" .
+    if python3 -m pip --version >/dev/null 2>&1; then
+        python3 -m pip wheel --no-deps --wheel-dir "$wheel_dir" .
+    elif command -v uv >/dev/null 2>&1; then
+        # uv-managed venvs ship without pip; uv build runs the same PEP 517
+        # setuptools backend and produces the same wheel (ci.yml uses pip
+        # because setup-python provides it; uv pip has no wheel subcommand).
+        uv build --wheel --out-dir "$wheel_dir" .
+    else
+        echo "FAIL: neither pip nor uv available — wheel step cannot run" >&2
+        exit 1
+    fi
     rm -rf "$wheel_dir"
 }
 
