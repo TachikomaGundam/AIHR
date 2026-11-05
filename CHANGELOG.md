@@ -10,6 +10,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `docs/RELEASE-ROLLBACK.md`: the release-retraction playbook (PyPI yank,
+  GitHub Release marking, npm deprecate, leaked-credential fire order),
+  recording the verified 0.6.9/0.6.10 yank operations in public docs for
+  the first time.
+- `check_universal.sh --require-secret-scan`: fail-closed mode for the
+  secret scan; CI now passes it with the needle wired to the repository
+  secret `HR_SECRET_NEEDLE`, so a CI run can no longer certify the secret
+  gate by leaving it unconfigured.
+- `tests/test_plugin_import_closure.py`: every relative import of a shipped
+  plugin source must exist and be registered in both ship lists
+  (`package.json files`, `RELEASE_ASSETS`) — closes the plugin-side
+  missing-file class the 0.6.10 wheel pin closed for Python data files.
+
+### Changed
+- `docs/PUSH.md` rewritten for the 0.6.x release lanes (tag-triggered
+  bundle workflow + draft release, manual PyPI twine lane, npm Trusted
+  Publishing train with guard job); the v0.2.x-era repo-creation and
+  artifact-transport sections are retired.
+- Plugin pure helpers moved to plain `opencode_plugin/hr-invocation-core.mjs`
+  (`hr-invocation.ts` is now a typed re-export façade): the plugin test lane
+  runs from a clean checkout on any engines-satisfying node — including
+  distro builds without the TypeScript translator — with no gitignored
+  `.js` fallback (removed from `.gitignore` with it).
+- Release bundles: `macos-x86_64` promoted from experimental to a hard gate
+  (three consecutive green release runs: v0.6.8, v0.6.11, v0.6.12).
+
 ## [0.6.12] - 2026-11-05
 
 ### Fixed

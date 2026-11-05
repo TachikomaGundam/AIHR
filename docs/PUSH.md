@@ -1,227 +1,180 @@
-# PUSH — Perform the release (user executes)
+# PUSH — Perform the release (human executes)
 
-Everything below is **executed by you** — the agent has no credentials and
-deliberately never touches publish channels. All prior preparation (history
-rewrite, secrets sweep, artifacts, tags, remote) is already done; these are
-the only remaining steps. Run from this repo on **this machine** unless a
-section says otherwise.
+Everything below is **executed by the human maintainer** — the agent has no
+credentials and deliberately never touches publish channels. All prior
+preparation (gates green, artifacts built, changelog written) is done by the
+agent on the tip commit; these are the remaining steps. Run from this repo
+unless a section says otherwise. If anything published turns out to be
+broken, the retraction playbook is **docs/RELEASE-ROLLBACK.md**.
 
-## Artifact locations (built at the final rewritten HEAD — see W3 report)
+## Channels — what travels on each
 
-| Artifact | Path on this machine |
-|----------|----------------------|
-| Python wheel | `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0-*.whl` |
-| Python sdist | `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0.tar.gz` |
-| npm pack (opencode-hr-agent) | `/tmp/opencode/hr-ship-artifacts/opencode-hr-agent-0.2.0.tgz` |
-| npm pack (opencode-fastdraw) | `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz` |
+| Channel | Payload | Lane |
+|---|---|---|
+| GitHub Release | turnkey bundles (4 platform legs) + on-demand interpreter assets | `release.yml`, auto on tag `v[0-9]*`; creates a **draft**, human un-drafts after green |
+| PyPI `aihr` | wheel + sdist — the README's primary install path | manual `twine upload` by the maintainer (the only manual channel) |
+| npm `opencode-hr-agent`, `opencode-fastdraw` | the two OpenCode plugins | `npm-publish.yml` auto on tag `v*` via **npm Trusted Publishing (OIDC)** — no npm tokens exist in this repo or its secrets, by design |
 
-Repo: `~/workspace/harness/hr` (git root), branch `main`, tags `v0.2.0`
-and `v0.2.1` set. Origin is already configured as
-`git@github.com:TachikomaGundam/AIHR.git`.
+The three channels share one train: one engine tag must leave all three
+consistent. `npm-publish.yml` ends with a guard job asserting the registry
+serves the tag's plugin versions — a red guard means the train shed a wagon
+(see RELEASE-ROLLBACK.md §"npm").
 
-> **Published state (verified 2026-09-11 against the registries):**
-> **PyPI `aihr` 0.3.0 — UPLOADED and registry-verified** (latest; wheel +
-> sdist sha256 match the locally built artifacts; fresh PyPI-wheel
-> re-download digest-identical and installs clean — the three db
-> lifecycle commands present, and the foreign-takeover guard proven live:
-> a second install's `hr db-up` refuses to recreate this host's
-> `aihr-db`, exit 1, container untouched). ·
-> npm `opencode-hr-agent` 0.2.2 · npm `opencode-fastdraw` 1.2.0 — both
-> unchanged by 0.3.0 (no plugin JS change; `hrContractVersion` stays
-> 1.0.0 — new shipped files are not an on-disk contract change).
-> Remaining: second-machine turnkey proof (`pip install "aihr[vision]"
-> && hr db-up && hr status`, zero env exports) when a box is available.
->
-> **0.3.0** (AIHR item 9: turnkey `aihr-db` container +
-> `hr db-up/db-down/db-status` + 4-step DSN chain + foreign-takeover
-> guard; end of the shared-`wikijs`-superuser arrangement) is committed &
-> pushed (`f5ca1ed` + `5ed08ed`), CI green on 3.12+3.14 (+node 22/24),
-> tagged `v0.3.0`, and mirrored as a **GitHub Release with wheel+sdist
-> assets**: <https://github.com/TachikomaGundam/AIHR/releases/tag/v0.3.0>.
-> Artifacts built at `5ed08ed`, twine check PASSED, sha256:
-> wheel `0cad36eaac959d0ca07e94a2bcbe2947c4c342ee3c28c8d60d9a72485721e662`,
-> sdist `2a45e2776dee13a75a2da02a51a1c1ffc0ae03e6716da61cc5593987c259623c`
-> (GitHub asset digests verified identical 2026-09-11). This machine's
-> engine install is `aihr 0.3.0` (editable → repo).
->
-> **0.2.1** (audit-queue P0/P1 fixes + FastDraw contract decouple) is
-> committed & pushed (`a750773`), CI green on 3.12+3.14, tagged `v0.2.1`,
-> published on PyPI (§4), and mirrored as a **GitHub Release with
-> wheel+sdist assets**: <https://github.com/TachikomaGundam/AIHR/releases/tag/v0.2.1>.
-> Shipped artifacts (built at `a750773`, twine check PASSED, verified to
-> contain the fixes) live in `/tmp/opencode/hr-ship-artifacts/`; the stale
-> 09-02 pre-audit build was moved to `stale-0902/`. This machine's engine
-> install is `aihr 0.2.1` (editable → repo).
+## 0. Preflight (the agent closes these before the cut; re-check the list)
 
----
+1. Full test suite green on the tip, including the DB-gated modes — see
+   `tests/README.md` (Skip Semantics + the CI recipe).
+2. Universality gate green **with the secret scan actually running**:
+   `HR_COMPOSE_FILE=<compose-file> bash scripts/check_universal.sh`
+   (or `HR_SECRET_NEEDLE=<value>`). A run without a needle skips check (d)
+   with a notice — locally acceptable, never sufficient for a release.
+3. `uv run ruff check .` and basedpyright facade clean.
+4. Release surface manifest green (`tests/test_release_surface.py`,
+   `tests/test_package_data.py` — the latter is the ship-list pin that
+   caught the 0.6.10 wheel defect on a customer box).
+5. Plugin lanes from a clean checkout with zero build step: copy the
+   explicit file list from `.github/workflows/ci.yml` (plugin lane) to a
+   temp dir and run `node --test test/*.test.mjs` on any engines-satisfying
+   node. The plugin core (`opencode_plugin/hr-invocation-core.mjs`) is plain
+   `.mjs` precisely so this works on distro node builds without TypeScript
+   support — no `.js` fallback file exists anymore, and none may be added.
+6. Turnkey Acceptance Protocol (§6) run on the designated testbed box.
 
-## 0. Preflight (30 s)
+## 1. Version bump (one commit)
+
+- `pyproject.toml` `[project] version = "X.Y.Z"`.
+- `uv.lock`: edit **only the project entry's version**; leave dependency
+  hashes untouched. Do not re-resolve the lock for a version-only bump.
+- `CHANGELOG.md`: new `## [X.Y.Z]` section at the top.
+- Commit as `chore(release): version X.Y.Z`. No other file may ride in this
+  commit.
+
+## 2. Build the PyPI artifacts (repo-local, gitignored)
 
 ```bash
-cd ~/workspace/harness/hr
-git status --porcelain            # expect: empty
-git log --all --format='%ae' | sort -u   # expect: only TachikomaGundam@users.noreply.github.com
-git tag -n                         # expect: v0.2.0 annotated
-sha256sum /tmp/opencode/hr-ship-artifacts/*
+uv build --out pypi-dist-<VERSION>
+twine check --strict pypi-dist-<VERSION>/*
 ```
 
-## 1. Create the GitHub repository
+Both files must pass `--strict`. Record the `sha256sum` of both artifacts —
+the same digests are re-verified against the registry after upload (§5).
 
-Option A — web: open https://github.com/new → owner **TachikomaGundam**,
-name **AIHR**, description *"HR Agent (人事) — model evaluation and role
-assignment for oh-my-openagent"*, **Public** (default), *do NOT* initialize
-with README/.gitignore/LICENSE (all exist in the repo already).
-Create.
-
-Option B — CLI (if `gh` is installed and authed):
+## 3. Push + tag (human; the credential-bearing step)
 
 ```bash
-gh repo create TachikomaGundam/AIHR --public --description "HR Agent (人事) — model evaluation and role assignment for oh-my-openagent"
+git push origin main
+git tag -a vX.Y.Z -m "X.Y.Z: <one-line release summary>"
+git push origin vX.Y.Z
 ```
 
-> **PAT scope gotcha (learned at first push):** a fine-grained token MUST
-> have **Workflows: Read and write** in addition to Contents — this repo
-> ships `.github/workflows/ci.yml`, and GitHub rejects pushes containing
-> workflow paths when the token lacks that scope. Classic tokens with the
-> `repo` scope are unaffected.
+- Annotated tags with a release summary are the convention since 0.6.9.
+- Published tags are immutable: never move, never reuse, never delete one
+  (a re-cut lives at the next version — RELEASE-ROLLBACK.md).
+- If your token is fine-grained it needs **Workflows: Read and write** in
+  addition to Contents — pushes touching `.github/workflows/` are rejected
+  without it. Classic `repo`-scoped tokens are unaffected.
+- Transport note (release-day lesson 2026-11-04): if SSH auth mysteriously
+  denies while the HTTPS API works, disable any HTTP proxy first — GitHub
+  risk-controls SSH source addresses; push+tag with the proxy off.
 
-## 2. Push (the remote is already added)
+## 4. Tag-triggered automation (watch, then un-draft)
+
+Watch both workflows the tag fires:
 
 ```bash
-cd ~/workspace/harness/hr
-git remote -v          # confirm origin -> git@github.com:TachikomaGundam/AIHR.git
-git push -u origin main --follow-tags
+gh run watch --repo TachikomaGundam/AIHR            # or: gh run list
 ```
 
-SSH key required for `git@github.com`. If you prefer HTTPS+PAT:
-`git remote set-url origin https://github.com/TachikomaGundam/AIHR.git`
-and use a PAT as the password when prompted.
+- `release.yml`: four bundle legs (linux-x86_64, windows-x86_64,
+  macos-aarch64, macos-x86_64 — **all four are hard gates** as of
+  2026-11-05), a draft GitHub Release with the bundles, and the
+  Linux/Windows turnkey smoke lanes. Under macOS runner congestion a job
+  can die queued at its `timeout-minutes`; re-run rather than re-tag:
+  `gh run rerun <run-id> --failed`.
+- `npm-publish.yml`: publishes each plugin **only if its package.json
+  version is not already on the registry** (idempotent re-fires are safe),
+  then the guard job asserts registry == tag source.
 
-> **Status 2026-09-01:** the first push was executed by the user over
-> HTTPS+PAT (`origin/main` == tag == the fastdraw-fix commit). An ed25519
-> key was generated on this machine at `~/.ssh/id_ed25519_github` and the
-> remote switched back to the SSH URL above — add the public key to
-> GitHub → Settings → SSH and GPG keys once, and future pushes need no
-> token. Verify with `ssh -T git@github.com` (expect: "Hi TachikomaGundam!").
-
-## 3. GitHub Release v0.2.0 (web)
-
-1. Open https://github.com/TachikomaGundam/AIHR/releases/new
-2. Tag: `v0.2.0` (exists) · Target: `main` · Title: `HR Agent 0.2.0 — unified evaluator`
-3. Notes (suggested):
-
-   > Unified `hr` CLI (23 commands): discover/bench/verdict/health/sweeps/
-   > calibrate/reference/research/publish/recommend/status/apply.
-   > 8 livebench batteries, 52 items; half-width capability thresholds;
-   > health gates; 18 seats; FastDraw verdict seam. PyPI distribution
-   > renamed `hr-agent` → `aihr` (import `hr`, console script `hr`).
-   > Full history authored as TachikomaGundam.
-
-4. Attach binaries (drag & drop):
-   - `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0-py3-none-any.whl`
-   - `/tmp/opencode/hr-ship-artifacts/aihr-0.2.0.tar.gz`
-   - `/tmp/opencode/hr-ship-artifacts/opencode-hr-agent-0.2.0.tgz`
-   - `/tmp/opencode/hr-ship-artifacts/opencode-fastdraw-1.0.0.tgz`
-5. Publish release.
-
-## 4. PyPI upload — PRIMARY engine channel (README front page)
-
-The engine ships on PyPI as **`aihr`**; `pip install "aihr[vision]"` is the
-install path the README advertises, so every engine release must land on
-PyPI. The GitHub Release wheel (§3) stays as a mirror for direct-URL
-installs:
+When every job is green, publish the draft:
 
 ```bash
-pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/v0.2.2/aihr-0.2.2-py3-none-any.whl"
+gh release edit vX.Y.Z --repo TachikomaGundam/AIHR --draft=false
 ```
 
-Upload procedure (`twine` already installed at `~/.local/bin/twine` via
-`python3 -m pip install --user twine`):
+## 5. PyPI upload (human; primary channel)
 
 ```bash
-cd /tmp/opencode/hr-ship-artifacts
-twine upload aihr-<VERSION>-py3-none-any.whl aihr-<VERSION>.tar.gz
-# prompts: username -> __token__   (literally the underscore token)
-#          password -> your PyPI API token (project: aihr)
+twine upload pypi-dist-<VERSION>/*
+# username: __token__   (literally)   password: your PyPI API token (project aihr)
 ```
 
-Non-interactive alternative (token still never stored in the repo):
-
-```bash
-TWINE_USERNAME=__token__ TWINE_PASSWORD=pypi-xxxxxxxx twine upload /tmp/opencode/hr-ship-artifacts/aihr-<VERSION>-*
-```
-
-## 5. npm publish (two packages): executed by the human maintainer
-
-```bash
-cd ~/workspace/harness/hr
-
-# --- opencode-hr-agent 0.2.2 (unscoped) ---
-# Every npm step for this package runs OUTSIDE opencode_plugin/ (checklist
-# item 1 below): stay in the repo root and pass the folder as an argument.
-npm login                 # add NPM_OTP=... to env if you use a TOTP app
-npm publish ./opencode_plugin --access public --otp "$NPM_OTP"   # maintainer only
-
-# --- opencode-fastdraw 1.1.1 (unscoped) ---
-cd fastdraw
-npm login
-npm publish --access public --otp "$NPM_OTP"   # maintainer only
-cd ..
-```
-
-Both names are unscoped — confirm you own them in npm. The `files` lists in
-`package.json` restrict what ships (no `.build/`, no secrets, no absolute
-paths — verified at pack time). If you use a hardware key instead of TOTP,
-omit `--otp` and answer the interactive prompt.
-
-Pre-publish checklist (agents may prepare items 1-3; items 4-5 are the human
-maintainer's call):
-
-1. Test out-of-package: `npm --prefix "$RUNNER_TEMP/pkg" run test` against the
-   CI-style copy the node test lane builds (`mkdir -p "$RUNNER_TEMP/pkg"`, then
-   copy `package.json`, `server.ts`, `hr-invocation.ts`, `install-cli.js`
-   and `test/` into it (plus `fastdraw/package.json` two levels up — drift guard);
-   see `.github/workflows/ci.yml`). NEVER run `npm` inside `opencode_plugin/`:
-   its gitignored package-local `.npmrc` would load into npm's env view.
-2. Content check: `npm pack --dry-run` in a /tmp copy (same pattern as item 1).
-   The packed content MUST equal exactly {package.json, server.ts,
-   hr-invocation.ts, install-cli.js}, nothing more, nothing less. The `bin`
-   entry (`opencode-hr`) must resolve: `npm i -g ./<tgz> --prefix /tmp/x && /tmp/x/bin/opencode-hr status`.
-3. Manifest asserts via `node -e`: `dependencies` is empty AND no lifecycle
-   scripts exist except `test` (pretest, posttest and prepare are FORBIDDEN);
-   plugin specs float at `@latest` in `hr/cli_setup.py` and
-   `install-cli.js` — there are NO version pins to keep in sync anymore (CI
-   enforces the @latest specs via tests/test_plugin_setup.py +
-   opencode_plugin/test/install-cli.test.mjs).
-4. Publish execution is RESERVED to the human maintainer: agents prepare, never publish.
-5. Tag decision (user-side): this repo has NO version->tag convention; the
-   existing `v0.2.1` tag points to an engine-only release, not to this
-   package. For the next release prefer either `v0.2.2` or a per-package tag
-   like `opencode-hr-agent@0.2.2` (this is the convention adopted since 0.2.1);
-   agents never tag.
+- **Never re-upload a version.** `twine upload` of an existing version is a
+  reject, not a re-run; if a publish partially fails, inspect
+  <https://pypi.org/p/aihr> first and decide per RELEASE-ROLLBACK.md.
+- Post-verify: fresh venv installs the new version; the downloaded file
+  digests match §2; `pip index versions aihr` shows the expected ladder with
+  any yanked entries marked.
+- The GitHub Release wheel stays a mirror for direct-URL installs:
+  `pip install "aihr[vision] @ https://github.com/TachikomaGundam/AIHR/releases/download/vX.Y.Z/aihr-X.Y.Z-py3-none-any.whl"`
 
 ## 6. The Turnkey Acceptance Protocol — the permanent turnkey courtroom
 
-The designated turnkey testbed box (address + SSH credentials deliberately NOT recorded in this repo — identity here is the hardware profile only; the machine owner keeps the live address in the ops layer) (Ubuntu 26.04, system python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is this project's permanent turnkey courtroom — the exact machine where 0.3.0's "turnkey" claim died with "docker not found". Every bundle-version ship passes this protocol on the testbed box from factory state before it ships: it is the standing release gate, not a one-off (HR_EVOLUTION_BACKLOG Item 11, `~/workspace/AIHR/HR_EVOLUTION_BACKLOG.md`).
+The designated turnkey testbed box (address + SSH credentials deliberately
+NOT recorded in this repo — identity here is the hardware profile only; the
+machine owner keeps the live address in the ops layer) (Ubuntu 26.04, system
+python 3.14 under PEP 668, **no Docker installed**, no passwordless sudo) is
+this project's permanent turnkey courtroom — the exact machine where 0.3.0's
+"turnkey" claim died with "docker not found". Every bundle-version ship
+passes this protocol on the testbed box from factory state before it ships:
+it is the standing release gate, not a one-off (ops backlog items 11 and 14,
+maintained outside the product repo).
 
 Steps run in order, on a clean box, nothing skipped:
 
-1. **One command. Nothing preinstalled, zero sudo, zero prerequisites:** (Linux floor: glibc ≥ 2.28 — the vendored-PostgreSQL baseline; nothing else.)
+1. **One command. Nothing preinstalled, zero sudo, zero prerequisites:**
+   (Linux floor: glibc ≥ 2.28 — the vendored-PostgreSQL baseline; nothing
+   else.)
 
    ```bash
    curl -fsSL https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/scripts/install.sh | sh
    ```
 
-2. **Green database on the embedded backend.** Fresh shell so the `~/.aihr/bin` shim is on PATH:
+2. **Green database on the embedded backend.** Fresh shell so the
+   `~/.aihr/bin` shim is on PATH:
 
    ```bash
    hr db-up && hr status      # expect: green, ZERO env exports, no sudo
    ```
 
-   `hr db-status` must name the embedded vendored Postgres as the live backend — the testbed box has no Docker, so the compose lane cannot even mask a broken default.
+   `hr db-status` must name the embedded vendored Postgres as the live
+   backend — the testbed box has no Docker, so the compose lane cannot even
+   mask a broken default.
 
-3. **opencode tool surface.** Restart opencode on the testbed box and verify BOTH halves of the dual registration written by `hr install-post`: the `plugin` array in `~/.config/opencode/opencode.jsonc` (on this box the file IS `.jsonc` — there is no `opencode.json`) and the array in `tui.json`. Expect `hr_*` / `fastdraw_*` agent tools enumerable and `/fastdraw` + `<leader>m` alive in the TUI. (Machine-readable discovery-contract proof: the `/experimental/tool/ids` probe — see docs/PLUGIN_SECURITY.md notes or the ops/dev-env-pitfalls wiki page.) No npm step is run by hand — opencode/bun auto-fetches the package specs at startup.
-   **Enumeration is not usage — it is a necessary, not sufficient, half.** At least one `hr_*` call must be INVOKED live in the restarted session and must return an engine reply (on a factory-fresh database the correct, passing answer is `error: no sweeps found in hr.sweep` — a real round-trip through the plugin's launch chain into the engine and its database). An `HR command failed: no HR engine resolved` reply on a turnkey box is a release blocker. Regression (2026-09-29): the 0.2.2 plugin was pip-lane-only (`python3 -m hr`, `PYTHONPATH=~/hr`) and enumeration alone passed while every live call failed and the guidance text taught session agents to `pip install --user --break-system-packages` — contaminating user-site and violating the self-containment contract. The plugin now resolves the engine turnkey-first (`HR_BIN` → `~/.aihr/bin/hr` → pip lane; see `opencode_plugin/hr-invocation.ts` `resolveHrLaunch`), but the live-invocation step stays in this protocol permanently: the ruler that only checks the menu will certify a kitchen that cannot cook.
+3. **opencode tool surface.** Restart opencode on the testbed box and verify
+   BOTH halves of the dual registration written by `hr install-post`: the
+   `plugin` array in `~/.config/opencode/opencode.jsonc` (on this box the
+   file IS `.jsonc` — there is no `opencode.json`) and the array in
+   `tui.json`. Expect `hr_*` / `fastdraw_*` agent tools enumerable and
+   `/fastdraw` + `<leader>m` alive in the TUI. (Machine-readable
+   discovery-contract proof: the `/experimental/tool/ids` probe — see
+   docs/PLUGIN_SECURITY.md notes.) No npm step is run by hand —
+   opencode/bun auto-fetches the package specs at startup.
+   **Enumeration is not usage — it is a necessary, not sufficient, half.**
+   At least one `hr_*` call must be INVOKED live in the restarted session
+   and must return an engine reply (on a factory-fresh database the correct,
+   passing answer is `error: no sweeps found in hr.sweep` — a real
+   round-trip through the plugin's launch chain into the engine and its
+   database). An `HR command failed: no HR engine resolved` reply on a
+   turnkey box is a release blocker. Regression (2026-09-29): the 0.2.2
+   plugin was pip-lane-only (`python3 -m hr`, `PYTHONPATH=~/hr`) and
+   enumeration alone passed while every live call failed and the guidance
+   text taught session agents to `pip install --user --break-system-packages`
+   — contaminating user-site and violating the self-containment contract.
+   The plugin now resolves the engine turnkey-first (`HR_BIN` →
+   `~/.aihr/bin/hr` → pip lane; see `opencode_plugin/hr-invocation-core.mjs`
+   `resolveHrLaunch`), but the live-invocation step stays in this protocol
+   permanently: the ruler that only checks the menu will certify a kitchen
+   that cannot cook.
 
 4. **Full reversal:**
 
@@ -229,34 +182,59 @@ Steps run in order, on a clean box, nothing skipped:
    hr self-uninstall --yes
    ```
 
-5. **Filesystem audit == printed residual manifest, EXACTLY.** Walk the box (owned-dir remnants, shell rc files, the two opencode configs, bin dirs, caches) and diff every leftover against the residual manifest printed in step 4. Every surviving path must appear there with its exact removal command (e.g. the bun plugin cache under `~/.cache/opencode/packages/…`); any leftover absent from the manifest is a release blocker. Contract law: uninstall removes ALL it placed or reports each residual — nothing silent.
+5. **Filesystem audit == printed residual manifest, EXACTLY.** Walk the box
+   (owned-dir remnants, shell rc files, the two opencode configs, bin dirs,
+   caches) and diff every leftover against the residual manifest printed in
+   step 4. Every surviving path must appear there with its exact removal
+   command (e.g. the bun plugin cache under `~/.cache/opencode/packages/…`);
+   any leftover absent from the manifest is a release blocker. Contract law:
+   uninstall removes ALL it placed or reports each residual — nothing silent.
 
-6. **First-boot live bench (Item 14 standing gate):** on the freshly installed
-   machine run the owner's real thing - `hr discover`, then `hr run` on one
-   discoverable model against a live endpoint. Acceptance = measurements > 0
-   and no `adapter_setup_failure` rows. Artifact checks alone never close
-   this courtroom; the machine must produce observations.
+6. **First-boot live bench (ops backlog item 14 standing gate):** on the
+   freshly installed machine run the owner's real thing — `hr discover`,
+   then `hr run` on one discoverable model against a live endpoint.
+   Acceptance = measurements > 0 and no `adapter_setup_failure` rows.
+   Artifact checks alone never close this courtroom; the machine must
+   produce observations.
 
-The same protocol then runs on the Windows and macOS boxes when available. A bundle version without a green testbed-box run does not ship.
+The same protocol then runs on the Windows and macOS boxes when available.
+A bundle version without a green testbed-box run does not ship.
 
-> **Takeover posture:** npm's `allow-same-user` default is `true`, so the same
-> account can still overwrite an already-published tarball of the same version;
-> same-user takeover therefore remains possible. Publishing under a scoped org
-> with per-package access grants is stronger isolation. Note only: no registry
-> config change is implied or made here.
+> **npm takeover posture:** npm's `allow-same-user` default is `true`, so
+> the same account can still overwrite an already-published tarball of the
+> same version; same-user takeover therefore remains possible. Publishing
+> under a scoped org with per-package access grants is stronger isolation.
+> Note only: no registry config change is implied or made here.
 
 ---
 
 ## What must NOT happen
 
-- The installers (`install.sh` / `install.ps1`) and their tail `hr install-post` NEVER run sudo or request elevation — on a box without passwordless sudo (the box is that box, permanently) the install must complete clean or the release fails the gate.
-- Installer writes are limited to: the owned directory (`~/.aihr` / `%LOCALAPPDATA%\aihr`), one clearly-marked PATH block in the shell rc, the two opencode config arrays (`plugin` in `opencode.jsonc` + `tui.json`), and the `~/.local/bin`-style PATH shim. The rc block, the two config arrays and the shim are the ONLY sanctioned writes outside the owned dir, and every one of them is receipted; anything written off-receipt is a contract violation that `hr self-uninstall` will surface as an unexplained residual.
-- Do not reuse this machine's local scratch PostgreSQL DSN on the second box —
+- The installers (`install.sh` / `install.ps1`) and their tail
+  `hr install-post` NEVER run sudo or request elevation — on a box without
+  passwordless sudo (the box is that box, permanently) the install must
+  complete clean or the release fails the gate.
+- Installer writes are limited to: the owned directory (`~/.aihr` /
+  `%LOCALAPPDATA%\aihr`), one clearly-marked PATH block in the shell rc, the
+  two opencode config arrays (`plugin` in `opencode.jsonc` + `tui.json`),
+  and the `~/.local/bin`-style PATH shim. The rc block, the two config
+  arrays and the shim are the ONLY sanctioned writes outside the owned dir,
+  and every one of them is receipted; anything written off-receipt is a
+  contract violation that `hr self-uninstall` will surface as an unexplained
+  residual.
+- No credential, token, or machine-local path ever enters this repo —
+  including this file. The secret-scan needle in particular is passed via
+  env/secret only, and CI fails closed when `--require-secret-scan` finds
+  no needle (§0.2, `ci.yml`).
+- Do not reuse this machine's local scratch PostgreSQL DSN on a second box —
   the CLI takes `HR_TEST_PG_DSN`/per-provider keys from `hr.toml` / env that
   you configure locally (template: `hr.toml.example`).
 - Do not re-upload if a publish partially fails without checking
-  https://pypi.org/p/aihr / https://www.npmjs.com/package/... first —
-  `twine upload`/`npm publish` of the same version are rejects, not re-runs;
-  the human maintainer reviews registry state before any retry.
+  <https://pypi.org/p/aihr> / <https://www.npmjs.com/package/...> first —
+  `twine upload`/`npm publish` of the same version are rejects, not
+  re-runs; the human maintainer reviews registry state before any retry.
+- Do not "fix" a shipped version in place on any registry. Published
+  payloads are marked (yank/deprecate) and superseded forward — never
+  rewritten. The full playbook: docs/RELEASE-ROLLBACK.md.
 - PyPI test index (TestPyPI) needs a different token/scoped project; this
   guide targets production PyPI directly.
