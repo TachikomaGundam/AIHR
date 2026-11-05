@@ -101,3 +101,33 @@ def test_recording_error_branch_captures_body(tmp_path: Path) -> None:
     entry = TapeReader(tmp_path).lookup("POST", "https://gw/v1/chat", HEADERS, BODY)
     assert entry.status == 429
     assert "rate limited" in entry.sse_lines[0]
+
+
+def test_tee_finalizes_on_protocol_done_even_if_parser_breaks_early(tmp_path):
+    """The openai parser breaks out of iter_lines at data: [DONE] — the tee
+    must treat the protocol sentinel as completion (0.6.12 field catch:
+    early break left the generator suspended and recorded nothing)."""
+    from hr.tape import TapeStore
+    from hr.tape_transports import _TeeRequestsResponse
+
+    lines = ['data: {"x": 1}', "data: [DONE]", "data: never-read"]
+
+    class _Inner:
+        status_code = 200
+        text = ""
+
+        def iter_lines(self, decode_unicode=False):
+            yield from lines
+
+        def close(self):
+            pass
+
+    store = TapeStore(tmp_path)
+    tee = _TeeRequestsResponse(store, "POST", "https://g/v1/chat", {}, {"b": 1}, _Inner())
+    for line in tee.iter_lines(decode_unicode=True):
+        if "[DONE]" in line:
+            break  # what the real SSE parser does
+    tee.close()
+    assert len(store._entries) == 1
+    captured = list(store.dir.glob("entries/*.json"))
+    assert len(captured) == 1

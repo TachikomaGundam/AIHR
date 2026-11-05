@@ -208,6 +208,7 @@ class _TeeRequestsResponse:
         self._inner = inner
         self._lines: list[str] = []
         self._finished = False
+        self._saw_done = False  # openai-protocol completion sentinel
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
@@ -221,8 +222,16 @@ class _TeeRequestsResponse:
 
     def iter_lines(self, decode_unicode: bool = False) -> Iterator[Any]:
         for line in self._inner.iter_lines(decode_unicode=decode_unicode):
-            self._lines.append("" if line is None else str(line))
+            text = "" if line is None else str(line)
+            self._lines.append(text)
+            if "[DONE]" in text:
+                self._saw_done = True
             yield line
+            if self._saw_done:
+                # the SSE parser breaks out at the sentinel — finalize here,
+                # while the protocol-complete stream is still in hand
+                self._finish()
+                return
         self._finish()
 
     def _finish(self) -> None:
@@ -234,6 +243,12 @@ class _TeeRequestsResponse:
         )
 
     def close(self) -> None:
-        if not self._finished and int(getattr(self._inner, "status_code", 0)) >= 400:
-            self._finish()  # error bodies are complete once .text was read
+        if not self._finished and (
+            self._saw_done
+            or int(getattr(self._inner, "status_code", 0)) >= 400
+        ):
+            # error bodies are complete once .text was read; a stream that
+            # carried [DONE] is protocol-complete even if the parser stopped
+            # consuming at the sentinel
+            self._finish()
         self._inner.close()

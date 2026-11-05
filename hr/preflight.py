@@ -107,11 +107,19 @@ def _parse_preflight_doc(raw: dict[str, Any]) -> PreflightConfig:
         bands[str(battery_code)] = (lo, hi)
     budget_sec = raw.get("budget") or {}
     abort_sec = raw.get("abort") or {}
+
+    def _scalar(section: dict[str, Any], key: str, cast: Any, section_name: str) -> Any:
+        try:
+            return cast(section[key]) if key in section else None
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{section_name}.{key} must be a number (got {section[key]!r})") from exc
+
+
     return PreflightConfig(
-        max_requests=int(budget_sec.get("max_requests", 50)),
-        max_total_tokens=int(budget_sec.get("max_total_tokens", 400_000)),
-        per_request_max_tokens=int(budget_sec.get("per_request_max_tokens", 4096)),
-        abort_error_rate=float(abort_sec.get("error_rate", 0.4)),
+        max_requests=_scalar(budget_sec, "max_requests", int, "budget") or 50,
+        max_total_tokens=_scalar(budget_sec, "max_total_tokens", int, "budget") or 400_000,
+        per_request_max_tokens=_scalar(budget_sec, "per_request_max_tokens", int, "budget") or 4096,
+        abort_error_rate=_scalar(abort_sec, "error_rate", float, "abort") or 0.4,
         freshness_hours=int(raw.get("freshness_hours", 12)),
         default_models=tuple(str(m) for m in raw.get("models") or ()),
         default_batteries=tuple(str(b) for b in raw.get("batteries") or ("reasoning", "factuality")),

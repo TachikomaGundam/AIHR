@@ -178,3 +178,15 @@ def test_ceiling_assert_lists_offenders() -> None:
     with pytest.raises(ValueError, match="frozen=\['vision'\]"):
         assert_tier_ceiling({"vision": [100.0] * 6,
                              "code_gen": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]})
+
+
+def test_pricing_gate_names_malformed_entry() -> None:
+    """A dict-shaped pricing entry (wrong overlay schema) must fail loud by
+    name at gate entry — not crash deep in float() (191 field pass, 0.6.11)."""
+    import pytest
+
+    from hr.parity import check_pricing_parity
+
+    bad = {"m/one": {"per_1k_input_tokens": 0.001}}
+    with pytest.raises(ValueError, match=r"pricing\['m/one'\]"):
+        check_pricing_parity(["m/one"], pricing=bad)

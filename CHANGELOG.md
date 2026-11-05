@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.12] - 2026-11-05
+
+### Fixed
+- Tape recording with the openai stack captured nothing against the real
+  parser: the SSE parser breaks out of `iter_lines` at the `data: [DONE]`
+  sentinel, leaving the tee generator suspended and never finalizing. The
+  tee now treats the protocol sentinel as completion (recorded when the
+  sentinel passed or the stream ran out; partial streams still never
+  reach the tape). First live record + CLI replay round-trip verified on
+  the local fleet.
+- Malformed config values now fail loud by name instead of crashing in
+  `float()`: pricing entries must be numbers (USD per 1M tokens - a
+  nested dict from a hand-written overlay used to raise a deep
+  TypeError), and preflight `budget.*`/`abort.error_rate` scalars are
+  validated with the offending key named.
+
 ## [0.6.11] - 2026-11-04
 
 ### Fixed

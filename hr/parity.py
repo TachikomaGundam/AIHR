@@ -155,6 +155,13 @@ def check_pricing_parity(
                          "certify pricing for zero models")
     if pricing is None:
         pricing = dict(load_yaml("models.yaml").get("pricing", {}))
+    for key, value in pricing.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f"pricing[{key!r}] must be a number — USD per 1M tokens "
+                f"(got {type(value).__name__}: {value!r}); check "
+                "configs/models.yaml and the .local.yaml overlay layers"
+            )
     missing: list[str] = []
     conflicts: list[str] = []
     priced: list[str] = []
