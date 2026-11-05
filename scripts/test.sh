@@ -70,7 +70,11 @@ run_test_suite() {
 }
 
 run_universality_gate() {
-    bash scripts/check_universal.sh
+    # Mirrors ci.yml: --require-secret-scan makes an unresolvable needle a
+    # FAIL, so a green --ci run always includes an actually-executed secret
+    # scan. Export HR_SECRET_NEEDLE=<value> or HR_COMPOSE_FILE=<compose-file>
+    # first (the needle is never stored in this repo).
+    bash scripts/check_universal.sh --require-secret-scan
 }
 
 aihr_db_running() {

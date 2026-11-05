@@ -68,7 +68,12 @@ jobs:
           name: coverage
           path: coverage.xml
       - name: Universality gate
-        run: bash scripts/check_universal.sh
+        env:
+          # Fail-closed: --require-secret-scan turns an unset needle into a red,
+          # so CI cannot certify the secret scan by not configuring it.
+          # One-time setup: repo Settings → Secrets → Actions → HR_SECRET_NEEDLE.
+          HR_SECRET_NEEDLE: ${{ secrets.HR_SECRET_NEEDLE }}
+        run: bash scripts/check_universal.sh --require-secret-scan
       - run: python -m pip wheel --no-deps --wheel-dir dist .
 
   node-tests:

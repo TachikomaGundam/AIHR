@@ -31,15 +31,33 @@
 # The raw plan probe (grep -rniE ... | grep -v "test") is printed for the
 # record; the gate is the residual after the documented exclusions above.
 #
-# Why (d) skips by default: the scan needle IS the credential, so it must
-# never be stored in this repo (not even split across string literals) and
-# this script carries no credential in any form. The needle is resolved at
-# run time: from $HR_SECRET_NEEDLE, else from the live compose file given by
+# Why (d) needs an opt-in needle, and why CI never relies on the default:
+# the scan needle IS the credential, so it must never be stored in this repo
+# (not even split across string literals) and this script carries no
+# credential in any form. The needle is resolved at run time: from
+# $HR_SECRET_NEEDLE, else from the live compose file given by
 # $HR_COMPOSE_FILE (whose POSTGRES_PASSWORD / DB_PASS values are extracted).
-# When neither is set the scan is SKIPPED with a printed notice and exit
-# code 0 — a scan we cannot needle must not fail the gate, and the notice
-# tells the operator exactly how to enable it.
+# With neither set, a bare local run SKIPS the scan with a printed notice —
+# ergonomics for throwaway boxes only. Pass --require-secret-scan (what CI
+# does, wired to a repository secret) and an unresolvable needle becomes a
+# hard FAIL: a CI run can never certify the gate by not configuring it.
 set -u
+
+REQUIRE_SECRET_SCAN=0
+for arg in "$@"; do
+    case "$arg" in
+        --require-secret-scan) REQUIRE_SECRET_SCAN=1 ;;
+        -h|--help)
+            echo "usage: check_universal.sh [--require-secret-scan]"
+            echo "  --require-secret-scan  fail (instead of skipping) when no"
+            echo "                           needle resolves from HR_SECRET_NEEDLE"
+            echo "                           or HR_COMPOSE_FILE; CI default"
+            exit 0 ;;
+        *)
+            echo "unknown argument: $arg (see --help)" >&2
+            exit 2 ;;
+    esac
+done
 
 cd "$(dirname "$0")/.." || exit 1
 
@@ -214,7 +232,15 @@ PY
 }
 
 SECRET=$(resolve_needle)
-if [ -z "$SECRET" ]; then
+if [ -z "$SECRET" ] && [ "$REQUIRE_SECRET_SCAN" -eq 1 ]; then
+    echo "FAIL (d): --require-secret-scan was passed but neither HR_SECRET_NEEDLE"
+    echo "          nor HR_COMPOSE_FILE resolves a needle — the scan did not run."
+    echo "          CI: set the repository secret HR_SECRET_NEEDLE (Settings →"
+    echo "          Secrets and variables → Actions) and mirror it into the job"
+    echo "          env. A gate that can be skipped by not configuring it is"
+    echo "          not a gate."
+    FAIL=1
+elif [ -z "$SECRET" ]; then
     D_SKIPPED=1
     echo "SKIP (d): HR_SECRET_NEEDLE and HR_COMPOSE_FILE both unset. The scan"
     echo "          needle would be the credential itself, which is never stored"

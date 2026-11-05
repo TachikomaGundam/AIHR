@@ -192,7 +192,7 @@ A `postgres:16-alpine` container starts with a health check:
 5. `basedpyright --level error hr scripts`.
 6. **Tests**: `pytest --cov=hr --cov-report=term-missing --cov-report=xml -q` with `HR_DSN=postgresql://hr:hr@localhost:5432/hr_test` and `HR_TEST_DB=1`. All nine DB-gated tests run.
 7. Upload `coverage.xml` as an artifact.
-8. **Universality gate**: `bash scripts/check_universal.sh` (model-name literals, absolute paths, import smoke, secret scan).
+8. **Universality gate**: `bash scripts/check_universal.sh --require-secret-scan` (model-name literals, absolute paths, import smoke, secret scan). The secret scan needs the repository secret `HR_SECRET_NEEDLE` in the job env; with `--require-secret-scan` an unresolvable needle fails the run instead of skipping (local bare runs may still skip with a notice).
 9. `pip wheel` (build verification).
 
 ## How to Add a DB-Gated Test
