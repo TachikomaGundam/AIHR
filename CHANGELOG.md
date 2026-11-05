@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`package.json files`, `RELEASE_ASSETS`) — closes the plugin-side
   missing-file class the 0.6.10 wheel pin closed for Python data files.
 
+### Published
+- `opencode-hr-agent` 0.2.4: the plugin package rebuilt on the plain-.mjs
+  core above, published through the npm train so existing installs receive the
+  clean-checkout fix without waiting for the next engine release.
+
 ### Changed
 - `docs/PUSH.md` rewritten for the 0.6.x release lanes (tag-triggered
   bundle workflow + draft release, manual PyPI twine lane, npm Trusted
