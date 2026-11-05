@@ -298,3 +298,15 @@ class TestCliPricingGate:
         monkeypatch.setattr("hr.db.connect", _boom)
         result = CliRunner().invoke(app, ["preflight", "--models", "prov/x"])
         assert result.exit_code == 2
+
+    def test_abort_scalar_shape_named(self, tmp_path: Path) -> None:
+        (tmp_path / "preflight.yaml").write_text(
+            "abort:\n  error_rate: {lo: 0.1}\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="abort.error_rate"):
+            load_preflight_config(tmp_path / "preflight.yaml")
+
+    def test_budget_scalar_shape_named(self, tmp_path: Path) -> None:
+        (tmp_path / "preflight.yaml").write_text(
+            "budget:\n  max_requests: {}\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="budget.max_requests"):
+            load_preflight_config(tmp_path / "preflight.yaml")
