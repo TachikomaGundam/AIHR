@@ -93,7 +93,7 @@ jobs:
       # No cache: key — the plugin lane needs no install at all and the
       # fastdraw lane installs uncached (its lockfile churns with the
       # @opencode-ai/plugin devDep; caching buys nothing here).
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
       - name: Plugin lane (zero-install, repo-external copy)
