@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clean-checkout fix without waiting for the next engine release.
 
 ### Changed
+- CI universality job now checks out full history (`fetch-depth: 0`): the secret scan's
+  promise is a full-history sweep, which the default depth-1 checkout silently shrank
+  to the tip commit (found while closing the 2026-11-05 eval campaign).
 - `docs/PUSH.md` rewritten for the 0.6.x release lanes (tag-triggered
   bundle workflow + draft release, manual PyPI twine lane, npm Trusted
   Publishing train with guard job); the v0.2.x-era repo-creation and

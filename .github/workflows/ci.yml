@@ -29,7 +29,12 @@ jobs:
       matrix:
         python-version: ["3.12", "3.14"]
     steps:
+      # fetch-depth 0: check (d) scans the FULL git history for the secret
+      # needle; the default shallow checkout (depth 1) would silently shrink
+      # that scan to the tip commit only.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
