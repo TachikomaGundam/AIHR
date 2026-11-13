@@ -4,6 +4,12 @@
 // `npm install -g opencode-hr-agent && opencode-hr install` is the whole
 // setup: no hand-editing JSON. Lives up to the plugin's security posture:
 // node built-ins only, no network, no shell, no lifecycle scripts.
+//
+// OpenCode V2 layout: every plugin (server part and TUI part alike) is one
+// entry in the `plugins` array of opencode.json(c). Packages that export
+// `./tui` alongside their server part auto-load their TUI half, so nothing
+// is written to the V1-era tui.json anymore (legacy entries there, in the
+// old `plugin` key, and in cli.json are cleaned on write).
 
 import { randomBytes } from "node:crypto";
 import { chmodSync, mkdirSync, readFileSync, renameSync, existsSync, statSync, writeFileSync } from "node:fs";
@@ -13,10 +19,7 @@ import path from "node:path";
 // Floating @latest specs: a registered config must never decay into a stale
 // pin (that is what rotted the pinned-testbed fresh-machine deploy). `hr setup`
 // prints the concrete resolved versions right after install for auditability.
-const PLUGINS = {
-  server: ["opencode-hr-agent@latest", "opencode-fastdraw@latest"],
-  tui: ["opencode-fastdraw@latest"],
-};
+const PLUGINS = ["opencode-hr-agent@latest", "opencode-fastdraw@latest"];
 
 function configDir() {
   const flag = process.argv.indexOf("--config-dir");
@@ -24,9 +27,8 @@ function configDir() {
   return process.env.OPENCODE_CONFIG_DIR ?? path.join(homedir(), ".config", "opencode");
 }
 
-function target(kind) {
+function target(base) {
   const dir = configDir();
-  const base = kind === "tui" ? "tui" : "opencode";
   const json = path.join(dir, `${base}.json`);
   const jsonc = path.join(dir, `${base}.jsonc`);
   // Never parse/rewrite JSONC by machine; point the human at the one line to add.
@@ -40,7 +42,7 @@ function readConfig(file) {
   try {
     parsed = JSON.parse(readFileSync(file, "utf8"));
   } catch {
-    throw new Error(`REFUSING to touch ${file}: not strict JSON (comments?). Add the plugin entries by hand instead:\n  ${JSON.stringify(PLUGINS)}`);
+    throw new Error(`REFUSING to touch ${file}: not strict JSON (comments?). Add the plugin entries by hand instead:\n  "plugins": ${JSON.stringify(PLUGINS)}`);
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error(`REFUSING to touch ${file}: top level is not an object`);
@@ -48,7 +50,14 @@ function readConfig(file) {
   return parsed;
 }
 
-const nameOf = (spec) => (Array.isArray(spec) ? spec[0] : spec).replace(/@[^@/]+$/, "");
+// Entry shapes accepted across V1/V2 history: "name@ver", ["name@ver", opts],
+// { package: "name@ver", ... }. Normalise to the bare package name.
+const nameOf = (spec) => {
+  if (Array.isArray(spec)) return String(spec[0]).replace(/@[^@/]+$/, "");
+  if (spec && typeof spec === "object" && typeof spec.package === "string")
+    return spec.package.replace(/@[^@/]+$/, "");
+  return String(spec).replace(/@[^@/]+$/, "");
+};
 
 function mergePlugins(list, wanted) {
   const out = Array.isArray(list) ? [...list] : [];
@@ -62,10 +71,13 @@ function mergePlugins(list, wanted) {
       continue;
     }
     const cur = out[idx];
-    const curSpec = Array.isArray(cur) ? cur[0] : cur;
+    const curSpec = Array.isArray(cur) ? cur[0] : cur && typeof cur === "object" ? cur.package : cur;
     if (curSpec === spec) continue; // right version; keep user's options entry intact
     if (Array.isArray(cur)) {
       cur[0] = spec; // upgrade in place, preserve attached options object
+      changed.push(`~ ${curSpec} -> ${spec} (options kept)`);
+    } else if (cur && typeof cur === "object") {
+      cur.package = spec; // V2 object entry: upgrade in place, options kept
       changed.push(`~ ${curSpec} -> ${spec} (options kept)`);
     } else {
       out[idx] = spec;
@@ -100,65 +112,130 @@ function writeAtomic(file, data) {
   }
 }
 
+const HR_NAMES = () => PLUGINS.map(nameOf);
+
+// Remove our entries from any list under any key; returns [list, removedCount].
+function stripOurs(list) {
+  if (!Array.isArray(list)) return [list, 0];
+  const names = HR_NAMES();
+  const kept = list.filter((s) => !names.includes(nameOf(s)));
+  return [kept, list.length - kept.length];
+}
+
+// Sweep V1 relics: old `plugin` key in the main config, the auto-migrated
+// cli.json TUI list, and the legacy tui.json. Only touches files that exist
+// and only removes entries belonging to this plugin pair.
+function sweepLegacy(mainFile) {
+  const notes = [];
+  const dir = path.dirname(mainFile);
+  const cleanFile = (file, keys) => {
+    if (!existsSync(file)) return;
+    let cfg;
+    try {
+      cfg = JSON.parse(readFileSync(file, "utf8"));
+    } catch {
+      notes.push(`LEGACY-SKIP ${file}: not strict JSON, leave by hand`);
+      return;
+    }
+    if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) return;
+    let removed = 0;
+    for (const key of keys) {
+      const [kept, n] = stripOurs(cfg[key]);
+      if (n) {
+        if (kept.length) cfg[key] = kept;
+        else delete cfg[key];
+        removed += n;
+      }
+    }
+    if (removed) {
+      writeAtomic(file, cfg);
+      notes.push(`LEGACY ${file} (-${removed} V1 entries)`);
+    }
+  };
+  cleanFile(mainFile, ["plugin"]);
+  cleanFile(path.join(dir, "cli.json"), ["plugins", "plugin"]);
+  cleanFile(path.join(dir, "tui.json"), ["plugins", "plugin"]);
+  return notes;
+}
+
 function install() {
-  let touched = 0;
-  for (const [kind, targetFile] of [["server", target("server")], ["tui", target("tui")]]) {
-    if (typeof targetFile === "object" && targetFile.refuse) {
-      console.log(`SKIP ${kind}: ${targetFile.refuse} is JSONC (has comments) — add manually:\n  "plugin": ${JSON.stringify(PLUGINS[kind === "server" ? "server" : "tui"])}`);
-      continue;
-    }
-    const cfg = readConfig(targetFile);
-    const { out, changed } = mergePlugins(cfg.plugin, kind === "server" ? PLUGINS.server : PLUGINS.tui);
-    if (!changed.length) {
-      console.log(`OK   ${targetFile} (already registered)`);
-      continue;
-    }
-    cfg.plugin = out;
-    writeAtomic(targetFile, cfg);
-    for (const c of changed) console.log(`${c.startsWith("+") ? "ADD " : "SET "} ${targetFile}\n     ${c}`);
-    touched++;
+  const file = target("opencode");
+  if (typeof file === "object" && file.refuse) {
+    console.log(`SKIP: ${file.refuse} is JSONC (has comments) — add manually:\n  "plugins": ${JSON.stringify(PLUGINS)}`);
+    return 0;
   }
+  const cfg = readConfig(file);
+  const { out, changed } = mergePlugins(cfg.plugins, PLUGINS);
+  if (changed.length) {
+    cfg.plugins = out;
+    writeAtomic(file, cfg);
+    for (const c of changed) console.log(`${c.startsWith("+") ? "ADD " : "SET "} ${file}\n     ${c}`);
+  } else {
+    console.log(`OK   ${file} (already registered)`);
+  }
+  for (const note of sweepLegacy(file)) console.log(note);
   console.log(
-    touched
-      ? "\nRestart opencode, then expect hr_* + fastdraw_* tools (and /fastdraw in the TUI).\nUninstall with: opencode-hr uninstall"
-      : "\nNothing to change — both files already declare the @latest plugins.",
+    changed.length
+      ? "\nConfig reloads automatically (/reload or next start): expect hr_* + fastdraw_* tools and /fastdraw in the TUI.\nUninstall with: opencode-hr uninstall"
+      : "\nNothing to change — config already declares the @latest plugins.",
   );
   return 0;
 }
 
 function status() {
-  let bad = 0;
-  for (const [kind, file] of [["server", target("server")], ["tui", target("tui")]]) {
-    if (typeof file === "object" && file.refuse) {
-      console.log(`JSONC ${kind} config: ${file.refuse} (check plugin array by eye)`);
-      continue;
-    }
-    const cfg = existsSync(file) ? readConfig(file) : {};
-    const have = (Array.isArray(cfg.plugin) ? cfg.plugin : []).map(nameOf);
-    const missing = (kind === "server" ? PLUGINS.server : PLUGINS.tui).map(nameOf).filter((n) => !have.includes(n));
-    console.log(`${missing.length ? "MISS " : "OK   "} ${file}${missing.length ? ` missing: ${missing.join(", ")}` : ""}`);
-    if (missing.length) bad = 1;
+  const file = target("opencode");
+  if (typeof file === "object" && file.refuse) {
+    console.log(`JSONC config: ${file.refuse} (check plugins array by eye)`);
+    return 0;
   }
-  return bad;
+  const cfg = existsSync(file) ? readConfig(file) : {};
+  const have = (Array.isArray(cfg.plugins) ? cfg.plugins : []).map(nameOf);
+  const missing = HR_NAMES().filter((n) => !have.includes(n));
+  console.log(`${missing.length ? "MISS " : "OK   "} ${file}${missing.length ? ` missing: ${missing.join(", ")}` : ""}`);
+  const dir = path.dirname(file);
+  for (const [f, keys] of [[file, ["plugin"]], [path.join(dir, "cli.json"), ["plugins", "plugin"]], [path.join(dir, "tui.json"), ["plugins", "plugin"]]]) {
+    if (!existsSync(f)) continue;
+    try {
+      const c = JSON.parse(readFileSync(f, "utf8"));
+      for (const key of keys) {
+        const [, n] = stripOurs(c && c[key]);
+        if (n) console.log(`WARN ${f}: ${n} legacy '${key}' entr${n === 1 ? "y" : "ies"} — run: opencode-hr install`);
+      }
+    } catch {
+      /* unreadable relic files are reported by install, not status */
+    }
+  }
+  return missing.length ? 1 : 0;
 }
 
 function uninstall() {
-  for (const [kind, file] of [["server", target("server")], ["tui", target("tui")]]) {
-    if (typeof file === "object" && file.refuse) {
-      console.log(`SKIP ${kind}: ${file.refuse} — remove entries by hand`);
+  const file = target("opencode");
+  const files = [[file, ["plugins", "plugin"]]];
+  if (typeof file !== "object") {
+    const dir = path.dirname(file);
+    files.push([path.join(dir, "cli.json"), ["plugins", "plugin"]], [path.join(dir, "tui.json"), ["plugins", "plugin"]]);
+  }
+  for (const [f, keys] of files) {
+    if (typeof f === "object" && f.refuse) {
+      console.log(`SKIP: ${f.refuse} — remove entries by hand`);
       continue;
     }
-    if (!existsSync(file)) continue;
-    const cfg = readConfig(file);
-    if (!Array.isArray(cfg.plugin)) continue;
-    const names = [...PLUGINS.server, ...PLUGINS.tui].map(nameOf);
-    const before = cfg.plugin.length;
-    cfg.plugin = cfg.plugin.filter((s) => !names.includes(nameOf(s)));
-    if (cfg.plugin.length !== before) {
-      writeAtomic(file, cfg);
-      console.log(`DEL  ${file} (-${before - cfg.plugin.length})`);
+    if (!existsSync(f)) continue;
+    const cfg = readConfig(f);
+    let removed = 0;
+    for (const key of keys) {
+      const [kept, n] = stripOurs(cfg[key]);
+      if (n) {
+        if (kept.length) cfg[key] = kept;
+        else delete cfg[key];
+        removed += n;
+      }
+    }
+    if (removed) {
+      writeAtomic(f, cfg);
+      console.log(`DEL  ${f} (-${removed})`);
     } else {
-      console.log(`OK   ${file} (nothing to remove)`);
+      console.log(`OK   ${f} (nothing to remove)`);
     }
   }
   console.log("\nNote: opencode keeps installed copies under ~/.cache/opencode/packages; delete there if you also want the code gone.");

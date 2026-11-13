@@ -1,6 +1,6 @@
 {
   "name": "opencode-hr-agent",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "HR Agent OpenCode integration with FastDraw as the verdict-application layer",
   "type": "module",
   "bin": {
@@ -18,7 +18,10 @@
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@opencode/plugin": ">=2.2.0 <3",
+    "@opencode-ai/plugin": ">=1.18.29 <2"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/TachikomaGundam/AIHR.git",
@@ -37,9 +40,7 @@
     "agents"
   ],
   "engines": {
-    "node": ">=22.18.0"
-  },
-  "peerDependencies": {
-    "@opencode-ai/plugin": ">=1.0.0"
+    "node": ">=22.18.0",
+    "opencode": ">=2.0.0"
   }
 }
