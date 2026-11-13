@@ -217,10 +217,17 @@ def run_uninstall(runner: Runner = default_runner) -> int:
         shutil.rmtree(cached)
         say(f"DEL  {cached}")
     cfg = _opencode_config_dir()
+    # Skill install layout is <skills>/hr-workflow/SKILL.md (V2 directory form,
+    # see hr skill install); the flat hr-workflow.md is the pre-migration
+    # layout older installs placed — reverse both, then the agent file.
     for copied in (cfg / "skills" / "hr-workflow.md", cfg / "agents" / "hr.md"):
         if copied.is_file():
             copied.unlink()
             say(f"DEL  {copied}")
+    skill_dir = cfg / "skills" / "hr-workflow"
+    if skill_dir.is_dir():
+        shutil.rmtree(skill_dir)
+        say(f"DEL  {skill_dir}")
     for scripts_dir in setup_env.scripts_dir_candidates():
         if not scripts_dir.is_dir():
             continue

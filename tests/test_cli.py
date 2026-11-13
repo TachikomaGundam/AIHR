@@ -24,6 +24,7 @@ runner = CliRunner()
 
 COMMANDS = {
     "preflight",
+    "skill",
     "apply",
     "apply-backups",
     "apply-preview",

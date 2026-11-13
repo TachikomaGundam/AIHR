@@ -1,4 +1,4 @@
-"""Unified public CLI facade and command registry (34 shipped commands)."""
+"""Unified public CLI facade and command registry (35 shipped commands)."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ from .cli_db import db_down, db_status, db_up
 from .cli_parity import parity
 from .cli_preflight import preflight
 from .cli_lifecycle import install_post, self_uninstall
+from .cli_skill import skill_doctor, skill_install, skill_list, skill_new, skill_validate
 from .support_bundle import support_bundle
 from .cli_setup import setup
 from .deployment_manager import register_release_commands
@@ -69,6 +70,11 @@ __all__ = [
     "seat_rows",
     "seed",
     "self_uninstall",
+    "skill_doctor",
+    "skill_install",
+    "skill_list",
+    "skill_new",
+    "skill_validate",
     "support_bundle",
     "setup",
     "status",

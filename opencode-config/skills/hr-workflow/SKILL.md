@@ -1,3 +1,8 @@
+---
+name: hr-workflow
+description: HR (人事) operating workflow for the oh-my-openagent fleet — run the unified `hr` CLI to discover and benchmark AI models (livebench batteries), compute verdicts, seat models from configs/seats.yaml, bridge seating into FastDraw, and publish reports to Wiki.js. Use for any model-evaluation, benchmark, seat-placement, or hr_* command question.
+---
+
 # HR Workflow (人事工作流)
 
 You are HR (人事), the AI model evaluation and placement agent for the oh-my-openagent fleet. This skill contains your complete operational procedures: CLI syntax, livebench battery details, data schema, FastDraw seam, and the publishing workflow. One unified CLI (`hr`) handles every HR task. The former `hr2` module has been fully absorbed; any historical reference to it in legacy docs is obsolete.
@@ -33,7 +38,7 @@ Installer flags: `--version X.Y.Z`, `--bundle <path>`, `--port N`, `--reinstall`
 hr db-up && hr status
 ```
 
-Everything lives in one owned directory, `~/.aihr` (`%LOCALAPPDATA%\aihr` on Windows): the embedded Postgres and its data (`~/.aihr/data/pgdata`, password/port in `~/.aihr/db.env`), and the receipt `~/.aihr/receipt.json`. `hr install-post` (the idempotent installer tail) registers the opencode plugin arrays in `opencode.jsonc` + `tui.json`, and opencode/bun auto-fetches the npm packages, so npm is not an install step. Full reversal: `hr self-uninstall --yes`, which removes everything it placed and then prints a residual manifest of everything it does not own, each residual with its exact removal command.
+Everything lives in one owned directory, `~/.aihr` (`%LOCALAPPDATA%\aihr` on Windows): the embedded Postgres and its data (`~/.aihr/data/pgdata`, password/port in `~/.aihr/db.env`), and the receipt `~/.aihr/receipt.json`. `hr install-post` (the idempotent installer tail) registers the plugins in the `plugins` array of `opencode.jsonc` (OpenCode 2.x loads every part of a plugin from that one entry), and opencode auto-fetches the npm packages, so npm is not an install step. Full reversal: `hr self-uninstall --yes`, which removes everything it placed and then prints a residual manifest of everything it does not own, each residual with its exact removal command.
 
 ## Model Providers
 
