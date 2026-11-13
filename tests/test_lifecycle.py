@@ -96,17 +96,18 @@ def test_install_post_places_everything_and_records_the_receipt(monkeypatch, tmp
     rc_text = (home / ".bashrc").read_text(encoding="utf-8")
     assert rc_text.startswith(PRE_EXISTING_RC) and setup_env.MARK_BEGIN in rc_text
     assert str(d / "bin") in rc_text
-    assert _parse(cfg / "opencode.jsonc")["plugin"] == [
-        lifecycle.HR_AGENT_PLUGIN, "user-owned@9",
-    ]
-    assert _parse(cfg / "tui.json")["plugin"] == [lifecycle.FASTDRAW_PLUGIN]
+    cfg_text = _parse(cfg / "opencode.jsonc")
+    assert set(cfg_text["plugins"]) == {lifecycle.HR_AGENT_PLUGIN, lifecycle.FASTDRAW_PLUGIN}
+    assert len(cfg_text["plugins"]) == 2  # each registered exactly once
+    assert cfg_text["plugin"] == ["user-owned@9"]  # legacy V1 key: user's, untouched
+    assert not (cfg / "tui.json").exists()  # V2 registers nothing into tui.json
     receipt = json.loads(receipt_path(d).read_text(encoding="utf-8"))
     assert set(receipt) == {"version", "ts", "entries"}
     kinds = [e["kind"] for e in receipt["entries"]]
     assert kinds == ["file", "dir", "file", "path-block", "config-entry", "config-entry"]
     assert receipt["entries"][0]["path"] == str(d / "db.env")
     assert receipt["entries"][-1]["value"] == lifecycle.FASTDRAW_PLUGIN
-    assert "prior_sha256" not in receipt["entries"][-1]  # tui.json did not exist yet
+    assert receipt["entries"][-1]["prior_sha256"]  # V2: both entries live in the pre-existing opencode.jsonc
     assert receipt["entries"][-2]["prior_sha256"]  # opencode.jsonc did → hash recorded
 
 
@@ -124,7 +125,7 @@ def test_install_post_is_idempotent(monkeypatch, tmp_path) -> None:
     assert password_line in (d / "db.env").read_text(encoding="utf-8")  # never regenerated
     second = json.loads(receipt_path(d).read_text(encoding="utf-8"))["entries"]
     assert len(first) == len(second) == 6  # no duplicate receipt entries
-    assert _parse(cfg / "opencode.jsonc")["plugin"].count(lifecycle.HR_AGENT_PLUGIN) == 1
+    assert _parse(cfg / "opencode.jsonc")["plugins"].count(lifecycle.HR_AGENT_PLUGIN) == 1
     assert (home / ".bashrc").read_text(encoding="utf-8").count(setup_env.MARK_BEGIN) == 1
 
 
@@ -185,7 +186,7 @@ def test_self_uninstall_reverses_everything_and_reports_residue(monkeypatch, tmp
     assert not d.exists()  # D deleted last, after the replay
     assert (home / ".bashrc").read_text(encoding="utf-8") == PRE_EXISTING_RC  # PATH block gone
     assert (cfg / "opencode.jsonc").read_text(encoding="utf-8") == PRE_EXISTING_JSONC
-    assert not (cfg / "tui.json").exists()  # we created it → it goes
+    assert not (cfg / "tui.json").exists()  # V2 install never creates it
     for needle in ("opencode-hr-agent@0.9.9", "opencode-fastdraw@1.4.2", str(user_bin / "hr")):
         assert needle in out
     if os.name != "posix":

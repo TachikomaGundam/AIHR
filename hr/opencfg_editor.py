@@ -2,10 +2,17 @@
 
 :mod:`hr.opencfg` parses opencode's JSONC read-only; :mod:`hr.jsonc_scan`
 locates spans. This module owns the writes: ensuring/removing one entry in a
-top-level ``plugin`` array by splicing a single element line into (or out
-of) the original text, so every comment, every unrelated key, and the user's
+top-level ``plugins`` array (OpenCode V2; V1-era ``plugin`` is still readable
+via the ``key`` argument) by splicing a single element line into (or out of)
+the original text, so every comment, every unrelated key, and the user's
 own formatting survive byte-for-byte. Before any write the mutated text is
 re-parsed; a mutation that would corrupt the file is aborted, not shipped.
+
+Idempotency is package-logical, not string-literal: V2 permits object
+entries ``{"package": "...", "options": {...}}``, so an entry whose package
+name matches one already registered (string or object, any pinned version)
+is never spliced a second time — double registration of one package is the
+V2 failure mode this guard closes.
 """
 
 from __future__ import annotations
@@ -15,6 +22,49 @@ from pathlib import Path
 
 from hr.jsonc_scan import ArrayInfo, Element, line_indent, scan_top_array, skip_ws_comments
 from hr.opencfg import strip_jsonc_comments
+
+
+def _norm_name(spec: object) -> str | None:
+    """Package name of a plugin entry across all shapes V1/V2 produced.
+
+    ``"name@1.2"``/``["name@1.2", opts]``/``{"package": "name@1.2", ...}``
+    all normalise to ``"name"``; a trailing ``@version`` is stripped only
+    when the residue cannot be part of a path or a scoped-name lead-in.
+    """
+    if isinstance(spec, str):
+        raw = spec
+    elif isinstance(spec, dict) and isinstance(spec.get("package"), str):
+        raw = spec["package"]
+    elif isinstance(spec, list) and spec and isinstance(spec[0], str):
+        raw = spec[0]
+    else:
+        return None
+    head, sep, tail = raw.rpartition("@")
+    if sep and head and "/" not in tail:
+        return head
+    return raw
+
+
+def _registered_alias(text: str, key: str, entry: str) -> object | None:
+    """An existing entry naming the same package as ``entry``, or None.
+
+    Unparseable documents yield None here; :func:`_validate` is the
+    fail-closed gate that refuses to write through them.
+    """
+    try:
+        data = json.loads(strip_jsonc_comments(text))
+    except ValueError:
+        return None
+    array = data.get(key) if isinstance(data, dict) else None
+    if not isinstance(array, list):
+        return None
+    want = _norm_name(entry)
+    if want is None:
+        return None
+    for item in array:
+        if item != entry and _norm_name(item) == want:
+            return item
+    return None
 
 
 def _splice_array(text: str, arr: ArrayInfo, entry: str) -> str:
@@ -82,12 +132,13 @@ def _render_new_array(indent: str, key: str, entry: str, comma: bool) -> str:
     return block + ("," if comma else "")
 
 
-def ensure_plugin_entry(path: Path, entry: str, *, key: str = "plugin") -> tuple[bool, str]:
+def ensure_plugin_entry(path: Path, entry: str, *, key: str = "plugins") -> tuple[bool, str]:
     """Idempotently place ``entry`` in the top-level ``key`` array.
 
     Creates the file, the array, or the element line as needed; a no-op when
-    the entry is already present. Everything outside the spliced line — all
-    comments included — is preserved byte-for-byte.
+    the entry — or any other spec for the same package — is already present
+    (see :func:`_registered_alias`). Everything outside the spliced line —
+    all comments included — is preserved byte-for-byte.
     """
     if not path.is_file():
         text = f'{{\n  "{key}": [\n    "{entry}"\n  ]\n}}\n'
@@ -99,6 +150,9 @@ def ensure_plugin_entry(path: Path, entry: str, *, key: str = "plugin") -> tuple
     arr, first_brace, empty_object = scan_top_array(text, key)
     if arr is not None and arr.find(entry) is not None:
         return False, f"{key} entry already present in {path}: {entry}"
+    alias = _registered_alias(text, key, entry)
+    if alias is not None:
+        return False, f"{key} package already registered in {path} under a different spec: {alias!r}"
     if arr is not None:
         updated = _splice_array(text, arr, entry)
     else:
@@ -138,6 +192,51 @@ def array_is_empty(path: Path, *, key: str = "plugin") -> bool:
         return False
     arr, _brace, _empty = scan_top_array(path.read_text(encoding="utf-8"), key)
     return arr is not None and not arr.elements
+
+
+def remove_empty_array_key(path: Path, *, key: str = "plugins") -> tuple[bool, str]:
+    """Delete the top-level ``"key": []`` declaration only when it holds no entries.
+
+    Uninstall round-trip: V2 install may *create* the ``plugins`` key in a file
+    that never had one; after the entries go again, a dead empty array would
+    break the found-state restoration promise. A non-empty array is refused
+    (fail-closed) and an array whose removal would corrupt the file aborts.
+    """
+    if not path.is_file():
+        return False, f"{path} not found — nothing to remove"
+    text = path.read_text(encoding="utf-8")
+    arr, _brace, _empty = scan_top_array(text, key)
+    if arr is None:
+        return False, f"no {key} array in {path} — nothing to remove"
+    if arr.elements:
+        return False, f"{key} array in {path} still holds entries — kept"
+    after = skip_ws_comments(text, arr.close + 1)
+    line_start = text.rfind("\n", 0, arr.key_start) + 1
+    own_line = text[line_start:arr.key_start].strip() == ""
+    if after < len(text) and text[after] == ",":
+        cut_end = after + 1
+        if own_line and text.startswith("\n", cut_end):
+            updated = text[:line_start] + text[cut_end + 1 :]
+        else:
+            while cut_end < len(text) and text[cut_end] in " \t":
+                cut_end += 1
+            updated = text[: arr.key_start] + text[cut_end:]
+    else:
+        prev = _rfind_comma(text, arr.key_start)
+        if prev is not None:
+            updated = text[:prev] + text[after:]
+        elif own_line and text.startswith("\n", arr.close + 1):
+            updated = text[:line_start] + text[arr.close + 2 :]
+        else:
+            updated = text[: arr.key_start] + text[arr.close + 1 :]
+    try:
+        data = json.loads(strip_jsonc_comments(updated))
+    except ValueError as exc:
+        raise ValueError(f"refusing to write invalid JSONC ({exc})") from exc
+    if not isinstance(data, dict) or key in data:
+        raise ValueError(f"refusing to write: {key} array still present after splice")
+    path.write_text(updated, encoding="utf-8")
+    return True, f"removed empty {key} array from {path}"
 
 
 def _validate(

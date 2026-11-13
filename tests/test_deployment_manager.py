@@ -120,7 +120,7 @@ def _write_config(
 ) -> Path:
     config_dir.mkdir(parents=True, exist_ok=True)
     config = _config_file(config_dir)
-    config.write_text('{\n  "plugin": ' + json.dumps(entries or []) + extra + "}\n")
+    config.write_text('{\n  "plugins": ' + json.dumps(entries or []) + extra + "}\n")
     return config
 
 
@@ -131,7 +131,10 @@ def _plugin_entries(config_dir: Path) -> list[str]:
     from hr.opencfg import parse_config_file
 
     data = parse_config_file(config)
-    return [str(e) for e in data.get("plugin", [])]
+    entries = [str(e) for e in data.get("plugins", [])]
+    if not entries:
+        entries = [str(e) for e in data.get("plugin", [])]
+    return entries
 
 
 # ---------------------------------------------------------------------------
@@ -677,7 +680,7 @@ def test_activate_creates_plugin_key_when_config_absent(tmp_path: Path) -> None:
     ]
     from hr.opencfg import parse_config_file
 
-    assert parse_config_file(_config_file(config_dir))["plugin"]
+    assert parse_config_file(_config_file(config_dir))["plugins"]
 
 
 def test_activate_restores_previous_pointers_on_config_write_failure(

@@ -188,11 +188,11 @@ def install_post(
     _changed, message = setup_env.persist_path(bin_dir, platform=platform)
     say(f"path: {message}")
     entries.append(Entry(str(bin_dir), KIND_PATH_BLOCK, message))
-    config_dir = opencode_config_dir()
-    for config_file, plugin in (
-        (config_dir / "opencode.jsonc", HR_AGENT_PLUGIN),
-        (config_dir / "tui.json", FASTDRAW_PLUGIN),
-    ):
+    config_file = opencode_config_dir() / "opencode.jsonc"
+    # OpenCode V2: one `plugins` array carries server and TUI halves alike
+    # (packages exporting ./tui auto-load their TUI part); the V1-era
+    # tui.json is no longer written.
+    for plugin in (HR_AGENT_PLUGIN, FASTDRAW_PLUGIN):
         prior = sha256_file(config_file)
         _added, note = ensure_plugin_entry(config_file, plugin)
         say(f"plugin: {note}")

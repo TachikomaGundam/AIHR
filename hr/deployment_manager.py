@@ -426,17 +426,27 @@ def _atomic_write(path: Path, text: str) -> None:
 
 
 def _config_entries(config_file: Path) -> list[str]:
-    """Plugin paths currently registered in the opencode config."""
+    """Plugin paths currently registered in the opencode config.
+
+    OpenCode V2 reads both the native ``plugins`` array and the deprecated
+    ``plugin`` one (the engine loads entries from either), so both are the
+    registration surface; ``plugins`` comes first.
+    """
     if not config_file.is_file():
         return []
     try:
         data = parse_config_file(config_file)
     except ValueError:
         return []
-    entries = data.get("plugin")
-    if not isinstance(entries, list):
-        return []
-    return [str(entry) for entry in entries if isinstance(entry, str)]
+    out: list[str] = []
+    for key in ("plugins", "plugin"):
+        entries = data.get(key)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if isinstance(entry, str) and entry not in out:
+                out.append(entry)
+    return out
 
 
 def _jsonc_tokens(raw: str) -> list[tuple[str, int, int]]:
@@ -475,13 +485,13 @@ def _jsonc_tokens(raw: str) -> list[tuple[str, int, int]]:
 
 
 def _plugin_array_position(
-    tokens: list[tuple[str, int, int]], raw: str
+    tokens: list[tuple[str, int, int]], raw: str, key: str = "plugins"
 ) -> tuple[tuple[str, int, int], tuple[str, int, int]] | None:
-    """Span (open, close) of the top-level ``plugin`` array, or None when the
-    config has no top-level ``plugin`` key. Only a ``plugin`` KEY at brace
-    depth 1 (the config's top-level object) qualifies — nested ``plugin``
-    keys and string content elsewhere never match. Raises ValueError for a
-    top-level plugin that is not an array."""
+    """Span (open, close) of the top-level ``key`` plugin array, or None when
+    the config has no such key. Only a matching KEY at brace depth 1 (the
+    config's top-level object) qualifies — nested keys and string content
+    elsewhere never match. Raises ValueError for a top-level match that is
+    not an array."""
     non_array_plugin = False
     depth = 0
     for idx, (kind, start, end) in enumerate(tokens):
@@ -500,7 +510,7 @@ def _plugin_array_position(
             value = json.loads(raw[start:end])
         except json.JSONDecodeError:
             continue
-        if value != "plugin":
+        if value != key:
             continue
         colon = idx + 1
         if colon >= len(tokens) or tokens[colon][0] != ":":
@@ -518,20 +528,33 @@ def _plugin_array_position(
                 if bracket_depth == 0:
                     return tokens[array], tokens[j]
     if non_array_plugin:
-        raise ValueError("'plugin' entry is not an array; refusing auto-registration")
+        raise ValueError(f"'{key}' entry is not an array; refusing auto-registration")
     return None
 
 
+def _plugin_write_position(
+    tokens: list[tuple[str, int, int]], raw: str
+) -> tuple[tuple[str, int, int], tuple[str, int, int]] | None:
+    """Array the deployment layer appends to: the V2 ``plugins`` array when
+    present, else a legacy ``plugin`` array (one fact, one array — a user's
+    existing shape is never forked into two), else None → create
+    ``plugins``."""
+    position = _plugin_array_position(tokens, raw, "plugins")
+    if position is not None:
+        return position
+    return _plugin_array_position(tokens, raw, "plugin")
+
+
 def _insert_plugin_path(raw: str, plugin_path: str) -> str:
-    """Append ``plugin_path`` to the config's ``plugin`` array, preserving
+    """Append ``plugin_path`` to the config's plugin array, preserving
     everything else byte-for-byte (comments, formatting, other keys)."""
     tokens = _jsonc_tokens(raw)
-    position = _plugin_array_position(tokens, raw)
+    position = _plugin_write_position(tokens, raw)
     entry = json.dumps(plugin_path)
     if position is None:
         for kind, _, end in tokens:
             if kind == "{":
-                return raw[:end] + '\n  "plugin": [' + entry + "]," + raw[end:]
+                return raw[:end] + '\n  "plugins": [' + entry + "]," + raw[end:]
         raise ValueError("config has no top-level object; refusing auto-registration")
     array_open, array_close = position
     inner = raw[array_open[2] : array_close[1]]
@@ -549,7 +572,7 @@ def _register_plugin_path(config_file: Path, plugin_path: str) -> tuple[bool, li
     format-preserving). Returns (changed, resulting entries)."""
     if not config_file.is_file():
         _atomic_write(
-            config_file, "{\n  \"plugin\": [" + json.dumps(plugin_path) + "]\n}\n"
+            config_file, "{\n  \"plugins\": [" + json.dumps(plugin_path) + "]\n}\n"
         )
         return True, [plugin_path]
     raw = config_file.read_text(encoding="utf-8")
@@ -567,38 +590,45 @@ def _register_plugin_path(config_file: Path, plugin_path: str) -> tuple[bool, li
 def _remove_plugin_entries(
     config_file: Path, entries_to_remove: list[str]
 ) -> tuple[bool, list[str]]:
-    """Remove plugin entries from the config's plugin array (the array itself
-    is deployment-managed, so it is normalized via json.dumps; the rest of
+    """Remove plugin entries from the config's plugin arrays — the V2
+    ``plugins`` one and the legacy ``plugin`` one alike (the arrays are
+    deployment-managed, so each is normalized via json.dumps; the rest of
     the file is preserved byte-for-byte). Returns (changed, removed)."""
     if not config_file.is_file():
         return False, []
     raw = config_file.read_text(encoding="utf-8")
-    tokens = _jsonc_tokens(raw)
-    position = _plugin_array_position(tokens, raw)
-    if position is None:
-        return False, []
-    array_open, array_close = position
-    inner_start, inner_end = array_open[1], array_close[2]
-    inner_tokens = [
-        token for token in tokens if token[1] >= inner_start and token[2] <= inner_end
-    ]
     removed: list[str] = []
-    remaining: list[str] = []
-    for kind, start, end in inner_tokens:
-        if kind != "s":
+    for key in ("plugins", "plugin"):
+        tokens = _jsonc_tokens(raw)
+        position = _plugin_array_position(tokens, raw, key)
+        if position is None:
             continue
-        try:
-            value = json.loads(raw[start:end])
-        except json.JSONDecodeError:
+        array_open, array_close = position
+        inner_start, inner_end = array_open[1], array_close[2]
+        inner_tokens = [
+            token for token in tokens if token[1] >= inner_start and token[2] <= inner_end
+        ]
+        hit: list[str] = []
+        remaining: list[str] = []
+        for kind, start, end in inner_tokens:
+            if kind != "s":
+                continue
+            try:
+                value = json.loads(raw[start:end])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, str) and value in entries_to_remove:
+                hit.append(value)
+            else:
+                remaining.append(value)
+        if not hit:
             continue
-        if value in entries_to_remove:
-            removed.append(value)
-        else:
-            remaining.append(value)
+        removed.extend(entry for entry in hit if entry not in removed)
+        body = json.dumps(remaining, indent=2)
+        raw = raw[:inner_start] + body + raw[inner_end:]
     if not removed:
         return False, []
-    body = json.dumps(remaining, indent=2)
-    _atomic_write(config_file, raw[:inner_start] + body + raw[inner_end:])
+    _atomic_write(config_file, raw)
     return True, removed
 
 

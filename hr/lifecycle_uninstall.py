@@ -23,9 +23,13 @@ from typing import Optional
 
 from hr import db_embedded, lifecycle, pg_launcher, setup_env
 from hr.config_resources import aihr_home_dir, home_dir, opencode_config_dir
-from hr.opencfg_editor import array_is_empty, remove_plugin_entry
+from hr.jsonc_scan import scan_top_array
+from hr.opencfg_editor import array_is_empty, remove_empty_array_key, remove_plugin_entry
 
 RESIDUAL_GLOBS: tuple[str, ...] = ("opencode-hr-agent@*", "opencode-fastdraw@*")
+# V2 uses `plugins`; receipts from the V1 era recorded `plugin` entries
+# (and a tui.json path). Replay sweeps every shape the receipt could name.
+CONFIG_ARRAY_KEYS: tuple[str, ...] = ("plugins", "plugin")
 
 
 @dataclass(frozen=True)
@@ -57,14 +61,37 @@ def _rm_command(path: Path, windows: bool) -> str:
     return f'rmdir /s /q "{text}"' if windows else f"rm -rf '{text}'"
 
 
+def _no_plugin_arrays_left(path: Path) -> bool:
+    """True when no plugin array in the file we created holds any entry left."""
+    if not path.is_file():
+        return True
+    text = path.read_text(encoding="utf-8")
+    for key in CONFIG_ARRAY_KEYS:
+        arr, _brace, _empty = scan_top_array(text, key)
+        if arr is not None and arr.elements:
+            return False
+    return True
+
+
 def _reverse(entry: _Record, *, windows: bool, say: Callable[[str], None]) -> None:
     path = Path(entry.path)
     if entry.kind == lifecycle.KIND_CONFIG_ENTRY:
-        _changed, message = remove_plugin_entry(path, entry.value)
-        say(f"replay: {message}")
-        if entry.prior_sha256 is None and array_is_empty(path):
+        removed_any = False
+        for key in CONFIG_ARRAY_KEYS:
+            changed, message = remove_plugin_entry(path, entry.value, key=key)
+            say(f"replay: {message}")
+            removed_any = removed_any or changed
+        if entry.prior_sha256 is None and _no_plugin_arrays_left(path):
             path.unlink()  # the file itself was created by install-post: placement reversed
             say(f"replay: removed config file we created: {path}")
+        else:
+            for key in CONFIG_ARRAY_KEYS:
+                if array_is_empty(path, key=key):
+                    # an array install created and just emptied again is dead config
+                    _changed, message = remove_empty_array_key(path, key=key)
+                    say(f"replay: {message}")
+            if not removed_any:
+                say(f"replay: no plugin entry to remove at {path} (already gone)")
     elif entry.kind == lifecycle.KIND_PATH_BLOCK:
         _changed, message = setup_env.remove_path(path, platform="win32" if windows else None)
         say(f"replay: {message}")
@@ -92,8 +119,9 @@ def _manual_steps(d: Path, *, windows: bool, say: Callable[[str], None]) -> None
         else f"  3. remove {d / 'bin'} from your user PATH (HKCU\\Environment)"
     )
     say(
-        f"  4. drop \"{lifecycle.HR_AGENT_PLUGIN}\" from {opencode_config_dir() / 'opencode.jsonc'} "
-        f'and "{lifecycle.FASTDRAW_PLUGIN}" from {opencode_config_dir() / "tui.json"}'
+        f"  4. drop \"{lifecycle.HR_AGENT_PLUGIN}\" and \"{lifecycle.FASTDRAW_PLUGIN}\" from the "
+        f'"plugins" array of {opencode_config_dir() / "opencode.jsonc"} '
+        '(older installs: the "plugin" key there and tui.json too)'
     )
 
 
