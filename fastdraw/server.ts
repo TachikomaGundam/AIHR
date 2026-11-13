@@ -1,12 +1,14 @@
 /**
  * FastDraw Server Plugin — config hook + assignment tools + preset tools
  *
- * Loaded by opencode's plugin resolver via exports: "./server" → this file.
- * Validator sees only { id, server } → passes J="server" check.
+ * Dual exit: V2 engine calls default.setup(ctx); V1 (>=1.18.29) calls
+ * default.server() and gets the original V1 { config, tool } object.
  */
-import type { Plugin } from "@opencode-ai/plugin"
+import type { Plugin as V1Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
+import { Plugin } from "@opencode/plugin"
 import fs from "node:fs/promises"
+import fsSync from "node:fs"
 import { homedir } from "node:os"
 import path from "node:path"
 import { OMO_BUILTINS, OVERRIDABLE_LIST } from "./roles.js"
@@ -356,6 +358,24 @@ function migrateAll(state: Assignments, omoCfg: OmoConfig): Record<string, strin
   return Object.keys(pending).length ? pending : null
 }
 
+/* ── Tool descriptions ────────────────────────────────────────────── */
+
+/** Single source for tool descriptions — consumed by the V1 tool() map and
+ *  the V2 registry below so the two entries can never drift. */
+const TOOL_DESCRIPTIONS = {
+  fastdraw_assign: "FastDraw: assign a model to an agent (effective immediately)",
+  fastdraw_remove: "FastDraw: remove model override for an agent",
+  fastdraw_list: "FastDraw: show current model assignments for all agents",
+  fastdraw_save_preset: "FastDraw: save the current model assignments as a named preset",
+  fastdraw_load_preset:
+    "FastDraw: load a preset — replaces ALL current assignments with the preset's bindings (effective immediately), and persists them into config files",
+  fastdraw_list_presets: "FastDraw: list all saved presets with their full agent→model bindings",
+  fastdraw_delete_preset: "FastDraw: delete a saved preset",
+  fastdraw_export_preset: "FastDraw: export a preset to a portable JSON file for sharing",
+  fastdraw_import_preset:
+    "FastDraw: import preset(s) from a JSON file — accepts a single exported preset or a full presets store",
+} as const
+
 /* ── Plugin ───────────────────────────────────────────────────────── */
 
 async function fastdrawServer() {
@@ -457,7 +477,7 @@ async function fastdrawServer() {
 
     tool: {
       fastdraw_assign: tool({
-        description: "FastDraw: assign a model to an agent (effective immediately)",
+        description: TOOL_DESCRIPTIONS.fastdraw_assign,
         args: {
           agent: tool.schema.string().describe("Agent name (e.g. oracle, my-custom-agent)"),
           model: tool.schema
@@ -501,7 +521,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_remove: tool({
-        description: "FastDraw: remove model override for an agent",
+        description: TOOL_DESCRIPTIONS.fastdraw_remove,
         args: {
           agent: tool.schema.string().describe("Agent name"),
         },
@@ -537,7 +557,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_list: tool({
-        description: "FastDraw: show current model assignments for all agents",
+        description: TOOL_DESCRIPTIONS.fastdraw_list,
         args: {},
         async execute() {
           await refreshOmo()
@@ -571,7 +591,7 @@ async function fastdrawServer() {
       /* ── Preset tools ─────────────────────────────────────────── */
 
       fastdraw_save_preset: tool({
-        description: "FastDraw: save the current model assignments as a named preset",
+        description: TOOL_DESCRIPTIONS.fastdraw_save_preset,
         args: {
           name: tool.schema.string().describe("Preset name (e.g. coding-heavy)"),
           description: tool.schema.string().optional().describe("Optional description"),
@@ -651,8 +671,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_load_preset: tool({
-        description:
-          "FastDraw: load a preset — replaces ALL current assignments with the preset's bindings (effective immediately), and persists them into config files",
+        description: TOOL_DESCRIPTIONS.fastdraw_load_preset,
         args: {
           name: tool.schema.string().describe("Preset name"),
           mode: tool.schema
@@ -825,7 +844,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_list_presets: tool({
-        description: "FastDraw: list all saved presets with their full agent→model bindings",
+        description: TOOL_DESCRIPTIONS.fastdraw_list_presets,
         args: {},
         async execute() {
           const names = Object.keys(presets.presets).sort()
@@ -846,7 +865,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_delete_preset: tool({
-        description: "FastDraw: delete a saved preset",
+        description: TOOL_DESCRIPTIONS.fastdraw_delete_preset,
         args: {
           name: tool.schema.string().describe("Preset name"),
         },
@@ -861,7 +880,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_export_preset: tool({
-        description: "FastDraw: export a preset to a portable JSON file for sharing",
+        description: TOOL_DESCRIPTIONS.fastdraw_export_preset,
         args: {
           name: tool.schema.string().describe("Preset name"),
           path: tool.schema
@@ -888,8 +907,7 @@ async function fastdrawServer() {
       }),
 
       fastdraw_import_preset: tool({
-        description:
-          "FastDraw: import preset(s) from a JSON file — accepts a single exported preset or a full presets store",
+        description: TOOL_DESCRIPTIONS.fastdraw_import_preset,
         args: {
           path: tool.schema.string().describe("File path to import (supports ~)"),
           name: tool.schema
@@ -935,4 +953,249 @@ async function fastdrawServer() {
   }
 }
 
-export default { id: "fastdraw", server: fastdrawServer }
+/* ── V2 entry (OpenCode ≥2.x via @opencode/plugin) ────────────────── */
+
+/** V2 tool registry: JSON Schemas mirroring the V1 zod args above.
+ *  `hot` marks tools whose execute can change agent→model bindings; after
+ *  those we ask the engine to replay the agent transform (ctx.agent.reload). */
+const V2_TOOLS: ReadonlyArray<{
+  name: keyof typeof TOOL_DESCRIPTIONS
+  input: Record<string, unknown>
+  hot?: boolean
+}> = [
+  {
+    name: "fastdraw_assign",
+    hot: true,
+    input: {
+      type: "object",
+      properties: {
+        agent: { type: "string", description: "Agent name (e.g. oracle, my-custom-agent)" },
+        model: {
+          type: "string",
+          description: "Model ID with provider prefix (e.g. provider/model)",
+        },
+      },
+      required: ["agent", "model"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_remove",
+    hot: true,
+    input: {
+      type: "object",
+      properties: { agent: { type: "string", description: "Agent name" } },
+      required: ["agent"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_list",
+    input: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "fastdraw_save_preset",
+    input: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Preset name (e.g. coding-heavy)" },
+        description: { type: "string", description: "Optional description" },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_load_preset",
+    hot: true,
+    input: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Preset name" },
+        mode: {
+          type: "string",
+          description:
+            "Restore mode: 'global' (all bindings → global config, default), 'original' (each binding → the file its origin came from, unresolved origins fall back to global), 'path' (all bindings → targetPath)",
+        },
+        targetPath: {
+          type: "string",
+          description: "Target config file for mode 'path' (absolute or cwd-relative)",
+        },
+        preview: {
+          type: "boolean",
+          description: "Only show the write plan — make no changes",
+        },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_list_presets",
+    input: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "fastdraw_delete_preset",
+    input: {
+      type: "object",
+      properties: { name: { type: "string", description: "Preset name" } },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_export_preset",
+    input: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Preset name" },
+        path: {
+          type: "string",
+          description: "Output file path (supports ~; default fastdraw-preset-<name>.json)",
+        },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "fastdraw_import_preset",
+    input: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "File path to import (supports ~)" },
+        name: {
+          type: "string",
+          description: "Override the preset name (single-preset files only)",
+        },
+      },
+      required: ["path"],
+      additionalProperties: false,
+    },
+  },
+]
+
+/** Split "provider/model" at the first slash — V2 Agent.Info.model is the
+ *  object form {providerID, id} while FastDraw state keeps the string form. */
+function parseModelRef(model: string): { providerID: string; id: string } | null {
+  const i = model.indexOf("/")
+  if (i <= 0 || i === model.length - 1) return null
+  return { providerID: model.slice(0, i), id: model.slice(i + 1) }
+}
+
+/** Mutable view of one editor agent (deep-mutable Agent.Info at runtime). */
+type V2Agent = { name: string; model?: unknown }
+
+/** FastDraw string form ("provider/model") of an editor agent's model. */
+function v2AgentModelString(a: V2Agent): string | undefined {
+  const m = a.model as { providerID?: unknown; id?: unknown } | string | undefined
+  if (typeof m === "string") return m
+  if (m && typeof m === "object" && typeof m.providerID === "string" && typeof m.id === "string")
+    return `${m.providerID}/${m.id}`
+  return undefined
+}
+
+/** Write a "provider/model" binding (or clear it) onto an editor agent. */
+function v2ApplyModelRef(a: V2Agent, model: string | undefined): void {
+  if (v2AgentModelString(a) === model) return
+  if (model === undefined) {
+    delete (a as { model?: unknown }).model
+    return
+  }
+  const ref = parseModelRef(model)
+  if (!ref) return
+  const prev = a.model as Record<string, unknown> | undefined
+  a.model = {
+    ...(prev && typeof prev === "object" ? prev : {}),
+    providerID: ref.providerID,
+    id: ref.id,
+  }
+}
+
+/** V2 setup: mirrors the V1 `config` hook onto ctx.agent.transform and the
+ *  V1 tool map onto ctx.tool.transform. All state/file semantics (state
+ *  file, presets, OMO routing) stay inside the untouched V1 factory. */
+async function fastdrawSetupV2(ctx: Plugin.Context): Promise<void> {
+  const v1 = await fastdrawServer()
+  const live = { agent: {} } as Cfg
+  // Engine base model per agent (first sighting, before any FastDraw write)
+  // plus the set of agents we last wrote. Together they make the transform
+  // replayable: a name dropped from state reverts to its base on reload,
+  // whether or not the engine replays transforms over base or current data.
+  const baseModels = new Map<string, string | undefined>()
+  let applied = new Set<string>()
+
+  await ctx.agent.transform((editor) => {
+    const liveAgent = ((live as { agent?: Record<string, { model?: string }> }).agent ??= {})
+    for (const key of Object.keys(liveAgent)) delete liveAgent[key]
+    const agents = editor.list() as unknown as V2Agent[]
+    for (const a of agents) {
+      const model = v2AgentModelString(a)
+      liveAgent[a.name] = model ? { model } : {}
+    }
+    // The V1 hook overlays state.agents (incl. OMO-routing exclusions) onto
+    // the config view for originals/OMO bookkeeping. It never CLEARS entries,
+    // so after a remove the mirror would still carry our previous write —
+    // the authoritative desired set is that overlay INTERSECTED with the raw
+    // state file's assignment keys (single source of truth, read synchronously
+    // because the transform callback must stay sync).
+    void v1.config(live as unknown as Record<string, unknown>)
+    let assigned: Record<string, unknown> = {}
+    try {
+      const raw = JSON.parse(fsSync.readFileSync(STATE_FILE, "utf-8")) as
+        { agents?: Record<string, unknown> }
+      if (raw && typeof raw.agents === "object" && raw.agents !== null)
+        assigned = raw.agents
+    } catch {
+      /* missing or corrupt state file → nothing is assigned */
+    }
+    const desired = new Map<string, string>()
+    for (const [name, entry] of Object.entries(liveAgent)) {
+      if (!(name in assigned)) continue
+      if (typeof entry?.model === "string" && entry.model.includes("/"))
+        desired.set(name, entry.model)
+    }
+    const present = new Set(agents.map((a) => a.name))
+    for (const a of agents) {
+      if (!baseModels.has(a.name)) baseModels.set(a.name, v2AgentModelString(a))
+      const want = desired.get(a.name)
+      if (want !== undefined) {
+        v2ApplyModelRef(a, want)
+        applied.add(a.name)
+      } else if (applied.has(a.name)) {
+        // No longer assigned — put back what the engine had before us.
+        v2ApplyModelRef(a, baseModels.get(a.name))
+      }
+    }
+    applied = new Set([...applied].filter((n) => desired.has(n) && present.has(n)))
+  })
+
+  await ctx.tool.transform((editor) => {
+    for (const spec of V2_TOOLS) {
+      const name = spec.name
+      const v1Tool = v1.tool[name as keyof typeof v1.tool] as unknown as {
+        execute: (args: Record<string, unknown>) => Promise<unknown>
+      }
+      editor.add({
+        name,
+        description: TOOL_DESCRIPTIONS[name],
+        input: spec.input,
+        async execute(input: Record<string, unknown>) {
+          const out = await v1Tool.execute(input ?? {})
+          if (spec.hot) await ctx.agent.reload()
+          return { content: typeof out === "string" ? out : String(out) }
+        },
+      } as unknown as Parameters<typeof editor.add>[0])
+    }
+  })
+}
+
+/** Dual entry (OpenCode ≥1.18.29): V1 loaders call `server()` for the V1
+ *  plugin object; V2 loads the definition spread from Plugin.define (which
+ *  is the identity at runtime, so `{id, setup}` + `server` coexist). */
+export default {
+  ...Plugin.define({ id: "fastdraw", setup: fastdrawSetupV2 }),
+  async server() {
+    return fastdrawServer()
+  },
+}

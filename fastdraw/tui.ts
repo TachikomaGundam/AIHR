@@ -2,13 +2,10 @@
  * FastDraw TUI Plugin — dialog-based model switcher + preset manager
  *
  * Loaded by opencode's plugin resolver via exports: "./tui" → this file.
- * Validator sees only { id, tui } → passes J="tui" check.
+ * Dual entry: V2 loads the Plugin.define shape ({ id, setup }); the legacy
+ * V1 `tui` function (opencode ≥1.18.29) hangs off the same default export.
  */
-import type {
-  TuiPlugin,
-  TuiDialogStack,
-  TuiDialogSelectOption,
-} from "@opencode-ai/plugin/tui"
+import { Plugin } from "@opencode/plugin/tui"
 import fs from "node:fs/promises"
 import { homedir } from "node:os"
 import path from "node:path"
@@ -293,18 +290,169 @@ function buildModelList(api: any): { id: string; provider: string }[] {
 
 /* ── Dialog Flows ─────────────────────────────────────────────────── */
 
-type Ui = any
+/** UI facade both plugin generations plug into. V2 (Plugin.setup) wraps the
+ *  promise dialogs of @opencode/plugin/tui; V1 wraps the legacy component-
+ *  stack dialogs. The flows below only ever talk to this shape. */
+type Ui = {
+  toast(message: string, variant?: "info" | "success" | "warning" | "error"): void
+  select<T>(opts: {
+    title: string
+    options: { title: string; value: T; description?: string; category?: string }[]
+    current?: T
+    size?: "medium" | "large"
+  }): Promise<T | undefined>
+  prompt(opts: { title: string; placeholder?: string; value?: string }): Promise<string | undefined>
+  confirm(opts: { title: string; message: string }): Promise<boolean | undefined>
+  alert(opts: { title: string; message: string }): Promise<void>
+  close(): void
+  models(): Promise<{ id: string; provider: string }[]>
+}
 
 function toast(ui: Ui, message: string, variant: "info" | "success" | "warning" | "error" = "info") {
-  ui.toast({ message, variant })
+  ui.toast(message, variant)
 }
 
 function flowError(ui: Ui, err: unknown) {
   toast(ui, `FastDraw: ${err instanceof Error ? err.message : String(err)}`, "error")
 }
 
+/** V2 TUI context (@opencode/plugin/tui) → Ui facade over promise dialogs. */
+function v2Ui(ctx: any): Ui {
+  const collect = async (col: any): Promise<any[]> => {
+    if (!col?.list) return []
+    let items = col.list(ctx.location)
+    if (!items?.length) {
+      try {
+        await col.sync(ctx.location)
+      } catch {
+        /* sync is best-effort — an empty list just means "pick manually" */
+      }
+      items = col.list(ctx.location)
+    }
+    return items ?? []
+  }
+  return {
+    toast: (message, variant = "info") => ctx.ui.toast.show({ message, variant }),
+    select: ({ title, options, current, size }: any) => {
+      if (size && size !== "medium") ctx.ui.dialog.set({ size })
+      return ctx.ui.dialog.select({ title, options, current })
+    },
+    prompt: ({ title, placeholder, value }: any) =>
+      ctx.ui.dialog.prompt({ title, placeholder, value }),
+    confirm: ({ title, message }: any) => ctx.ui.dialog.confirm({ title, message }),
+    alert: ({ title, message }: any) => ctx.ui.dialog.alert({ title, message }),
+    close: () => {
+      try {
+        ctx.ui.dialog.clear()
+      } catch {
+        /* nothing open — clearing is a no-op */
+      }
+    },
+    models: async () => {
+      const providers = await collect(ctx.data?.location?.provider)
+      const names: Record<string, string> = {}
+      for (const p of providers) if (p?.id) names[String(p.id)] = p.name ?? String(p.id)
+      const models = await collect(ctx.data?.location?.model)
+      const out: { id: string; provider: string }[] = []
+      for (const m of models) {
+        if (!m?.modelID || !m?.providerID) continue
+        out.push({
+          id: `${m.providerID}/${m.modelID}`,
+          provider: names[String(m.providerID)] ?? String(m.providerID),
+        })
+      }
+      return out
+    },
+  }
+}
+
+/** Legacy @opencode-ai/plugin TUI api → Ui. Same flows; the callback dialog
+ *  stack is wrapped into promises (the pattern the V1 file picker already
+ *  used), so V1 keeps its exact dialog widgets. */
+function v1Ui(api: any): Ui {
+  const ui = api.ui
+  const prep = (size?: "medium" | "large") =>
+    ui.dialog.setSize(size === "large" ? "large" : "medium")
+  return {
+    toast: (message, variant = "info") => ui.toast({ message, variant }),
+    select: (opts: any): Promise<any> =>
+      new Promise((resolve) => {
+        prep(opts.size)
+        ui.dialog.replace(() =>
+          ui.DialogSelect({
+            title: opts.title,
+            options: opts.options,
+            current: opts.current,
+            onSelect: (opt: any) => {
+              ui.dialog.clear()
+              resolve(opt ? opt.value : undefined)
+            },
+          }),
+        )
+      }),
+    prompt: (opts: any): Promise<string | undefined> =>
+      new Promise((resolve) => {
+        prep()
+        ui.dialog.replace(() =>
+          ui.DialogPrompt({
+            title: opts.title,
+            placeholder: opts.placeholder,
+            value: opts.value,
+            onCancel: () => {
+              ui.dialog.clear()
+              resolve(undefined)
+            },
+            onConfirm: (input: string) => {
+              ui.dialog.clear()
+              resolve(input)
+            },
+          }),
+        )
+      }),
+    confirm: (opts: any): Promise<boolean> =>
+      new Promise((resolve) => {
+        prep()
+        ui.dialog.replace(() =>
+          ui.DialogConfirm({
+            title: opts.title,
+            message: opts.message,
+            onCancel: () => {
+              ui.dialog.clear()
+              resolve(false)
+            },
+            onConfirm: () => {
+              ui.dialog.clear()
+              resolve(true)
+            },
+          }),
+        )
+      }),
+    alert: (opts: any): Promise<void> =>
+      new Promise((resolve) => {
+        prep()
+        ui.dialog.replace(() =>
+          ui.DialogConfirm({
+            title: opts.title,
+            message: opts.message,
+            onCancel: () => {
+              ui.dialog.clear()
+              resolve()
+            },
+            onConfirm: () => {
+              ui.dialog.clear()
+              resolve()
+            },
+          }),
+        )
+      }),
+    close: () => ui.dialog.clear(),
+    models: async () => buildModelList(api),
+  }
+}
+
 /** Flow: pick agent → pick model → persist → return to the agent list. */
-async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[]) {
+async function assignFlow(ui: Ui) {
+  const allModels = await ui.models()
   if (!allModels.length) {
     toast(ui, "FastDraw: No models configured", "warning")
     return
@@ -313,7 +461,8 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
   const omoRouted = (name: string): boolean =>
     omoCfg.parseable && isOmoName(omoCfg, name)
 
-  const showAgentList = async (focusName?: string): Promise<void> => {
+  let focusName: string | undefined
+  for (;;) {
     const assignments = await loadState()
     const customFromDir = await readCustomAgentNames()
 
@@ -345,203 +494,169 @@ async function assignFlow(ui: Ui, allModels: { id: string; provider: string }[])
       return "Custom"
     }
 
-    const agentOpts: TuiDialogSelectOption<string>[] = [...allNames]
-      .sort()
-      .map((name) => ({
-        title: name,
-        value: name,
-        description: currentModel(name)
-          ? `→ ${currentModel(name)}${shadowNote(name)}`
-          : shadowNote(name) || undefined,
-        category: kindLabel(name),
-      }))
+    const agentOpts: { title: string; value: string; description?: string; category: string }[] =
+      [...allNames]
+        .sort()
+        .map((name) => ({
+          title: name,
+          value: name,
+          description: currentModel(name)
+            ? `→ ${currentModel(name)}${shadowNote(name)}`
+            : shadowNote(name) || undefined,
+          category: kindLabel(name),
+        }))
 
-    ui.dialog.setSize("large")
-    ui.dialog.replace(() =>
-      ui.DialogSelect<string>({
-        title: "FastDraw — Select Agent",
-        options: agentOpts,
-        current: focusName,
-        onSelect: async (opt: any) => {
-          if (!opt) return
-          const agentName = opt.value
-          const current = currentModel(agentName) ?? ""
+    const agentName = await ui.select<string>({
+      title: "FastDraw — Select Agent",
+      options: agentOpts,
+      current: focusName,
+      size: "large",
+    })
+    if (agentName === undefined) return // ESC closes the flow (both engines)
+    focusName = agentName
 
-          ui.dialog.clear()
-          ui.dialog.replace(() =>
-            ui.DialogSelect<string>({
-              title: `FastDraw — Model for ${agentName}`,
-              options: allModels.map((m) => ({
-                title: m.id,
-                value: m.id,
-                category: m.provider,
-              })),
-              current: current || undefined,
-              onSelect: async (modelOpt: any) => {
-                if (!modelOpt) return
-                ui.dialog.clear()
-                try {
-                  if (omoRouted(agentName)) {
-                    const err = await omoAssignToFile(omoCfg, agentName, modelOpt.value)
-                    if (err) {
-                      toast(ui, `FastDraw: ${agentName} → ${modelOpt.value} FAILED — ${err}`, "error")
-                    } else {
-                      toast(
-                        ui,
-                        `${agentName} → ${modelOpt.value} — bound in ${omoCfg.file}, takes effect on next start`,
-                        "success",
-                      )
-                      if (omoCfg.shadowFiles.length) {
-                        toast(
-                          ui,
-                          `⚠ Project OMO config shadows this file: ${omoCfg.shadowFiles.join(", ")}`,
-                          "warning",
-                        )
-                      }
-                    }
-                  } else {
-                    const next = await loadState()
-                    next.agents[agentName] = modelOpt.value
-                    await saveState(next)
-                    toast(ui, `${agentName} → ${modelOpt.value} (applies on restart)`, "success")
-                  }
-                } catch (e) {
-                  flowError(ui, e)
-                }
-                await showAgentList(agentName)
-              },
-            }),
+    const current = currentModel(agentName) ?? ""
+    const modelID = await ui.select<string>({
+      title: `FastDraw — Model for ${agentName}`,
+      options: allModels.map((m) => ({
+        title: m.id,
+        value: m.id,
+        category: m.provider,
+      })),
+      current: current || undefined,
+      size: "large",
+    })
+    if (modelID === undefined) continue // ESC on the model list → back to agents
+
+    try {
+      if (omoRouted(agentName)) {
+        const err = await omoAssignToFile(omoCfg, agentName, modelID)
+        if (err) {
+          toast(ui, `FastDraw: ${agentName} → ${modelID} FAILED — ${err}`, "error")
+        } else {
+          toast(
+            ui,
+            `${agentName} → ${modelID} — bound in ${omoCfg.file}, takes effect on next start`,
+            "success",
           )
-        },
-      }),
-    )
+          if (omoCfg.shadowFiles.length) {
+            toast(
+              ui,
+              `⚠ Project OMO config shadows this file: ${omoCfg.shadowFiles.join(", ")}`,
+              "warning",
+            )
+          }
+        }
+      } else {
+        const next = await loadState()
+        next.agents[agentName] = modelID
+        await saveState(next)
+        toast(ui, `${agentName} → ${modelID} (applies on restart)`, "success")
+      }
+    } catch (e) {
+      flowError(ui, e)
+    }
   }
-
-  await showAgentList()
 }
 
 /** Flow: prompt name → prompt description → save current assignments. */
-function savePresetFlow(ui: Ui) {
-  ui.dialog.setSize("medium")
-  ui.dialog.replace(() =>
-    ui.DialogPrompt({
+async function savePresetFlow(ui: Ui) {
+  let trimmed = ""
+  for (;;) {
+    const name = await ui.prompt({
       title: "FastDraw — Save Preset: name",
       placeholder: "e.g. coding-heavy",
-      onCancel: () => ui.dialog.clear(),
-      onConfirm: (name: string) => {
-        const trimmed = name.trim()
-        if (!trimmed) {
-          toast(ui, "FastDraw: preset name cannot be empty", "warning")
-          return
+    })
+    if (name === undefined) return
+    trimmed = name.trim()
+    if (trimmed) break
+    toast(ui, "FastDraw: preset name cannot be empty", "warning")
+  }
+  const description = await ui.prompt({
+    title: `FastDraw — Save Preset "${trimmed}": description (optional)`,
+    placeholder: "What is this preset for?",
+  })
+  if (description === undefined) return
+  try {
+    const state = await loadState()
+    const omoCfg = await readOmoConfig()
+    const ctx: HarvestCtx = {
+      home: homedir(),
+      configDir: CONFIG_DIR,
+      cwd: process.cwd(),
+      env: process.env as HarvestEnv,
+    }
+    const h = await harvest(ctx)
+    const snapshot: Record<string, Binding> = { ...h.agents }
+    if (omoCfg.exists && omoCfg.parseable) {
+      const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+      for (const [name, t] of Object.entries(omoCfg.targets)) {
+        if (t.model) {
+          snapshot[name] = { model: t.model, origin: port ? { layer: "omo", file: port } : undefined }
         }
-        ui.dialog.clear()
-        ui.dialog.replace(() =>
-          ui.DialogPrompt({
-            title: `FastDraw — Save Preset "${trimmed}": description (optional)`,
-            placeholder: "What is this preset for?",
-            onCancel: () => ui.dialog.clear(),
-            onConfirm: async (description: string) => {
-              ui.dialog.clear()
-              try {
-                const state = await loadState()
-                const omoCfg = await readOmoConfig()
-                const ctx: HarvestCtx = {
-                  home: homedir(),
-                  configDir: CONFIG_DIR,
-                  cwd: process.cwd(),
-                  env: process.env as HarvestEnv,
-                }
-                const h = await harvest(ctx)
-                const snapshot: Record<string, Binding> = { ...h.agents }
-                if (omoCfg.exists && omoCfg.parseable) {
-                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
-                  for (const [name, t] of Object.entries(omoCfg.targets)) {
-                    if (t.model) {
-                      snapshot[name] = { model: t.model, origin: port ? { layer: "omo", file: port } : undefined }
-                    }
-                  }
-                }
-                for (const [name, model] of Object.entries(state.agents)) {
-                  snapshot[name] = {
-                    model,
-                    origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
-                  }
-                }
-                for (const [name, rec] of Object.entries(state.omo ?? {})) {
-                  const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
-                  snapshot[name] = {
-                    model: rec.model,
-                    origin: omoCfg.file ? (port ? { layer: "omo", file: port } : undefined) : { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
-                  }
-                }
-                if (!Object.keys(snapshot).length) {
-                  toast(ui, "FastDraw: no assignments to save — assign models first", "warning")
-                  return
-                }
-                const store = await loadPresets()
-                store.presets[trimmed] = {
-                  schemaVersion: SCHEMA_VERSION,
-                  description: description.trim() || undefined,
-                  createdAt: new Date().toISOString(),
-                  ...splitBindings(snapshot),
-                }
-                await savePresets(store)
-                toast(
-                  ui,
-                  `Preset "${trimmed}" saved (${Object.keys(presetAgents(store.presets[trimmed])).length} agents)`,
-                  "success",
-                )
-                if (h.conflicts.length) {
-                  const report = formatConflictReport(h.conflicts)
-                  ui.dialog.replace(() =>
-                    ui.DialogPrompt({
-                      title: "FastDraw — config conflicts detected",
-                      placeholder: "Press Enter to dismiss",
-                      value: "",
-                      onCancel: () => ui.dialog.clear(),
-                      onConfirm: () => ui.dialog.clear(),
-                    }),
-                  )
-                  toast(ui, `Saved with conflicts:\n${report}`, "warning")
-                }
-              } catch (e) {
-                flowError(ui, e)
-              }
-            },
-          }),
-        )
-      },
-    }),
-  )
+      }
+    }
+    for (const [name, model] of Object.entries(state.agents)) {
+      snapshot[name] = {
+        model,
+        origin: { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
+      }
+    }
+    for (const [name, rec] of Object.entries(state.omo ?? {})) {
+      const port = omoPortableFile(omoCfg, homedir(), CONFIG_DIR)
+      snapshot[name] = {
+        model: rec.model,
+        origin: omoCfg.file ? (port ? { layer: "omo", file: port } : undefined) : { layer: "state", file: toPortablePath(STATE_FILE, ctx) },
+      }
+    }
+    if (!Object.keys(snapshot).length) {
+      toast(ui, "FastDraw: no assignments to save — assign models first", "warning")
+      return
+    }
+    const store = await loadPresets()
+    store.presets[trimmed] = {
+      schemaVersion: SCHEMA_VERSION,
+      description: description.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      ...splitBindings(snapshot),
+    }
+    await savePresets(store)
+    toast(
+      ui,
+      `Preset "${trimmed}" saved (${Object.keys(presetAgents(store.presets[trimmed])).length} agents)`,
+      "success",
+    )
+    if (h.conflicts.length) {
+      const report = formatConflictReport(h.conflicts)
+      toast(ui, `Saved with conflicts:\n${report}`, "warning")
+      await ui.alert({ title: "FastDraw — config conflicts detected", message: report })
+    }
+  } catch (e) {
+    flowError(ui, e)
+  }
 }
 
-/** Pick a preset, then run `action` with (name, preset). */
-async function pickPreset(ui: Ui, title: string, action: (name: string, p: Preset) => void) {
+/** Pick a preset by name; undefined when the store is empty or on cancel. */
+async function pickPreset(ui: Ui, title: string): Promise<string | undefined> {
   const store = await loadPresets()
   const names = Object.keys(store.presets).sort()
   if (!names.length) {
     toast(ui, "FastDraw: no presets saved yet", "warning")
-    return
+    return undefined
   }
-  ui.dialog.setSize("large")
-  ui.dialog.replace(() =>
-    ui.DialogSelect<string>({
-      title,
-      options: names.map((n) => {
-        const p = store.presets[n]
-        return {
-          title: n,
-          value: n,
-          description:
-            `${Object.keys(presetAgents(p)).length} agents` + (p.description ? ` — ${p.description}` : ""),
-        }
-      }),
-      onSelect: (opt: any) => {
-        if (!opt) return
-        action(opt.value, store.presets[opt.value])
-      },
+  return ui.select<string>({
+    title,
+    size: "large",
+    options: names.map((n) => {
+      const p = store.presets[n]
+      return {
+        title: n,
+        value: n,
+        description:
+          `${Object.keys(presetAgents(p)).length} agents` + (p.description ? ` — ${p.description}` : ""),
+      }
     }),
-  )
+  })
 }
 
 /** Browse directories, pick an existing file, or create a new one.
@@ -565,7 +680,7 @@ async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> 
       toast(ui, `Cannot read directory: ${dir}`, "warning")
       return null
     }
-    const opts: TuiDialogSelectOption<string>[] = entries.map((e) => ({
+    const opts: { title: string; value: string; description: string }[] = entries.map((e) => ({
       title: e.isDir ? `${e.name}/` : e.name,
       value: e.isDir ? `d:${path.join(dir, e.name)}` : `f:${path.join(dir, e.name)}`,
       description: e.isDir ? "directory" : "file",
@@ -574,34 +689,20 @@ async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> 
       opts.unshift({ title: "..", value: `d:${path.dirname(dir)}`, description: "parent" })
     }
     opts.push({ title: "＋ Create new file…", value: "__new__", description: "type a filename" })
-    const choice = await new Promise<string | null>((resolve) => {
-      ui.dialog.setSize("large")
-      ui.dialog.replace(() =>
-        ui.DialogSelect<string>({
-          title: `FastDraw — pick config file (${dir})`,
-          options: opts,
-          onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(null)),
-        }),
-      )
+    const choice = await ui.select<string>({
+      title: `FastDraw — pick config file (${dir})`,
+      options: opts,
+      size: "large",
     })
-    if (choice === null) return null
+    if (choice === undefined) return null
     if (choice === "__new__") {
-      const name = await new Promise<string | null>((resolve) => {
-        ui.dialog.setSize("medium")
-        ui.dialog.replace(() =>
-          ui.DialogPrompt({
-            title: `FastDraw — new file in ${dir}`,
-            placeholder: "opencode.jsonc",
-            onCancel: () => resolve(null),
-            onConfirm: (input: string) => {
-              const trimmed = input.trim()
-              resolve(trimmed ? path.join(dir, trimmed) : null)
-            },
-          }),
-        )
+      const input = await ui.prompt({
+        title: `FastDraw — new file in ${dir}`,
+        placeholder: "opencode.jsonc",
       })
-      if (!name) continue
-      return name
+      const trimmed = input?.trim()
+      if (!trimmed) continue // cancel or empty name → back to the list
+      return path.join(dir, trimmed)
     }
     if (choice.startsWith("d:")) {
       dir = choice.slice(2)
@@ -613,9 +714,13 @@ async function pickTargetFile(ui: Ui, startDir: string): Promise<string | null> 
 
 /** Flow: pick preset → restore mode → (optionally pick a target file) →
  *  confirm with write plan → apply live + persist with backup. */
-function loadPresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Load Preset", async (name, p) => {
-    ui.dialog.clear()
+async function loadPresetFlow(ui: Ui) {
+  const name = await pickPreset(ui, "FastDraw — Load Preset")
+  if (name === undefined) return
+  try {
+    const store = await loadPresets()
+    const p = store.presets[name]
+    if (!p) return
     try {
       // Custom roles only apply when the agent exists on this machine
       // (agents dir, or an OMO target — builtin or user-defined). Missing
@@ -652,29 +757,24 @@ function loadPresetFlow(ui: Ui) {
       for (const [n, b] of Object.entries(presentBindings)) {
         if (!(n in omoSide)) cfgSideBindings[n] = b
       }
-      const mode = await new Promise<RestoreMode | null>((resolve) => {
-        ui.dialog.setSize("small")
-        ui.dialog.replace(() =>
-          ui.DialogSelect<RestoreMode>({
-            title: `FastDraw — restore preset "${name}" where?`,
-            options: [
-              {
-                title: "Global config",
-                value: "global",
-                description: "all bindings → ~/.config/opencode config file",
-              },
-              {
-                title: "Original locations",
-                value: "original",
-                description: "each binding back to the file it was recorded from",
-              },
-              { title: "Choose a file…", value: "path", description: "pick or create a config file" },
-            ],
-            onSelect: (opt: any) => (opt ? resolve(opt.value) : resolve(null)),
-          }),
-        )
+      // V2 has no "small" dialog size — medium is the closest match.
+      const mode = await ui.select<RestoreMode>({
+        title: `FastDraw — restore preset "${name}" where?`,
+        options: [
+          {
+            title: "Global config",
+            value: "global",
+            description: "all bindings → ~/.config/opencode config file",
+          },
+          {
+            title: "Original locations",
+            value: "original",
+            description: "each binding back to the file it was recorded from",
+          },
+          { title: "Choose a file…", value: "path", description: "pick or create a config file" },
+        ],
       })
-      if (mode === null) return
+      if (mode === undefined) return
       const ctx: HarvestCtx = {
         home: homedir(),
         configDir: CONFIG_DIR,
@@ -701,19 +801,16 @@ function loadPresetFlow(ui: Ui) {
         : ""
       const modeLabel =
         mode === "path" ? `path → ${targetPath}` : mode
-      ui.dialog.setSize("large")
-      ui.dialog.replace(() =>
-        ui.DialogConfirm({
-          title: `Load preset "${name}"? (mode: ${modeLabel})`,
-          message:
-            `${presetPreview(applyAgents)}\n\n` +
-            `This replaces ALL current assignments. Agents not listed revert to defaults.\n\n` +
-            `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}${omoBlock}\n\n` +
-            `Existing files are backed up as <file>.bak-<timestamp> before writing.`,
-          onCancel: () => ui.dialog.clear(),
-          onConfirm: async () => {
-            ui.dialog.clear()
-            try {
+      const ok = await ui.confirm({
+        title: `Load preset "${name}"? (mode: ${modeLabel})`,
+        message:
+          `${presetPreview(applyAgents)}\n\n` +
+          `This replaces ALL current assignments. Agents not listed revert to defaults.\n\n` +
+          `Files to write:\n${planLines.join("\n")}${fallbackBlock}${skippedBlock}${omoBlock}\n\n` +
+          `Existing files are backed up as <file>.bak-<timestamp> before writing.`,
+      })
+      if (!ok) return
+      try {
               const state = await loadState()
               const omoWrite: Record<string, ModelEntrySpec> = { ...omoSide }
               const omoReverted: string[] = []
@@ -778,16 +875,15 @@ function loadPresetFlow(ui: Ui) {
                   "warning",
                 )
               }
-            } catch (e) {
-              flowError(ui, e)
-            }
-          },
-        }),
-      )
+      } catch (e) {
+        flowError(ui, e)
+      }
     } catch (e) {
       flowError(ui, e)
     }
-  }).catch((e) => flowError(ui, e))
+  } catch (e) {
+    flowError(ui, e)
+  }
 }
 
 /* ── Import candidate discovery ───────────────────────────────────── */
@@ -903,191 +999,164 @@ export async function applyImportFile(ui: Ui, file: string): Promise<void> {
 }
 
 /** Fallback flow: type any path (~ and relative supported). */
-function promptManualImport(ui: Ui) {
-  ui.dialog.setSize("medium")
-  ui.dialog.replace(() =>
-    ui.DialogPrompt({
-      title: "FastDraw — Import Preset: file path",
-      placeholder: "~/preset.json or ./preset.json",
-      onCancel: () => ui.dialog.clear(),
-      onConfirm: (input: string) => {
-        ui.dialog.clear()
-        void applyImportFile(ui, expandPath(input.trim()))
-      },
-    }),
-  )
+async function promptManualImport(ui: Ui) {
+  const input = await ui.prompt({
+    title: "FastDraw — Import Preset: file path",
+    placeholder: "~/preset.json or ./preset.json",
+  })
+  if (input === undefined) return
+  await applyImportFile(ui, expandPath(input.trim()))
 }
 
 /** Flow: scan nearby preset files → pick from list → import.
  *  Manual path entry stays as an explicit option (and as the direct
  *  fallback when nothing decodable is found nearby). */
-function importPresetFlow(ui: Ui) {
-  void (async () => {
-    try {
-      const candidates = await findImportCandidates()
-      if (!candidates.length) {
-        toast(ui, "FastDraw: no preset files found in workspace/home — enter a path", "info")
-        promptManualImport(ui)
-        return
-      }
-      ui.dialog.setSize("large")
-      ui.dialog.replace(() =>
-        ui.DialogSelect<string>({
-          title: "FastDraw — Import Preset: choose file",
-          options: [
-            ...candidates.map((c) => ({
-              title: path.basename(c.file),
-              value: c.file,
-              description: `${c.label}  ·  ${path.dirname(c.file)}`,
-            })),
-            {
-              title: "Other file path…",
-              value: "__manual__",
-              description: "type an absolute or ~/ path",
-            },
-          ],
-          onSelect: (opt: any) => {
-            if (!opt) {
-              ui.dialog.clear()
-              return
-            }
-            ui.dialog.clear()
-            if (opt.value === "__manual__") promptManualImport(ui)
-            else void applyImportFile(ui, opt.value)
-          },
-        }),
-      )
-    } catch (e) {
-      flowError(ui, e)
+async function importPresetFlow(ui: Ui) {
+  try {
+    const candidates = await findImportCandidates()
+    if (!candidates.length) {
+      toast(ui, "FastDraw: no preset files found in workspace/home — enter a path", "info")
+      await promptManualImport(ui)
+      return
     }
-  })()
+    const choice = await ui.select<string>({
+      title: "FastDraw — Import Preset: choose file",
+      size: "large",
+      options: [
+        ...candidates.map((c) => ({
+          title: path.basename(c.file),
+          value: c.file,
+          description: `${c.label}  ·  ${path.dirname(c.file)}`,
+        })),
+        {
+          title: "Other file path…",
+          value: "__manual__",
+          description: "type an absolute or ~/ path",
+        },
+      ],
+    })
+    if (choice === undefined) return
+    if (choice === "__manual__") await promptManualImport(ui)
+    else await applyImportFile(ui, choice)
+  } catch (e) {
+    flowError(ui, e)
+  }
 }
 
 /** Flow: pick preset → prompt output path → write file. */
-function exportPresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Export Preset", (name, p) => {
-    ui.dialog.clear()
-    ui.dialog.replace(() =>
-      ui.DialogPrompt({
-        title: `FastDraw — Export "${name}" to file`,
-        value: `fastdraw-preset-${name}.json`,
-        onCancel: () => ui.dialog.clear(),
-        onConfirm: async (input: string) => {
-          ui.dialog.clear()
-          const out = expandPath(input.trim() || `fastdraw-preset-${name}.json`)
-          try {
-            const payload = {
-              fastdraw: 1,
-              schemaVersion: SCHEMA_VERSION,
-              name,
-              description: p.description,
-              exportedAt: new Date().toISOString(),
-              omo: p.omo,
-              custom: p.custom,
-            }
-            await safeWriteFile(out, JSON.stringify(payload, null, 2))
-            toast(ui, `Preset "${name}" exported → ${out}`, "success")
-          } catch (e) {
-            flowError(ui, e)
-          }
-        },
-      }),
-    )
-  }).catch((e) => flowError(ui, e))
+async function exportPresetFlow(ui: Ui) {
+  const name = await pickPreset(ui, "FastDraw — Export Preset")
+  if (name === undefined) return
+  const store = await loadPresets()
+  const p = store.presets[name]
+  if (!p) return
+  const input = await ui.prompt({
+    title: `FastDraw — Export "${name}" to file`,
+    value: `fastdraw-preset-${name}.json`,
+  })
+  if (input === undefined) return
+  const out = expandPath(input.trim() || `fastdraw-preset-${name}.json`)
+  try {
+    const payload = {
+      fastdraw: 1,
+      schemaVersion: SCHEMA_VERSION,
+      name,
+      description: p.description,
+      exportedAt: new Date().toISOString(),
+      omo: p.omo,
+      custom: p.custom,
+    }
+    await safeWriteFile(out, JSON.stringify(payload, null, 2))
+    toast(ui, `Preset "${name}" exported → ${out}`, "success")
+  } catch (e) {
+    flowError(ui, e)
+  }
 }
 
 /** Flow: pick preset → confirm → delete. */
-function deletePresetFlow(ui: Ui) {
-  pickPreset(ui, "FastDraw — Delete Preset", (name, p) => {
-    ui.dialog.clear()
-    ui.dialog.replace(() =>
-      ui.DialogConfirm({
-        title: `Delete preset "${name}"?`,
-        message: `${Object.keys(presetAgents(p)).length} agent bindings will be removed from the preset store.\nCurrent assignments are NOT affected.`,
-        onCancel: () => ui.dialog.clear(),
-        onConfirm: async () => {
-          ui.dialog.clear()
-          try {
-            const store = await loadPresets()
-            delete store.presets[name]
-            await savePresets(store)
-            toast(ui, `Preset "${name}" deleted`, "success")
-          } catch (e) {
-            flowError(ui, e)
-          }
-        },
-      }),
-    )
-  }).catch((e) => flowError(ui, e))
+async function deletePresetFlow(ui: Ui) {
+  const name = await pickPreset(ui, "FastDraw — Delete Preset")
+  if (name === undefined) return
+  const probe = await loadPresets()
+  const p = probe.presets[name]
+  if (!p) return
+  const ok = await ui.confirm({
+    title: `Delete preset "${name}"?`,
+    message: `${Object.keys(presetAgents(p)).length} agent bindings will be removed from the preset store.\nCurrent assignments are NOT affected.`,
+  })
+  if (!ok) return
+  try {
+    const store = await loadPresets()
+    delete store.presets[name]
+    await savePresets(store)
+    toast(ui, `Preset "${name}" deleted`, "success")
+  } catch (e) {
+    flowError(ui, e)
+  }
 }
 
 /* ── Main Menu ────────────────────────────────────────────────────── */
 
 type MenuAction = "assign" | "save" | "load" | "import" | "export" | "delete"
 
-function buildDialogHandler(
-  api: any,
-  allModels: { id: string; provider: string }[],
-): (_dialog?: TuiDialogStack) => Promise<void> {
-  const ui = api.ui
-  return async (_dialog?: TuiDialogStack) => {
+/** Menu entry for both engines: home-reach advisories → action menu →
+ *  dispatch into the flows (shared logic, engine behind the Ui facade). */
+async function openFastDraw(ui: Ui): Promise<void> {
+  try {
+    // Advisory only (home-pollution incident, wiki dev/tools/omo-home-pollution-cadence):
+    // never let a check failure block the menu, so it gets its own guard.
     try {
-      // Advisory only (home-pollution incident, wiki dev/tools/omo-home-pollution-cadence):
-      // never let a check failure block the menu, so it gets its own guard.
-      try {
-        for (const line of homeReachToastLines(scanHomeReach().warnings)) toast(ui, line, "warning")
-      } catch {
-        /* home-reach warnings are optional */
-      }
-      ui.dialog.setSize("medium")
-      ui.dialog.replace(() =>
-        ui.DialogSelect<MenuAction>({
-          title: "FastDraw — Model Assignments & Presets",
-          options: [
-            { title: "Assign Model", value: "assign" as const, description: "Bind a model to an agent" },
-            { title: "Save Current as Preset", value: "save" as const, description: "Snapshot all current assignments" },
-            { title: "Load Preset", value: "load" as const, description: "Preview bindings, then apply" },
-            { title: "Import Preset from File", value: "import" as const, description: "Pick a nearby preset file or enter a path" },
-            { title: "Export Preset to File", value: "export" as const, description: "Share a preset as JSON" },
-            { title: "Delete Preset", value: "delete" as const, description: "Remove a saved preset" },
-          ],
-          onSelect: (opt: any) => {
-            if (!opt) return
-            ui.dialog.clear()
-            switch (opt.value as MenuAction) {
-              case "assign":
-                assignFlow(ui, allModels).catch((e) => flowError(ui, e))
-                break
-              case "save":
-                savePresetFlow(ui)
-                break
-              case "load":
-                loadPresetFlow(ui)
-                break
-              case "import":
-                importPresetFlow(ui)
-                break
-              case "export":
-                exportPresetFlow(ui)
-                break
-              case "delete":
-                deletePresetFlow(ui)
-                break
-            }
-          },
-        }),
-      )
-    } catch (err) {
-      flowError(api.ui, err)
+      for (const line of homeReachToastLines(scanHomeReach().warnings)) toast(ui, line, "warning")
+    } catch {
+      /* home-reach warnings are optional */
     }
+    const action = await ui.select<MenuAction>({
+      title: "FastDraw — Model Assignments & Presets",
+      options: [
+        { title: "Assign Model", value: "assign", description: "Bind a model to an agent" },
+        { title: "Save Current as Preset", value: "save", description: "Snapshot all current assignments" },
+        { title: "Load Preset", value: "load", description: "Preview bindings, then apply" },
+        { title: "Import Preset from File", value: "import", description: "Pick a nearby preset file or enter a path" },
+        { title: "Export Preset to File", value: "export", description: "Share a preset as JSON" },
+        { title: "Delete Preset", value: "delete", description: "Remove a saved preset" },
+      ],
+    })
+    if (action === undefined) return
+    ui.close()
+    switch (action) {
+      case "assign":
+        await assignFlow(ui)
+        break
+      case "save":
+        await savePresetFlow(ui)
+        break
+      case "load":
+        await loadPresetFlow(ui)
+        break
+      case "import":
+        await importPresetFlow(ui)
+        break
+      case "export":
+        await exportPresetFlow(ui)
+        break
+      case "delete":
+        await deletePresetFlow(ui)
+        break
+    }
+  } catch (e) {
+    flowError(ui, e)
   }
 }
 
-/* ── TUI Plugin ───────────────────────────────────────────────────── */
+/* ── Plugin entry — V2 definition + V1 `tui` bridge ───────────────── */
 
-const tui: TuiPlugin = async function fastdrawTui(api) {
-  const allModels = buildModelList(api)
-  const openFastDraw = buildDialogHandler(api, allModels)
+/** V1 entry (opencode ≥1.18.29 <2): legacy plugin function, called by the
+ *  old loader via the `tui` key on the default export. */
+const tui = async function fastdrawTui(api: any): Promise<void> {
+  const ui = v1Ui(api)
+  const open = () => {
+    void openFastDraw(ui).catch((e) => flowError(ui, e))
+  }
 
   /* Modern API: keymap.registerLayer */
   const keymap = (api as any).keymap
@@ -1102,7 +1171,7 @@ const tui: TuiPlugin = async function fastdrawTui(api) {
             category: "FastDraw",
             namespace: "palette",
             slashName: "fastdraw",
-            run: openFastDraw,
+            run: open,
           },
         ],
         bindings: [
@@ -1126,10 +1195,39 @@ const tui: TuiPlugin = async function fastdrawTui(api) {
         category: "FastDraw",
         slash: { name: "fastdraw" },
         suggested: true,
-        onSelect: openFastDraw,
+        onSelect: open,
       },
     ])
   }
 }
 
-export default { id: "fastdraw", tui }
+/** V2 entry (opencode ≥2): definition consumed by @opencode/plugin/tui.
+ *  keymap.layer supplies the <leader>m binding, the palette entry, and the
+ *  /fastdraw slash command in one layer. */
+const v2Definition = Plugin.define({
+  id: "fastdraw",
+  setup(ctx: any) {
+    const ui = v2Ui(ctx)
+    ctx.keymap.layer(() => ({
+      mode: "global",
+      commands: [
+        {
+          id: "fastdraw.open",
+          title: "FastDraw",
+          description: "Model switching & presets for agents",
+          group: "FastDraw",
+          bind: "<leader>m",
+          palette: true,
+          slash: { name: "fastdraw" },
+          run: () => openFastDraw(ui),
+        },
+      ],
+      bindings: ["fastdraw.open"],
+    }))
+  },
+})
+
+/* Dual exit: V2 loads { id, setup } off the default export; V1 ≥1.18.29
+ * finds the extra `tui` key next to it (same bridge shape the server half
+ * uses with `server`). */
+export default { ...v2Definition, tui }

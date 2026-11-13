@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FastDraw installer for opencode.
+# FastDraw installer for opencode 2.x.
 #
 #   FASTDRAW_REPO=user/repo bash install.sh
 #
@@ -26,26 +26,37 @@ warn() { printf '\033[1;33m!\033[0m %s\n' "$*"; }
 
 info "Installing FastDraw from github.com/$REPO@$REF"
 mkdir -p "$PKG_DIR"
-# server.ts / tui.ts import ./roles.js, ./origins.js and ./omo.js (TypeScript
-# source resolved by opencode's bundler) — every file must be fetched or the
-# plugin fails module resolution at first load.
+# server.ts / tui.ts import ./roles.js, ./origins.js, ./omo.js and
+# ./home-reach.js (TypeScript source resolved by opencode's bundler) — every
+# file must be fetched or the plugin fails module resolution at first load.
 FETCH_BASE="https://raw.githubusercontent.com/$REPO/$REF"
 [ -n "$SUBDIR" ] && FETCH_BASE="$FETCH_BASE/$SUBDIR"
-for f in server.ts tui.ts roles.ts origins.ts omo.ts package.json; do
+for f in server.ts tui.ts roles.ts origins.ts omo.ts home-reach.ts package.json; do
   curl -fsSL "$FETCH_BASE/$f" -o "$PKG_DIR/$f"
   ok "fetched $f"
 done
 
-# Register the plugin path in a config file's "plugin" array. Idempotent.
-#
-# IMPORTANT: opencode has TWO separate plugin arrays that must BOTH list the
-# plugin for it to be active:
-#   • "plugin" in opencode.jsonc (or opencode.json) → server-side plugins
-#     (config hooks, agent tools like fastdraw_*).
-#   • "plugin" in tui.json → TUI-side plugins (the /fastdraw command and
-#     the <leader>m keybind).
-# Missing either file = half the plugin loads (typically the TUI piece is
-# silently skipped, so /fastdraw and <leader>m disappear while tools still work).
+# OpenCode 2.x does NOT inject host node_modules for local plugin directories
+# (verified against v2.2.7: a bare `@opencode/plugin` import fails to resolve
+# unless the directory has its own node_modules). Install prod deps here.
+if command -v npm >/dev/null 2>&1; then
+  info "installing plugin dependencies (npm install --omit=dev)"
+  if (cd "$PKG_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error); then
+    ok "plugin dependencies installed"
+  else
+    warn "npm install failed — run it manually: (cd $PKG_DIR && npm install --omit=dev)"
+  fi
+else
+  warn "npm not found — plugin will fail to load until dependencies exist in $PKG_DIR"
+fi
+
+# Register the plugin path in the ONE OpenCode 2.x plugins array:
+#   "plugins" in opencode.jsonc (or opencode.json).
+# One entry loads every part of the plugin (server hooks/tools AND the TUI
+# command/keybind) — tui.json registration is obsolete under 2.x. Entries in
+# the legacy "plugin" key still load on 2.x, so an existing legacy entry
+# counts as registered (no duplicate entry is added; opencode dedups by
+# resolved path, but we avoid writing a second one anyway).
 #
 # The edit is done by an inline node script (node is guaranteed present: it is
 # required to run opencode). GNU sed -i -E misbehaves on macOS/BSD, so the
@@ -69,7 +80,7 @@ if (!fs.existsSync(file)) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(
     file,
-    '{\n  "plugin": [\n    ' + JSON.stringify(entry) + '\n  ]\n}\n'
+    '{\n  "plugins": [\n    ' + JSON.stringify(entry) + '\n  ]\n}\n'
   );
   console.log("ok:created");
   process.exit(0);
@@ -106,11 +117,13 @@ for (let i = 0; i < orig.length; ) {
   }
 }
 
-// Locate the top-level "plugin" key: a string token whose content is
-// "plugin", followed by ":" then "[" at object depth 1 (strings are opaque —
-// braces inside string values never count towards depth).
-let pluginIdx = -1;
-let pluginKeySeen = false;
+// Locate top-level "plugins" (V2, our write target) and legacy "plugin"
+// (read-only for exists-check) array positions at object depth 1 (strings are
+// opaque — braces inside string values never count towards depth).
+let pluginsIdx = -1;   // the "plugins" array bracket
+let legacyIdx = -1;    // the legacy "plugin" array bracket
+let pluginsKeySeen = false;
+let legacyKeySeen = false;
 {
   let inS = null, d = 0, tokStart = -1;
   for (let i = 0; i < clean.length; i++) {
@@ -124,11 +137,15 @@ let pluginKeySeen = false;
           let j = i + 1;
           while (j < clean.length && /[ \t\r\n]/.test(clean[j])) j++;
           if (clean[j] === ":") {
-            if (clean.slice(tokStart + 1, i) === "plugin" && !pluginKeySeen) pluginKeySeen = true;
-            if (clean.slice(tokStart + 1, i) === "plugin" && pluginIdx === -1) {
-              j++;
-              while (j < clean.length && /[ \t\r\n]/.test(clean[j])) j++;
-              if (clean[j] === "[") pluginIdx = j;
+            const key = clean.slice(tokStart + 1, i);
+            j++;
+            while (j < clean.length && /[ \t\r\n]/.test(clean[j])) j++;
+            if (key === "plugins") {
+              if (!pluginsKeySeen) pluginsKeySeen = true;
+              if (pluginsIdx === -1 && clean[j] === "[") pluginsIdx = j;
+            } else if (key === "plugin") {
+              if (!legacyKeySeen) legacyKeySeen = true;
+              if (legacyIdx === -1 && clean[j] === "[") legacyIdx = j;
             }
           }
         }
@@ -142,64 +159,75 @@ let pluginKeySeen = false;
     if (c === "}" || c === "]") { d--; continue; }
   }
 }
-if (pluginKeySeen && pluginIdx === -1) {
-  console.log('fail:"plugin" key exists but its value is not an array');
+if (pluginsKeySeen && pluginsIdx === -1) {
+  console.log('fail:"plugins" key exists but its value is not an array');
   process.exit(1);
 }
 
+function arrayElements(openIdx) {
+  let close = -1;
+  let inS = null, arr = 0;
+  for (let i = openIdx; i < clean.length; i++) {
+    const c = clean[i];
+    if (inS) {
+      if (c === "\\") { i++; continue; }
+      if (c === inS) inS = null;
+      continue;
+    }
+    if (c === '"' || c === "'") { inS = c; continue; }
+    if (c === "[") arr++;
+    else if (c === "]" && --arr === 0) { close = i; break; }
+  }
+  if (close === -1) throw new Error('"plugins" array is unterminated');
+  const elements = [];
+  for (let i = openIdx + 1; i < close; i++) {
+    const c = clean[i];
+    if (c === '"' || c === "'") {
+      let s = "", q = c;
+      i++;
+      while (i < close) {
+        if (clean[i] === "\\" && i + 1 < close) { s += clean[i + 1]; i += 2; continue; }
+        if (clean[i] === q) break;
+        s += clean[i];
+        i++;
+      }
+      elements.push(s);
+    }
+  }
+  return { close, elements };
+}
+
 try {
+  // exists-check across BOTH arrays (legacy entry counts).
+  if (legacyIdx !== -1 && arrayElements(legacyIdx).elements.includes(entry)) {
+    console.log("ok:exists-legacy");
+    process.exit(0);
+  }
   const result = (() => {
-    if (pluginIdx === -1) {
+    if (pluginsIdx === -1) {
       const rootBrace = clean.indexOf("{");
       if (rootBrace === -1) throw new Error("file is not a JSON object");
       return {
         newText:
           orig.slice(0, rootBrace + 1) +
-          '\n  "plugin": [\n    ' + JSON.stringify(entry) + "\n  ]," +
+          '\n  "plugins": [\n    ' + JSON.stringify(entry) + "\n  ]," +
           orig.slice(rootBrace + 1),
       };
     }
-    let close = -1;
-    {
-      let inS = null, arr = 0;
-      for (let i = pluginIdx; i < clean.length; i++) {
-        const c = clean[i];
-        if (inS) {
-          if (c === "\\") { i++; continue; }
-          if (c === inS) inS = null;
-          continue;
-        }
-        if (c === '"' || c === "'") { inS = c; continue; }
-        if (c === "[") arr++;
-        else if (c === "]" && --arr === 0) { close = i; break; }
-      }
-    }
-    if (close === -1) throw new Error('"plugin" array is unterminated');
-    const elements = [];
-    for (let i = pluginIdx + 1; i < close; i++) {
-      const c = clean[i];
-      if (c === '"' || c === "'") {
-        let s = "", q = c;
-        i++;
-        while (i < close) {
-          if (clean[i] === "\\" && i + 1 < close) { s += clean[i + 1]; i += 2; continue; }
-          if (clean[i] === q) break;
-          s += clean[i];
-          i++;
-        }
-        elements.push(s);
-      }
-    }
+    const { close, elements } = arrayElements(pluginsIdx);
     if (elements.includes(entry)) throw new Error("exists");
-    const wantComma = elements.length > 0 && !/,\s*$/.test(clean.slice(pluginIdx + 1, close));
+    const wantComma = elements.length > 0 && !/,\s*$/.test(clean.slice(pluginsIdx + 1, close));
+    // Walk back over whitespace AND blanked comments (clean has comments as
+    // spaces) so the comma lands right after the last real token — never
+    // inside a trailing line comment.
     let insAt = close;
-    while (insAt - 1 > pluginIdx && /[ \t\r\n]/.test(orig[insAt - 1])) insAt--;
+    while (insAt - 1 > pluginsIdx && /[ \t\r\n]/.test(clean[insAt - 1])) insAt--;
     return {
       newText:
         orig.slice(0, insAt) +
         (wantComma ? "," : "") +
-        "\n    " + JSON.stringify(entry) + "\n  " +
-        orig.slice(close),
+        "\n    " + JSON.stringify(entry) +
+        orig.slice(insAt),
     };
   })();
 
@@ -228,26 +256,28 @@ NODE
       ok "created $file with FastDraw registered"
       printf 'CREATED=%s\n' "$file" >> "$PKG_DIR/.install-manifest"
       ;;
-    ok:exists)   ok "$file already registers FastDraw" ;;
+    ok:exists)         ok "$file already registers FastDraw" ;;
+    ok:exists-legacy)  ok "$file already registers FastDraw (legacy \"plugin\" key)" ;;
     ok:backup:*)
       ok "registered in $file (backup: ${out#ok:backup: })"
       printf 'BACKUP=%s\n' "${out#ok:backup: }" >> "$PKG_DIR/.install-manifest"
       ;;
     fail:*)
-      warn "could not auto-edit $file — add this to its \"plugin\" array manually:"
+      warn "could not auto-edit $file — add this to its \"plugins\" array manually:"
       warn "  \"$entry\""
       warn "  ($out)"
       ;;
     *)
       warn "unexpected output from register script in $file ($rc): $out"
-      warn "  add this to its \"plugin\" array manually:"
+      warn "  add this to its \"plugins\" array manually:"
       warn "  \"$entry\""
       ;;
   esac
 }
 
-# Server-side registration: opencode.jsonc (JSONC) or opencode.json (strict JSON).
-# This is what loads the config() hook and exposes fastdraw_* tools to agents.
+# Single registration: opencode.jsonc (JSONC) or opencode.json (strict JSON).
+# Under OpenCode 2.x one entry loads the whole plugin — server hooks,
+# fastdraw_* tools, the /fastdraw slash command and the <leader>m keybind.
 if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
   register "$CONFIG_DIR/opencode.jsonc"
 elif [ -f "$CONFIG_DIR/opencode.json" ]; then
@@ -255,11 +285,6 @@ elif [ -f "$CONFIG_DIR/opencode.json" ]; then
 else
   register "$CONFIG_DIR/opencode.json"
 fi
-
-# TUI-side registration: tui.json (STRICT JSON — separate plugin system from
-# opencode.jsonc). This is what exposes the /fastdraw command and the <leader>m
-# keybind in the TUI. Skipping this file = silent loss of the TUI half.
-register "$CONFIG_DIR/tui.json"
 
 echo
 ok "FastDraw installed → $PKG_DIR"

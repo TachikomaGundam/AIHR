@@ -42,7 +42,7 @@ await fs.writeFile(path.join(ws, "random-preset-notes.json"), "not json {{{")
 await fs.writeFile(path.join(tmp, "legacy-preset.json"), JSON.stringify({ agents: { oracle: "a/b" } }))
 
 const toasts = []
-const ui = { toast: (o) => toasts.push(o) }
+const ui = { toast: (message, variant) => toasts.push({ message, variant }) }
 
 const candidates = await findImportCandidates([ws, tmp, cfg])
 const names = candidates.map((c) => path.basename(c.file)).sort()

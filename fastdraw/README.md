@@ -18,26 +18,18 @@ Built for heavy [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagen
 
 opencode loads plugins from **two separate config files**. FastDraw has a server part (config hook + `fastdraw_*` tools) and a TUI part (the `/fastdraw` command + `<leader>m` keybind). **Both files must list the plugin** — if only one does, the other half loads silently absent (commonly the TUI half: tools keep working but `/fastdraw` and the keybind vanish).
 
-| Config file | Loads | What you lose if missing |
-|---|---|---|
-| `~/.config/opencode/opencode.jsonc` (or `.json`) | server plugins | `fastdraw_*` agent tools |
-| `~/.config/opencode/tui.json` | TUI plugins | `/fastdraw` command + `<leader>m` keybind |
+OpenCode 2.x loads **every part** of a plugin — server tools and TUI command/keybind — from a single entry in the one `plugins` array:
 
-Every install method below writes to BOTH. When registering manually, add the same entry to both files' `"plugin"` arrays.
+```jsonc
+// ~/.config/opencode/opencode.jsonc (or .json)
+{ "plugins": ["opencode-fastdraw@latest", /* …your other plugins… */] }
+```
+
+> **Requires OpenCode 2.x.** The package's default export is a V2 `Plugin.define` definition; V1 engines (≤1.x) reject it at load (verified on 2.2.7 and by V1 contract — `engines.opencode` is `>=2.0.0`). On 2.x the legacy `"plugin"` key and `tui.json` entries are still honored for backward compatibility, but you should register under `plugins` only.
 
 ### 1. npm (recommended)
 
-Add the plugin to `plugin` in **both** files — opencode installs and caches the package itself at startup; there is no separate install step, and `npm install -g` is *not* a discovery path (opencode never scans the global npm prefix):
-
-```jsonc
-// ~/.config/opencode/opencode.jsonc
-{ "plugin": ["opencode-fastdraw@latest", /* …your other plugins… */] }
-```
-
-```json
-// ~/.config/opencode/tui.json
-{ "plugin": ["opencode-fastdraw@latest"] }
-```
+Add the plugin to `plugins` — opencode installs and caches the package itself at startup; there is no separate install step, and `npm install -g` is *not* a discovery path (opencode never scans the global npm prefix):
 
 `@latest` never rots into a stale pin; if you prefer a frozen running surface, replace it with an exact version (note that a floating spec makes every startup re-resolve and execute potentially new code). Optional pre-warm for a first offline start: `cd ~/.config/opencode && bun add opencode-fastdraw@latest`.
 
