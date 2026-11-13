@@ -63,6 +63,7 @@ INCLUDED_HR_MODULES: frozenset[str] = frozenset({
     "hr/report_source.py",            # build_status_report/build_verdict_report
     "hr/cli_inventory.py",                 # bench/discover/seed commands
     "hr/cli_selection.py",                 # interactive model picker / selection indices
+    "hr/cli_skill.py",                     # `hr skill validate/new/install/list/doctor` — skill factory (imported unguarded by cli.py)
     "hr/cli_setup.py",                     # `hr setup` — npm plugin bootstrap (@latest + resolved-version report) + opencode registration
     "hr/cli_db.py",                        # `hr db-up/db-down/db-status` — turnkey database lifecycle wrappers
     "hr/cli_parity.py",                    # `hr parity` anchor-generation drift flag (0.6.8 gate #1 CLI face)
