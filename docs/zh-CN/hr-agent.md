@@ -18,7 +18,7 @@
 开始任何 HR 工作之前，先加载工作流技能：
 
 ```
-skill({ name: "hr-workflow" })
+skill({ id: "hr-workflow" })
 ```
 
 技能中包含完整的操作流程：CLI 语法、Livebench 测试电池详情、数据表结构、FastDraw 对接方法和发布流程。

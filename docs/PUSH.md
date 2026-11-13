@@ -151,10 +151,10 @@ Steps run in order, on a clean box, nothing skipped:
    mask a broken default.
 
 3. **opencode tool surface.** Restart opencode on the testbed box and verify
-   BOTH halves of the dual registration written by `hr install-post`: the
-   `plugin` array in `~/.config/opencode/opencode.jsonc` (on this box the
-   file IS `.jsonc` — there is no `opencode.json`) and the array in
-   `tui.json`. Expect `hr_*` / `fastdraw_*` agent tools enumerable and
+   the single `plugins` array written by `hr install-post` in
+   `~/.config/opencode/opencode.jsonc` (on this box the file IS `.jsonc` —
+   there is no `opencode.json`). One entry loads every part on OpenCode 2.x:
+   expect `hr_*` / `fastdraw_*` agent tools enumerable and
    `/fastdraw` + `<leader>m` alive in the TUI. (Machine-readable
    discovery-contract proof: the `/experimental/tool/ids` probe — see
    docs/PLUGIN_SECURITY.md notes.) No npm step is run by hand —
@@ -216,9 +216,9 @@ A bundle version without a green testbed-box run does not ship.
   complete clean or the release fails the gate.
 - Installer writes are limited to: the owned directory (`~/.aihr` /
   `%LOCALAPPDATA%\aihr`), one clearly-marked PATH block in the shell rc, the
-  two opencode config arrays (`plugin` in `opencode.jsonc` + `tui.json`),
-  and the `~/.local/bin`-style PATH shim. The rc block, the two config
-  arrays and the shim are the ONLY sanctioned writes outside the owned dir,
+  the `plugins` array of `opencode.jsonc`,
+  and the `~/.local/bin`-style PATH shim. The rc block, the config
+  registration and the shim are the ONLY sanctioned writes outside the owned dir,
   and every one of them is receipted; anything written off-receipt is a
   contract violation that `hr self-uninstall` will surface as an unexplained
   residual.

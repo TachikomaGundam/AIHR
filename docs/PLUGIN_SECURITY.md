@@ -12,9 +12,9 @@ The package exposes two privileged actions, each contained:
    (default `~/hr`) and the `PYTHONPATH` injected into the child, the resolved
    `python3` binary, and everything under `HR_HOME` are trusted same-user surface —
    an attacker who can write those can already run code as you.
-2. **At operator invocation (the `opencode-hr` bin):** writing the two
-   user-owned opencode config files (`opencode.json`, `tui.json`) to register
-   plugin entries. It runs ONLY when a human executes `opencode-hr …` (or `hr
+2. **At operator invocation (the `opencode-hr` bin):** writing the
+   user-owned opencode config file (`opencode.json`/`opencode.jsonc`) to
+   register plugin entries in its `plugins` array. It runs ONLY when a human executes `opencode-hr …` (or `hr
    setup` chains it); nothing in the package lifecycle triggers it
    automatically (§4). Containment details: §7.
 
@@ -46,7 +46,7 @@ run is auditable after the fact. If you prefer a frozen running surface,
 install and declare an exact version instead: `npm install -g
 "opencode-hr-agent@<version>"` (quote it for zsh). The `-g` install exists to place the
 `opencode-hr` registrar CLI on PATH — opencode itself loads the plugin only
-via its config `"plugin"` arrays (which `opencode-hr install` / `hr setup`
+via its config `"plugins"` array (which `opencode-hr install` / `hr setup`
 write; see README Install), never by scanning the global prefix.
 
 PATH persistence: when pip's scripts directory (the `hr` entry point) is
@@ -89,7 +89,7 @@ returns text.
 `install-cli.js` (bin `opencode-hr`, node builtins only — no network, no
 `child_process`, no dynamic import):
 
-- Writes exactly the `"plugin"` key of `opencode.json`/`tui.json` under
+- Writes exactly the `"plugins"` key of `opencode.json`/`opencode.jsonc` under
   `OPENCODE_CONFIG_DIR` (default `~/.config/opencode`); every other config key
   round-trips untouched.
 - Refuses JSONC and malformed JSON instead of rewriting them (prints the exact
@@ -100,7 +100,7 @@ returns text.
   followed — then `rename`. Existing file mode is preserved; newly created
   configs default to `0600` (opencode configs may carry provider keys).
 - Never logs or reads credentials; `install`/`status`/`uninstall` only touch
-  the plugin entries it owns (foreign `"plugin"` specs keep position and form;
+  the plugin entries it owns (foreign `"plugins"` specs keep position and form;
   array-form entries keep their options object, version upgraded in place).
 - The Python `hr setup` wrapper spawns `npm` (argv lists, no shell, capped
   timeouts) and the registrar resolved through the npm-global bin — npm being

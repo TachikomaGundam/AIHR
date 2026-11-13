@@ -1,6 +1,6 @@
 # HR 工作流文档（中文版）
 
-> 原文：`opencode-config/skills/hr-workflow.md`（英文，仓库内权威副本；安装时复制到 `~/.config/opencode/skills/` 供 opencode 加载）
+> 原文：`opencode-config/skills/hr-workflow/SKILL.md`（英文，仓库内权威副本；经 `hr skill install hr-workflow` 安装到 `~/.config/opencode/skills/` 供 opencode 加载）
 > 本文：人类可读的简体中文镜像，内容与英文原文一致。
 
 ---
@@ -38,7 +38,7 @@ powershell -c "irm https://raw.githubusercontent.com/TachikomaGundam/AIHR/main/s
 hr db-up && hr status
 ```
 
-一切都住在同一个归安装器自有的目录 `~/.aihr`（Windows 为 `%LOCALAPPDATA%\aihr`）里：内嵌 Postgres 及其数据（`~/.aihr/data/pgdata`，密码与端口写在 `~/.aihr/db.env`），还有回执 `~/.aihr/receipt.json`。`hr install-post`（幂等的安装收尾）把插件登记进 `opencode.jsonc` 与 `tui.json` 的配置数组，opencode/bun 启动时自行拉取这些 npm 包，所以 npm 不是安装步骤。完整反向操作是 `hr self-uninstall --yes`：先删净它放下的一切，然后打印残留清单，逐条列出不归它所有的路径并附上确切的删除命令。
+一切都住在同一个归安装器自有的目录 `~/.aihr`（Windows 为 `%LOCALAPPDATA%\aihr`）里：内嵌 Postgres 及其数据（`~/.aihr/data/pgdata`，密码与端口写在 `~/.aihr/db.env`），还有回执 `~/.aihr/receipt.json`。`hr install-post`（幂等的安装收尾）把插件登记进 `opencode.jsonc` 的 `plugins` 数组（OpenCode 2.x 从这一条条目加载插件的全部部分），opencode 在启动时自行拉取这些 npm 包，所以 npm 不是安装步骤。完整反向操作是 `hr self-uninstall --yes`：先删净它放下的一切，然后打印残留清单，逐条列出不归它所有的路径并附上确切的删除命令。
 
 ## 模型供应商
 
