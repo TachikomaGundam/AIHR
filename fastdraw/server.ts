@@ -1155,19 +1155,30 @@ async function fastdrawSetupV2(ctx: Plugin.Context): Promise<void> {
       if (typeof entry?.model === "string" && entry.model.includes("/"))
         desired.set(name, entry.model)
     }
-    const present = new Set(agents.map((a) => a.name))
     for (const a of agents) {
       if (!baseModels.has(a.name)) baseModels.set(a.name, v2AgentModelString(a))
-      const want = desired.get(a.name)
-      if (want !== undefined) {
-        v2ApplyModelRef(a, want)
-        applied.add(a.name)
-      } else if (applied.has(a.name)) {
-        // No longer assigned — put back what the engine had before us.
-        v2ApplyModelRef(a, baseModels.get(a.name))
-      }
     }
-    applied = new Set([...applied].filter((n) => desired.has(n) && present.has(n)))
+    // Engine truths (E0 2026-11-16, /home/lab/tmp/opencode/v2-reload-probe):
+    // 1) mutating list() entries does NOT persist — the only write path is
+    //    editor.update(id, draft => ...) (promise/agent.d.ts AgentEditor).
+    // 2) at transform time list() holds only engine-native agents; custom
+    //    agents from agent/*.md merge AFTER transforms — but update() reaches
+    //    those absent ids (callback fires with the real draft) and persists.
+    // 3) LIMITATION: if the agent's own markdown frontmatter pins `model:`,
+    //    the later file merge wins over any plugin write (file beats plugin).
+    const appliedNow = new Set<string>()
+    for (const [name, want] of desired) {
+      if (!baseModels.has(name)) baseModels.set(name, undefined)
+      editor.update(name, (draft) => v2ApplyModelRef(draft, want))
+      appliedNow.add(name)
+    }
+    for (const name of applied) {
+      if (desired.has(name)) continue
+      // No longer assigned — restore the pre-FastDraw base on the draft (for
+      // file-defined agents the frontmatter value re-merges on its own).
+      editor.update(name, (draft) => v2ApplyModelRef(draft, baseModels.get(name)))
+    }
+    applied = appliedNow
   })
 
   await ctx.tool.transform((editor) => {

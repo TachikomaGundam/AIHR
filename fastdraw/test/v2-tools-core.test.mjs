@@ -32,7 +32,14 @@ await mod.default.setup(ctx)
 const STATE = `${HOME}/.config/opencode/.fastdraw.json`
 const readState = async () => JSON.parse(await fs.readFile(STATE, "utf-8"))
 const agents = [{ name: "build", model: { providerID: "orig", id: "m0" } }]
-const editor = { list: () => agents }
+// Engine truth (E0 2026-11-16): agent writes persist only via update(id, fn).
+const editor = {
+  list: () => agents,
+  update: (id, fn) => {
+    const entry = agents.find((a) => a.name === id)
+    if (entry) fn(entry)
+  },
+}
 agentCb(editor) // baseline transform run — records engine base models
 
 /* 1. assign → string content, state file, ctx.agent.reload requested */

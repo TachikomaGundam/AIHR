@@ -68,19 +68,46 @@ for (const t of added) {
 }
 ok("9 fastdraw_* tools registered with JSON Schema inputs")
 
-/* 4. agent transform: object-form model write, phantom skip */
+/* 4. agent transform: object-form model write via editor.update(id, fn).
+   Engine truths (E0 2026-11-16, v2-reload-probe): the real AgentEditor
+   persists writes ONLY through update(id, draftFn); list() mutations are
+   inert; and update(id, fn) also reaches ids ABSENT from list() — custom
+   agent/*.md agents merge after transforms, the callback still fires with
+   their real draft. The fake mirrors all three. */
 const agents = [
   { name: "build", model: { providerID: "base", id: "b0" } },
   { name: "plan" },
 ]
-agentCbs[0]({ list: () => agents })
+let updateCalls = 0
+const absentDrafts = new Map()
+const mkEditor = () => ({
+  list: () => agents,
+  update: (id, fn) => {
+    updateCalls++
+    const entry = agents.find((a) => a.name === id)
+    if (entry) {
+      fn(entry)
+      return
+    }
+    if (!absentDrafts.has(id)) absentDrafts.set(id, { name: id })
+    fn(absentDrafts.get(id))
+  },
+})
+agentCbs[0](mkEditor())
 assert.deepEqual(agents[0].model, { providerID: "prov", id: "m1" })
 assert.equal(agents[1].model, undefined)
-ok("agent transform binds state→editor ({providerID,id}), skips phantom agents")
+assert.ok(updateCalls > 0, "writes go through editor.update, not list() mutation")
+assert.deepEqual(
+  absentDrafts.get("ghost")?.model,
+  { providerID: "p", id: "q" },
+  "file-defined agents absent from list() are still written via update",
+)
+ok("agent transform writes present AND absent (file-defined) ids via update({providerID,id})")
 
 /* 5. replayable: a second run of the same callback is idempotent */
-agentCbs[0]({ list: () => agents })
+agentCbs[0](mkEditor())
 assert.deepEqual(agents[0].model, { providerID: "prov", id: "m1" })
+assert.deepEqual(absentDrafts.get("ghost").model, { providerID: "p", id: "q" })
 ok("agent transform is idempotent under replay")
 
 console.log(`v2-server-entry: ${pass} checks passed`)
