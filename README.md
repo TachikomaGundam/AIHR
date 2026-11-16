@@ -134,7 +134,7 @@ Manual registration (fallback, config-only): opencode loads plugins **only from 
 
 ```jsonc
 // ~/.config/opencode/opencode.json (or .jsonc) — one entry loads every part:
-// hr_* / fastdraw_* agent tools, /fastdraw command, <leader>m keybind
+// hr_* / fastdraw_* agent tools, /fastdraw command, <leader>f keybind
 { "plugins": ["opencode-hr-agent@latest", "opencode-fastdraw@latest"] }
 ```
 
@@ -307,7 +307,7 @@ FastDraw has server and TUI components, but OpenCode 2.x loads both from a singl
 { "plugins": ["opencode-fastdraw"] }
 ```
 
-That one entry loads the `fastdraw_*` agent tools and `/fastdraw` with the `<leader>m` key binding. (The V1-era practice of also listing the plugin in `tui.json` is obsolete; `hr install-post` and `fastdraw/install.sh` register `plugins` only.)
+That one entry loads the `fastdraw_*` agent tools and `/fastdraw` with the `<leader>f` key binding (`<leader>m` is the engine's own model list since 2.x; rebind via keybinds id `fastdraw.open`). (The V1-era practice of also listing the plugin in `tui.json` is obsolete; `hr install-post` and `fastdraw/install.sh` register `plugins` only.)
 
 ## Layout
 

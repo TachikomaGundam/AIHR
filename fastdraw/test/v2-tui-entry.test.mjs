@@ -57,11 +57,11 @@ assert.equal(layer.mode, "global")
 assert.deepEqual(layer.bindings, ["fastdraw.open"])
 const cmd = layer.commands.find((c) => c.id === "fastdraw.open")
 assert.ok(cmd, "fastdraw.open command")
-assert.equal(cmd.bind, "<leader>m")
+assert.equal(cmd.bind, "<leader>f")
 assert.equal(cmd.slash.name, "fastdraw")
 assert.equal(cmd.palette, true)
 assert.equal(typeof cmd.run, "function")
-ok("keymap.layer: fastdraw.open — <leader>m, /fastdraw slash, palette entry")
+ok("keymap.layer: fastdraw.open — <leader>f (2.x engine owns <leader>m), /fastdraw slash, palette entry")
 
 /* 4. run() with fake promise dialogs: menu opens, ESC cancels cleanly */
 await cmd.run()

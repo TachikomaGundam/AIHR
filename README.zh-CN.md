@@ -110,7 +110,7 @@ pip install "aihr[vision]"
 
 ```jsonc
 // ~/.config/opencode/opencode.json（或 .jsonc）—— 一条条目加载全部部分：
-// hr_* / fastdraw_* agent 工具、/fastdraw 命令、<leader>m 键位
+// hr_* / fastdraw_* agent 工具、/fastdraw 命令、<leader>f 键位
 { "plugins": ["opencode-hr-agent@latest", "opencode-fastdraw@latest"] }
 ```
 
@@ -280,7 +280,7 @@ FastDraw 有服务端与 TUI 两个部分，但 OpenCode 2.x 从一条条目同�
 { "plugins": ["opencode-fastdraw"] }
 ```
 
-这一条条目即加载 `fastdraw_*` Agent 工具与 `/fastdraw` 命令、`<leader>m` 快捷键。（V1 时代在 `tui.json` 里再登记一遍的做法已废弃；`hr install-post` 与 `fastdraw/install.sh` 只登记 `plugins`。）
+这一条条目即加载 `fastdraw_*` Agent 工具与 `/fastdraw` 命令、`<leader>f` 快捷键（2.x 起 `<leader>m` 是引擎自带的模型列表；可用 keybinds id `fastdraw.open` 改绑）。（V1 时代在 `tui.json` 里再登记一遍的做法已废弃；`hr install-post` 与 `fastdraw/install.sh` 只登记 `plugins`。）
 
 ## Layout
 

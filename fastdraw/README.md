@@ -6,7 +6,7 @@ Built for heavy [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagen
 
 ## Features
 
-- **Assign models from the TUI** — `/fastdraw` or `<leader>m` → pick agent → pick model. Agents grouped by OMO Roles / OMO Categories / Overrideable / Custom; models grouped by provider. After each binding you land back on the agent list with the new model shown.
+- **Assign models from the TUI** — `/fastdraw` or `<leader>f` → pick agent → pick model. Agents grouped by OMO Roles / OMO Categories / Overrideable / Custom; models grouped by provider. After each binding you land back on the agent list with the new model shown.
 - **Presets** — save the current assignment set as a named preset; loading a preset shows a **full preview of every role's binding** before you confirm.
 - **Export / Import** — share presets as portable JSON files (`fastdraw-preset-<name>.json`); importing opens a **file picker** listing decodable preset files found in your workspace and home (newest first, with content previews), with manual path entry as the fallback. Whole preset stores import in one shot.
 - **Hot-apply** — `fastdraw_*` tools mutate the live config immediately for opencode-side agents (agents not in a freshly loaded preset revert to their original models). OMO roles/categories bind in OMO's own config file and take effect on next start. TUI changes persist and apply on restart.
@@ -14,11 +14,9 @@ Built for heavy [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagen
 
 ## Install
 
-### Dual-file registration (read this first)
+### One config key (OpenCode 2.x)
 
-opencode loads plugins from **two separate config files**. FastDraw has a server part (config hook + `fastdraw_*` tools) and a TUI part (the `/fastdraw` command + `<leader>m` keybind). **Both files must list the plugin** — if only one does, the other half loads silently absent (commonly the TUI half: tools keep working but `/fastdraw` and the keybind vanish).
-
-OpenCode 2.x loads **every part** of a plugin — server tools and TUI command/keybind — from a single entry in the one `plugins` array:
+FastDraw has a server part (agent/tool hooks + `fastdraw_*` tools) and a TUI part (the `/fastdraw` command + keybind). OpenCode 2.x loads **every part** of a plugin — server tools and TUI command/keybind — from a single entry in the one `plugins` array:
 
 ```jsonc
 // ~/.config/opencode/opencode.jsonc (or .json)
@@ -33,13 +31,13 @@ Add the plugin to `plugins` — opencode installs and caches the package itself 
 
 `@latest` never rots into a stale pin; if you prefer a frozen running surface, replace it with an exact version (note that a floating spec makes every startup re-resolve and execute potentially new code). Optional pre-warm for a first offline start: `cd ~/.config/opencode && bun add opencode-fastdraw@latest`.
 
-**Restart opencode after installing.** The `/fastdraw` command and `<leader>m` binding appear in the TUI; the `fastdraw_*` tools become available to agents.
+**Restart opencode after installing.** The `/fastdraw` command and `<leader>f` binding appear in the TUI; the `fastdraw_*` tools become available to agents.
 
 ## Usage
 
 ### TUI
 
-Press `<leader>m` or type `/fastdraw`:
+Press `<leader>f` or type `/fastdraw`:
 
 ```
 FastDraw — Model Assignments & Presets

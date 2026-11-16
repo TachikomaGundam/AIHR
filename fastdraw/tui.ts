@@ -1202,8 +1202,12 @@ const tui = async function fastdrawTui(api: any): Promise<void> {
 }
 
 /** V2 entry (opencode ≥2): definition consumed by @opencode/plugin/tui.
- *  keymap.layer supplies the <leader>m binding, the palette entry, and the
- *  /fastdraw slash command in one layer. */
+ *  keymap.layer supplies the default keybind, the palette entry, and the
+ *  /fastdraw slash command in one layer. Default key is <leader>f, NOT the
+ *  V1-era <leader>m: 2.x ships <leader>m as the built-in model.list
+ *  ("List available models", verified in the 2.3.0 binary keybind table) —
+ *  claiming it would shadow the engine. Users rebind via config keybinds id
+ *  "fastdraw.open". */
 const v2Definition = Plugin.define({
   id: "fastdraw",
   setup(ctx: any) {
@@ -1216,7 +1220,7 @@ const v2Definition = Plugin.define({
           title: "FastDraw",
           description: "Model switching & presets for agents",
           group: "FastDraw",
-          bind: "<leader>m",
+          bind: "<leader>f",
           palette: true,
           slash: { name: "fastdraw" },
           run: () => openFastDraw(ui),

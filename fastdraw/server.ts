@@ -581,7 +581,7 @@ async function fastdrawServer() {
           const reach = renderHomeReachWarnings(scanHomeReach().warnings)
           return (
             blocks.join("\n\n") +
-            `\n\nUse \`fastdraw_assign\` or TUI (\`/fastdraw\` or \`<leader>m\`) to change.` +
+            `\n\nUse \`fastdraw_assign\` or TUI (\`/fastdraw\` or \`<leader>f\`) to change.` +
             shadowNote(omoCfg) +
             (reach ? `\n${reach}` : "")
           )
