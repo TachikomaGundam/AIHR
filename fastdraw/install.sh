@@ -5,6 +5,7 @@
 #
 # Env overrides:
 #   FASTDRAW_REPO=user/repo FASTDRAW_REF=tag-or-branch FASTDRAW_SUBDIR=fastdraw OPENCODE_CONFIG_DIR=/path
+#   FASTDRAW_LOCAL_DIR=/path/to/plugin/source   # offline/staged install: copy instead of fetch
 set -euo pipefail
 
 REPO="${FASTDRAW_REPO:-}"
@@ -31,23 +32,63 @@ mkdir -p "$PKG_DIR"
 # file must be fetched or the plugin fails module resolution at first load.
 FETCH_BASE="https://raw.githubusercontent.com/$REPO/$REF"
 [ -n "$SUBDIR" ] && FETCH_BASE="$FETCH_BASE/$SUBDIR"
-for f in server.ts tui.ts roles.ts origins.ts omo.ts home-reach.ts package.json; do
-  curl -fsSL "$FETCH_BASE/$f" -o "$PKG_DIR/$f"
-  ok "fetched $f"
-done
+if [ -n "${FASTDRAW_LOCAL_DIR:-}" ]; then
+  # Offline/staged install: copy from a local directory instead of GitHub.
+  for f in server.ts tui.ts roles.ts origins.ts omo.ts home-reach.ts package.json; do
+    cp "$FASTDRAW_LOCAL_DIR/$f" "$PKG_DIR/$f"
+    ok "copied $f (local: $FASTDRAW_LOCAL_DIR)"
+  done
+else
+  for f in server.ts tui.ts roles.ts origins.ts omo.ts home-reach.ts package.json; do
+    curl -fsSL "$FETCH_BASE/$f" -o "$PKG_DIR/$f"
+    ok "fetched $f"
+  done
+fi
 
 # OpenCode 2.x does NOT inject host node_modules for local plugin directories
 # (verified against v2.2.7: a bare `@opencode/plugin` import fails to resolve
 # unless the directory has its own node_modules). Install prod deps here.
+# --package-lock=false: a plugin dir is not a project; a stale or inconsistent
+# package-lock.json here can make npm silently no-op ("up to date" with zero
+# packages — reproduced with npm 11.19.1 when the lock carries dev:true flags).
+# After install we VERIFY the three runtime imports resolve; never trust the
+# npm exit code alone.
+verify_deps() {
+  # Resolution check runs from a REAL file inside PKG_DIR: node's
+  # import.meta.resolve(parent) override under --input-type eval is
+  # unreliable (false MISS on a complete tree, proven on node 22.22.1);
+  # require.resolve() false-fails because these packages are ESM-only.
+  local rc=0
+  cat > "$PKG_DIR/.verify-deps.mjs" <<'VERIFY'
+for (const m of ["@opencode/plugin", "@opencode/plugin/tui", "@opencode-ai/plugin", "solid-js"]) {
+  try { import.meta.resolve(m); }
+  catch { console.error("missing: " + m); process.exit(1); }
+}
+VERIFY
+  ( cd "$PKG_DIR" && node .verify-deps.mjs ) || rc=$?
+  rm -f "$PKG_DIR/.verify-deps.mjs"
+  return $rc
+}
 if command -v npm >/dev/null 2>&1; then
-  info "installing plugin dependencies (npm install --omit=dev)"
-  if (cd "$PKG_DIR" && npm install --omit=dev --no-audit --no-fund --loglevel=error); then
-    ok "plugin dependencies installed"
+  info "installing plugin dependencies (npm install --omit=dev --package-lock=false)"
+  # Retry once from a clean slate: some npm builds intermittently no-op
+  # ("up to date" with zero packages, reproduced on npm 11.19.1). Verification
+  # is by ESM resolution, never by npm's exit code.
+  deps_ok=0
+  for attempt in 1 2; do
+    (cd "$PKG_DIR" && npm install --omit=dev --package-lock=false --no-audit --no-fund --loglevel=error) || true
+    if verify_deps; then deps_ok=1; break; fi
+    [ "$attempt" = 1 ] && warn "deps incomplete after attempt 1 — retrying from clean slate" && rm -rf "$PKG_DIR/node_modules" "$PKG_DIR/package-lock.json"
+  done
+  if [ "$deps_ok" = 1 ]; then
+    ok "plugin dependencies installed and verified"
   else
-    warn "npm install failed — run it manually: (cd $PKG_DIR && npm install --omit=dev)"
+    warn "dependency verification FAILED — plugin will not load. Fix manually:"
+    warn "  (cd $PKG_DIR && rm -rf node_modules package-lock.json && npm install --omit=dev --package-lock=false)"
   fi
 else
-  warn "npm not found — plugin will fail to load until dependencies exist in $PKG_DIR"
+  warn "npm not found — plugin will fail to load until these resolve inside $PKG_DIR:"
+  warn "  @opencode/plugin, @opencode-ai/plugin, solid-js"
 fi
 
 # Register the plugin path in the ONE OpenCode 2.x plugins array:
@@ -277,7 +318,7 @@ NODE
 
 # Single registration: opencode.jsonc (JSONC) or opencode.json (strict JSON).
 # Under OpenCode 2.x one entry loads the whole plugin — server hooks,
-# fastdraw_* tools, the /fastdraw slash command and the <leader>m keybind.
+# fastdraw_* tools, the /fastdraw slash command and the <leader>f keybind.
 if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
   register "$CONFIG_DIR/opencode.jsonc"
 elif [ -f "$CONFIG_DIR/opencode.json" ]; then
@@ -288,4 +329,4 @@ fi
 
 echo
 ok "FastDraw installed → $PKG_DIR"
-info "Restart opencode, then press <leader>m or type /fastdraw"
+info "Restart opencode, then press <leader>f (default leader ctrl+x) or type /fastdraw"
