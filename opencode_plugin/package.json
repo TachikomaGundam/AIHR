@@ -1,6 +1,6 @@
 {
   "name": "opencode-hr-agent",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "HR Agent OpenCode integration with FastDraw as the verdict-application layer",
   "type": "module",
   "bin": {
@@ -16,6 +16,7 @@
     "install-cli.js"
   ],
   "scripts": {
+    "pretest": "esbuild server.ts --format=esm --platform=node --bundle --external:@opencode/plugin --external:@opencode-ai/plugin --outfile=test/.build/server.mjs --log-level=error",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
@@ -42,5 +43,8 @@
   "engines": {
     "node": ">=22.18.0",
     "opencode": ">=2.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
   }
 }

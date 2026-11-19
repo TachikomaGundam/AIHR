@@ -130,7 +130,12 @@ async function setupV2(context: { tool: { transform(fn: (editor: { add(tool: unk
         name: spec.name,
         description: spec.description,
         input: spec.v2Input,
-        execute: async (input: Record<string, unknown>) => runHr(buildHrArgs(spec.command, selectArgs(spec, input))),
+        // V2 contract: execute must resolve to a Result OBJECT — the engine
+        // probes `"output" in result` and JSC throws on primitives (live E0
+        // defect 2026-11-19: bare string => "a is not an Object").
+        execute: async (input: Record<string, unknown>) => ({
+          content: await runHr(buildHrArgs(spec.command, selectArgs(spec, input))),
+        }),
       })
     }
   })
