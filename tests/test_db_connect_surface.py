@@ -13,8 +13,14 @@ import hr.db as db_mod
 
 
 class _FakeCursor:
-    def __init__(self):
+    def __init__(self, rows: list[tuple] | None = None):
         self.executed: list[str] = []
+        # Queue of fetchone() results; the LAST entry repeats for later probes.
+        # Default = healthy sentinels so pre-existing connect tests keep the
+        # fast path (no heal).
+        self._rows: list[tuple] = (
+            list(rows) if rows is not None else [("hr.run", "hr.model_contract")]
+        )
 
     def __enter__(self):
         return self
@@ -25,10 +31,13 @@ class _FakeCursor:
     def execute(self, sql: str, params=None) -> None:  # noqa: ARG002
         self.executed.append(sql)
 
+    def fetchone(self) -> tuple:
+        return self._rows.pop(0) if len(self._rows) > 1 else self._rows[0]
+
 
 class _FakeConn:
-    def __init__(self):
-        self.cursor_obj = _FakeCursor()
+    def __init__(self, rows: list[tuple] | None = None):
+        self.cursor_obj = _FakeCursor(rows)
         self.committed = False
         self.closed = False
         self.call_kwargs: dict = {}
@@ -38,6 +47,9 @@ class _FakeConn:
 
     def commit(self) -> None:
         self.committed = True
+
+    def rollback(self) -> None:
+        pass
 
     def close(self) -> None:
         self.closed = True
@@ -240,3 +252,171 @@ def test_init_schema_owns_and_closes_connection(monkeypatch) -> None:
         monkeypatch.setattr(db_mod, name, lambda c: None)
     db_mod.init_schema()
     assert conn.closed
+
+# --------------------------------------------------------------------------
+# Schema self-heal on connect (product invariant: zero manual db-up).
+# --------------------------------------------------------------------------
+
+_HEAL_MIGRATIONS = (
+    "migrate_schema_namespace",
+    "migrate_add_response_columns",
+    "migrate_add_measurement_cap_column",
+    "migrate_add_calibration_measurement_columns",
+    "migrate_add_directional_separation",
+    "migrate_run_status_columns",
+    "migrate_measurement_scorer_columns",
+    "migrate_dialect_contract_columns",
+    "migrate_measurement_finish_reason",
+)
+
+
+def _patch_migrations_noop(monkeypatch) -> None:
+    for name in _HEAL_MIGRATIONS:
+        monkeypatch.setattr(db_mod, name, lambda c: None)
+
+
+def _dsn_only(monkeypatch, conn: _FakeConn) -> None:
+    monkeypatch.setattr(db_mod, "db_dsn", lambda: "postgresql://x")
+    monkeypatch.setattr(db_mod.psycopg2, "connect", lambda *a, **k: conn)
+
+
+def test_connect_heals_legacy_database(monkeypatch) -> None:
+    """Sentinel missing -> full idempotent pipeline runs on the same conn."""
+    conn = _FakeConn(rows=[(None, None), ("hr.run", "hr.model_contract")])
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+    out = db_mod.connect()
+    assert out is conn
+    assert db_mod._SCHEMA_HEAL_PROBE in conn.cursor_obj.executed
+    assert any(
+        "CREATE TABLE IF NOT EXISTS hr.model_contract" in sql
+        for sql in conn.cursor_obj.executed
+    )
+    assert conn.committed
+
+
+def test_connect_healthy_database_skips_ddl(monkeypatch) -> None:
+    conn = _FakeConn()
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+    db_mod.connect()
+    assert db_mod._SCHEMA_HEAL_PROBE in conn.cursor_obj.executed
+    assert not any("CREATE" in sql for sql in conn.cursor_obj.executed)
+
+
+def test_connect_escape_hatch_skips_probe(monkeypatch) -> None:
+    monkeypatch.setenv("HR_NO_SCHEMA_HEAL", "1")
+    conn = _FakeConn(rows=[(None, None)])
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+    db_mod.connect()
+    assert db_mod._SCHEMA_HEAL_PROBE not in conn.cursor_obj.executed
+    assert not any("CREATE" in sql for sql in conn.cursor_obj.executed)
+
+
+def test_connect_privilege_error_names_db_up(monkeypatch) -> None:
+    import psycopg2.errors
+
+    conn = _FakeConn(rows=[(None, None)])
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+
+    def _deny(conn_, **_kw):
+        raise psycopg2.errors.InsufficientPrivilege("permission denied")
+
+    monkeypatch.setattr(db_mod, "init_schema", _deny)
+    with pytest.raises(RuntimeError, match=r"hr db-up"):
+        db_mod.connect()
+
+
+def test_connect_duplicate_race_wins_after_reprobe(monkeypatch) -> None:
+    """Concurrent healer created the tables first: duplicate error + landed
+    sentinels is accepted, not surfaced."""
+    import psycopg2.errors
+
+    conn = _FakeConn(rows=[(None, None), ("hr.run", "hr.model_contract")])
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+
+    def _lost_race(conn_, **_kw):
+        raise psycopg2.errors.DuplicateTable('relation "model_contract" already exists')
+
+    monkeypatch.setattr(db_mod, "init_schema", _lost_race)
+    assert db_mod.connect() is conn
+
+
+def test_connect_duplicate_race_without_landings_reraises(monkeypatch) -> None:
+    import psycopg2.errors
+
+    conn = _FakeConn(rows=[(None, None)])
+    _dsn_only(monkeypatch, conn)
+    _patch_migrations_noop(monkeypatch)
+
+    def _lost_race(conn_, **_kw):
+        raise psycopg2.errors.DuplicateTable("boom")
+
+    monkeypatch.setattr(db_mod, "init_schema", _lost_race)
+    with pytest.raises(psycopg2.errors.DuplicateTable):
+        db_mod.connect()
+
+
+@pytest.mark.db
+@pytest.mark.integration
+def test_connect_selfheals_dropped_schema(scratch_db) -> None:
+    """Live-DB: after the schema is gone, connect() re-creates the whole
+    table set (exact-restore) with no manual step."""
+    _name, _dsn = scratch_db
+    conn = db_mod.connect()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema='hr'"
+        )
+        before = {row[0] for row in cur.fetchall()}
+        cur.execute("DROP SCHEMA hr CASCADE")
+    conn.commit()
+    conn.close()
+
+    healed = db_mod.connect()
+    try:
+        with healed.cursor() as cur:
+            cur.execute(
+                "SELECT table_name FROM information_schema.tables "
+                "WHERE table_schema='hr'"
+            )
+            after = {row[0] for row in cur.fetchall()}
+        assert after == before
+        assert "model_contract" in after
+    finally:
+        healed.close()
+
+
+@pytest.mark.db
+@pytest.mark.integration
+def test_connect_selfheals_single_missing_table(scratch_db) -> None:
+    """Live-DB legacy shape: only the newest table dropped — heal restores
+    it and a second connect takes the fast path untouched."""
+    _name, _dsn = scratch_db
+    conn = db_mod.connect()
+    with conn.cursor() as cur:
+        cur.execute("DROP TABLE hr.model_contract")
+    conn.commit()
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT to_regclass('hr.model_contract')"
+        )
+        assert cur.fetchone()[0] is None
+    conn.close()
+
+    healed = db_mod.connect()
+    try:
+        with healed.cursor() as cur:
+            cur.execute("SELECT to_regclass('hr.model_contract')")
+            assert cur.fetchone()[0] is not None
+            cur.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_schema='hr' AND table_name='model_contract'"
+            )
+            assert cur.fetchone()[0] > 0
+    finally:
+        healed.close()

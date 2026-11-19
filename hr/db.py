@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import psycopg2
+import psycopg2.errors
 import psycopg2.extensions
 from psycopg2 import sql
 
@@ -44,6 +45,56 @@ def _load_db_password() -> str:
     )
 
 
+_SCHEMA_HEAL_PROBE = "SELECT to_regclass('hr.run'), to_regclass('hr.model_contract')"
+
+
+def _ensure_runtime(conn: psycopg2.extensions.connection) -> None:
+    """Per-connection schema self-heal — product invariant: the first command
+    against a database in ANY state (empty, legacy, half-migrated) works with
+    no manual ``hr db-up`` and no migration patch.
+
+    Fast path (healthy database): namespace migration + one to_regclass probe.
+    Slow path (a sentinel table is missing): run the idempotent init_schema
+    pipeline on this same connection. Concurrent healers racing on
+    ``CREATE ... IF NOT EXISTS`` may raise duplicate-object errors — re-probe
+    and accept once the sentinels have landed. A role that cannot create the
+    schema gets a named error pointing at ``hr db-up`` instead of a raw
+    privilege traceback.
+
+    Maintenance escape hatch: ``HR_NO_SCHEMA_HEAL=1`` skips probe and heal so
+    a broken schema can be inspected without the healer interfering.
+    """
+    migrate_schema_namespace(conn)
+    if os.environ.get("HR_NO_SCHEMA_HEAL") == "1":
+        return
+
+    def _sentinels_present(cur) -> bool:
+        cur.execute(_SCHEMA_HEAL_PROBE)
+        row = cur.fetchone()
+        return bool(row) and all(col is not None for col in row)
+
+    with conn.cursor() as cur:
+        if _sentinels_present(cur):
+            return
+    try:
+        init_schema(conn, own_connection=False)
+    except psycopg2.errors.InsufficientPrivilege as exc:
+        conn.rollback()
+        raise RuntimeError(
+            "hr schema is incomplete and this role cannot create it: "
+            "run `hr db-up` (or grant this role schema ownership) — "
+            f"underlying error: {exc}"
+        ) from exc
+    except psycopg2.ProgrammingError:
+        # A concurrent healer may have won the CREATE race: acceptable only
+        # when the sentinels actually landed; anything else re-raises.
+        conn.rollback()
+        with conn.cursor() as cur:
+            if _sentinels_present(cur):
+                return
+        raise
+
+
 def connect(
     dbname: str | None = None,
     user: str | None = None,
@@ -57,7 +108,7 @@ def connect(
         except RuntimeError:
             password = _load_db_password()
         else:
-            migrate_schema_namespace(conn)
+            _ensure_runtime(conn)
             return conn
     fields = db_target_fields()
     conn = psycopg2.connect(
@@ -67,7 +118,7 @@ def connect(
         port=port or int(fields["port"]),
         password=password,
     )
-    migrate_schema_namespace(conn)
+    _ensure_runtime(conn)
     return conn
 
 

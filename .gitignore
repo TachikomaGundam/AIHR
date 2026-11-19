@@ -43,3 +43,6 @@ dist/
 coverage.xml
 pypi-dist-*/
 scripts/*.local.txt
+
+.coverage
+opencode_plugin/test/.build/
